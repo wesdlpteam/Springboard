@@ -296,6 +296,7 @@
   // flat 30-day line of zeros. Uses pure epoch-ms arithmetic to stay UTC-consistent
   // (never crosses timezone frame via getDate/setDate).
   function fill30Days(rows) {
+    if (!rows || !rows.length) return [];
     var byDay = {};
     (rows || []).forEach(function (r) { byDay[r.day] = r.n; });
     var out = [];
