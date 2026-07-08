@@ -211,6 +211,23 @@
   .regen:disabled { opacity: .5; cursor: not-allowed; }
   .routine-pick { margin: 6px 0 8px; }
   .routine-pick select { width: auto; min-width: 240px; max-width: 100%; }
+
+  /* Analyse step: recommended routine cards + "browse all" disclosure */
+  .routine-cards { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+  .routine-card { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--panel); }
+  .routine-card.on { border-color: var(--accent); background: var(--wash); }
+  .routine-card-pick { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13.5px; cursor: pointer; }
+  .routine-card-pick input { width: 16px; height: 16px; flex: 0 0 auto; }
+  .routine-card-why { margin: 6px 0 4px; font-size: 12.5px; color: var(--muted); line-height: 1.4; }
+  .routine-card-link { font-size: 12px; font-weight: 600; color: var(--accent); }
+  .routine-card-link:hover { text-decoration: underline; }
+  .routine-browse { margin-top: 10px; font-size: 13px; }
+  .routine-browse summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+  .routine-browse summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .routine-browse-group { margin: 8px 0; }
+  .routine-browse-heading { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 700; margin-bottom: 4px; }
+  .routine-browse-item { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 12.5px; cursor: pointer; }
+  .routine-browse-item input { width: 14px; height: 14px; }
   .slide h3 { margin: 4px 0 2px; font-size: 16px; }
   .editable {
     border: 1px solid transparent; border-radius: 8px; padding: 6px 8px; margin: -2px -8px 6px;
@@ -548,52 +565,333 @@ const BAND_GUIDANCE = {
   Senior: "Audience: Senior School (Years 10–12). Use critical and ethical reasoning, nuance, stakeholder perspectives and real-world stakes. Push for justified positions and trade-offs.",
 };
 
-// Authentic Harvard Project Zero thinking routines (pz.harvard.edu/thinking-routines),
-// curated to be FAST and DISCUSSION-based (partner / small-group / whole-class talk)
-// so they fit a 5-minute conversation. The model picks ONE per Spotlight.
-const ROUTINES = {
-  PYP: [
-    { name: "See, Think, Wonder", moves: "Quick talk in pairs then share: What do you see? What do you think is going on? What does it make you wonder?" },
-    { name: "Think, Pair, Share", moves: "Think for a moment, talk it over with a partner, then share with the class." },
-    { name: "The Explanation Game", moves: "Point out something interesting: What do you notice about it? Why do you think it is that way? Offer possible explanations together." },
-    { name: "What Makes You Say That?", moves: "Friendly back-and-forth: What's going on here? What do you see that makes you say that?" },
-    { name: "The 3 Whys", moves: "Talk it through: Why might this matter to me? To people I know? To the world?" },
-    { name: "Think, Puzzle, Explore", moves: "Talk together: What do you think you know about this? What questions or puzzles do you have? How could we find out more?" },
-    { name: "I Used to Think… Now I Think…", moves: "Say it aloud: 'I used to think…' then 'now I think…' — and tell a partner what changed your mind." },
-    { name: "Headlines", moves: "In pairs, say a one-sentence headline that captures the most important thing here, then share a few aloud." },
-    { name: "Looking: Ten Times Two", moves: "Look quietly for a moment, then call out words or phrases you notice; look again and add more you missed the first time." },
-    { name: "See, Think, Me, We", moves: "Talk it through: What do you notice? (See) What do you think? (Think) How does it connect to you? (Me) How does it connect to all of us? (We)" },
-  ],
-  Middle: [
-    { name: "Think, Pair, Share", moves: "Think briefly, talk it through with a partner, then share out to the group." },
-    { name: "Connect, Extend, Challenge", moves: "Discuss: How does this connect to what you knew? What extends your thinking? What's challenging or puzzling?" },
-    { name: "What Makes You Say That?", moves: "Rapid back-and-forth: What's going on here? What makes you say that?" },
-    { name: "Compass Points", moves: "Talk around the compass: what Excites you, what Worries you, what you Need to know, where you Stand." },
-    { name: "Claim, Support, Question", moves: "Make a claim about this issue, give support (what you see, know or feel), then raise a question it leaves you with." },
-    { name: "Tug for Truth", moves: "Take a claim this raises and tug both ways: what evidence pulls it toward true? What pulls it toward doubtful? Where does the rope sit now?" },
-    { name: "Red Light, Yellow Light", moves: "Hunt for signals: what here makes you stop and doubt it (red light)? What makes you slow down and want to check (yellow light)? Share your flags and why." },
-    { name: "Parts, Purposes, Complexities", moves: "Talk it through: what are its parts? What is each part for? Where does it get complicated, tricky or raise questions?" },
-    { name: "Think, Feel, Care", moves: "Pick a person in this situation and speak for them: how do they think about it, how do they feel, and what do they care about?" },
-    { name: "Headlines", moves: "In pairs, agree the headline that captures what matters most here; share a few and discuss what was left out." },
-    { name: "See, Think, Me, We", moves: "In pairs then share: what do you See, what do you Think, how does it connect to Me (you personally), and what does it mean for We (all of us and the wider world)?" },
-    { name: "Word-Phrase-Sentence", moves: "Each pick a Word that captured the core, a Phrase that grabbed you, and a Sentence that felt important — share them and discuss what your choices reveal." },
-  ],
-  Senior: [
-    { name: "Tug of War", moves: "Quick debate: name the strongest pulls on each side of the dilemma, then say where you stand and why." },
-    { name: "Take a Stand", moves: "Place yourself on a spectrum of opinion, argue your position aloud, listen to others, then reconsider." },
-    { name: "Circle of Viewpoints", moves: "Each person speaks from a different stakeholder's viewpoint: I think… from the point of view of… I wonder…" },
-    { name: "Step Inside", moves: "Speak aloud as a stakeholder: what do they perceive, feel, want, and risk?" },
-    { name: "Claim, Support, Question", moves: "Make a claim or interpretation, marshal your support, then pose the sharpest question it raises." },
-    { name: "True for Who?", moves: "Interrogate the claim: who would call this true, who would push back, and how does the vantage point change what 'true' means here?" },
-    { name: "Unveiling Stories", moves: "Peel the layers in discussion: the visible story, the untold story, the human story, the world story — and the new story we should tell." },
-    { name: "Parts, People, Interactions", moves: "Map the system aloud: what are its parts, who are the people connected to it, and how do they interact — where could one small change ripple?" },
-    { name: "Values, Identities, Actions", moves: "Discuss: what values does this evoke or challenge, whose identities does it speak to (or leave out), and what actions does it invite us to take?" },
-    { name: "Imagine If…", moves: "Treat this technology or system as redesignable: how could it be more effective, more ethical, or fairer? Argue the trade-offs." },
-    { name: "Compass Points", moves: "Talk around the compass: Excitements, Worries, what you Need to know, and where you Stand on the issue." },
-    { name: "Word-Phrase-Sentence", moves: "Each choose a Word that resonated, a Phrase that struck you, and a Sentence that captured a core idea — share and debate what the group's choices say about what matters." },
-  ],
-};
+// Full Harvard Project Zero thinking-routine catalogue (docs/pz-thinking-routines.md),
+// transcribed mechanically — every routine in the doc, 91 entries. Each carries the
+// band(s) it suits ("younger"/"middle"/"senior", i.e. bandOf()'s vocabulary) and a
+// group = the doc's section heading, for the "Browse all routines" disclosure.
+//
+// Band tags: routines that were in the old curated per-band ROUTINES object below this
+// comment (now replaced) keep that band signal (a routine in the old PYP list only ->
+// ["younger"], appearing in two old lists -> both tags, etc. — See, Think, Wonder and
+// Think, Puzzle, Explore are foundational/all-band routines even though the old list
+// only sampled them under PYP, so they're tagged all three here). Routines that were
+// NOT in any old list are tagged by rule: "(For Younger Children)" variants -> ["younger"];
+// truth/evidence and complexity-focused routines -> ["middle","senior"]; everything else,
+// all three bands.
+const ROUTINES = [
+  // --- Core observation and inquiry ---
+  { name: "See, Think, Wonder", url: "https://pz.harvard.edu/resources/see-think-wonder",
+    gist: "Observe closely, interpret what might be going on, pose wonderings.",
+    bands: ["younger", "middle", "senior"], group: "Core observation and inquiry" },
+  { name: "See, Feel, Think, Wonder", url: "https://pz.harvard.edu/resources/see-feel-think-wonder",
+    gist: "See, Think, Wonder plus an added emotional-response step.",
+    bands: ["younger", "middle", "senior"], group: "Core observation and inquiry" },
+  { name: "See, Think, Me, We", url: "https://pz.harvard.edu/resources/see-think-me-we",
+    gist: "Observe and interpret, then connect the topic to yourself and the wider world.",
+    bands: ["younger", "middle"], group: "Core observation and inquiry" },
+  { name: "See, Think, Make, Discuss", url: "https://pz.harvard.edu/resources/see-think-make-discuss",
+    gist: "Extend close looking into a making/creating response, then discuss.",
+    bands: ["younger", "middle", "senior"], group: "Core observation and inquiry" },
+  { name: "See Wonder Connect x2", url: "https://pz.harvard.edu/resources/see-wonder-connect-x2",
+    gist: "A looped routine combining seeing, wondering, and connecting.",
+    bands: ["younger", "middle", "senior"], group: "Core observation and inquiry" },
+  { name: "Think, Puzzle, Explore", url: "https://pz.harvard.edu/resources/think-puzzle-explore",
+    gist: "Activate prior knowledge, surface puzzles, plan exploration.",
+    bands: ["younger", "middle", "senior"], group: "Core observation and inquiry" },
+  { name: "Looking: Ten Times Two", url: "https://pz.harvard.edu/resources/looking-ten-times-two",
+    gist: "List ten words on a first look, then ten more on a second — builds sustained observation.",
+    bands: ["younger"], group: "Core observation and inquiry" },
+  { name: "Listening: Ten Times Two", url: "https://pz.harvard.edu/resources/listening-ten-times-two",
+    gist: "The listening version of Ten Times Two, for music and sound.",
+    bands: ["younger", "middle", "senior"], group: "Core observation and inquiry" },
+  { name: "The Elaboration Game", url: "https://pz.harvard.edu/resources/elaboration-game",
+    gist: "Take turns identifying and progressively elaborating on parts of an image or artwork.",
+    bands: ["younger", "middle", "senior"], group: "Core observation and inquiry" },
+  { name: "The Explanation Game", url: "https://pz.harvard.edu/resources/explanation-game",
+    gist: "Name interesting features of an object and generate possible explanations.",
+    bands: ["younger"], group: "Core observation and inquiry" },
+  { name: "What Makes You Say That?", url: "https://pz.harvard.edu/resources/what-makes-you-say",
+    gist: "Back interpretations with visible evidence and reasoning.",
+    bands: ["younger", "middle"], group: "Core observation and inquiry" },
+  { name: "Stop, Look, Listen", url: "https://pz.harvard.edu/resources/stop-look-listen",
+    gist: "A careful-observation and claim-checking routine.",
+    bands: ["younger", "middle", "senior"], group: "Core observation and inquiry" },
+  { name: "Colors, Shapes, Lines", url: "https://pz.harvard.edu/resources/colors-shapes-lines",
+    gist: "Look closely at an artwork through its basic visual elements; well suited to younger learners.",
+    bands: ["younger", "middle", "senior"], group: "Core observation and inquiry" },
+  { name: "Thinking with Images", url: "https://pz.harvard.edu/resources/thinking-images",
+    gist: "Use images as a vehicle for thinking.",
+    bands: ["younger", "middle", "senior"], group: "Core observation and inquiry" },
+
+  // --- Activating, connecting, and reflecting on learning ---
+  { name: "3-2-1 Bridge", url: "https://pz.harvard.edu/resources/3-2-1-bridge",
+    gist: "Capture 3 thoughts, 2 questions, 1 metaphor before and after learning, then bridge the two.",
+    bands: ["younger", "middle", "senior"], group: "Activating, connecting, and reflecting on learning" },
+  { name: "Connect, Extend, Challenge", url: "https://pz.harvard.edu/resources/connect-extend-challenge",
+    gist: "Connect new ideas to prior knowledge, note how they extend thinking, flag what's still challenging.",
+    bands: ["middle"], group: "Activating, connecting, and reflecting on learning" },
+  { name: "I Used to Think... Now I Think...", url: "https://pz.harvard.edu/resources/i-used-think-now-i-think",
+    gist: "Articulate how and why your thinking has changed.",
+    bands: ["younger"], group: "Activating, connecting, and reflecting on learning" },
+  { name: "Think, Pair, Share", url: "https://pz.harvard.edu/resources/think-pair-share",
+    gist: "Think individually, discuss with a partner, then share with the group.",
+    bands: ["younger", "middle"], group: "Activating, connecting, and reflecting on learning" },
+  { name: "Chalk Talk", url: "https://pz.harvard.edu/resources/chalk-talk",
+    gist: "A silent written conversation: respond to a prompt and to each other's comments on paper.",
+    bands: ["younger", "middle", "senior"], group: "Activating, connecting, and reflecting on learning" },
+  { name: "Compass Points", url: "https://pz.harvard.edu/resources/compass-points",
+    gist: "Explore a proposition via excitements, worries, needs, and stance before judging it.",
+    bands: ["middle", "senior"], group: "Activating, connecting, and reflecting on learning" },
+  { name: "Reflect, Connect, Project", url: "https://pz.harvard.edu/resources/reflect-connect-project",
+    gist: "Reflect on an experience, connect it to prior knowledge, project forward to implications.",
+    bands: ["younger", "middle", "senior"], group: "Activating, connecting, and reflecting on learning" },
+  { name: "Creating Space for Learning", url: "https://pz.harvard.edu/resources/creating-space-for-learning",
+    gist: "Focuses on the conditions and environment that support learning.",
+    bands: ["younger", "middle", "senior"], group: "Activating, connecting, and reflecting on learning" },
+
+  // --- Synthesizing and organizing ideas ---
+  { name: "Headlines", url: "https://pz.harvard.edu/resources/headlines",
+    gist: "Write a newspaper-style headline capturing the essence of a topic, discussion, or event.",
+    bands: ["younger", "middle"], group: "Synthesizing and organizing ideas" },
+  { name: "Color, Symbol, Image", url: "https://pz.harvard.edu/resources/color-symbol-image",
+    gist: "Distill an idea non-verbally by choosing a color, a symbol, and an image.",
+    bands: ["younger", "middle", "senior"], group: "Synthesizing and organizing ideas" },
+  { name: "Word-Phrase-Sentence", url: "https://pz.harvard.edu/resources/word-phrase-sentence",
+    gist: "Capture a text's essence in one word, one phrase, and one resonant sentence.",
+    bands: ["middle", "senior"], group: "Synthesizing and organizing ideas" },
+  { name: "Generate-Sort-Connect-Elaborate", url: "https://pz.harvard.edu/resources/generate-sort-connect-elaborate",
+    gist: "A concept-mapping routine: generate ideas, sort them, connect them, elaborate.",
+    bands: ["younger", "middle", "senior"], group: "Synthesizing and organizing ideas" },
+  { name: "The 4 Cs", url: "https://pz.harvard.edu/resources/4-cs",
+    gist: "A text-discussion routine built around connections, challenges, key concepts, and changes.",
+    bands: ["younger", "middle", "senior"], group: "Synthesizing and organizing ideas" },
+  { name: "Take Note", url: "https://pz.harvard.edu/resources/take-note",
+    gist: "A quick synthesis routine capturing the most important, puzzling, or question-worthy points.",
+    bands: ["younger", "middle", "senior"], group: "Synthesizing and organizing ideas" },
+  { name: "+1 Routine", url: "https://pz.harvard.edu/resources/1-routine",
+    gist: "A memory-and-consolidation routine: recall ideas and successively add to each other's notes.",
+    bands: ["younger", "middle", "senior"], group: "Synthesizing and organizing ideas" },
+  { name: "Peel the Fruit", url: "https://pz.harvard.edu/resources/peel-fruit",
+    gist: "A map for deep understanding, moving from surface features toward the core.",
+    bands: ["younger", "middle", "senior"], group: "Synthesizing and organizing ideas" },
+  { name: "Beginning, Middle, End", url: "https://pz.harvard.edu/resources/beginning-middle-end",
+    gist: "Use an image or object as a story's beginning, middle, or end to spark narrative thinking.",
+    bands: ["younger", "middle", "senior"], group: "Synthesizing and organizing ideas" },
+  { name: "Stories", url: "https://pz.harvard.edu/resources/stories",
+    gist: "Built around the stories connected to a topic or object.",
+    bands: ["younger", "middle", "senior"], group: "Synthesizing and organizing ideas" },
+
+  // --- Questioning and possibility thinking ---
+  { name: "Creative Questions", url: "https://pz.harvard.edu/resources/creative-questions",
+    gist: "Brainstorm imaginative questions about a topic and select one to explore.",
+    bands: ["younger", "middle", "senior"], group: "Questioning and possibility thinking" },
+  { name: "Creative Question Starts", url: "https://pz.harvard.edu/resources/creative-question-starts",
+    gist: "Practice generating rich questions using open-ended question stems.",
+    bands: ["younger", "middle", "senior"], group: "Questioning and possibility thinking" },
+  { name: "Creative Comparisons", url: "https://pz.harvard.edu/resources/creative-comparisons",
+    gist: "Explore a topic by comparing it to something seemingly unrelated.",
+    bands: ["younger", "middle", "senior"], group: "Questioning and possibility thinking" },
+  { name: "Creative Hunt", url: "https://pz.harvard.edu/resources/creative-hunt",
+    gist: "Hunt for creative and design features in objects or environments.",
+    bands: ["younger", "middle", "senior"], group: "Questioning and possibility thinking" },
+  { name: "Imagine If...", url: "https://pz.harvard.edu/resources/imagine-if",
+    gist: "Consider how something could be made more effective, efficient, ethical, or beautiful.",
+    bands: ["senior"], group: "Questioning and possibility thinking" },
+  { name: "Imagine If... (For Younger Children)", url: "https://pz.harvard.edu/resources/imagine-if-younger-children",
+    gist: "The early-years adaptation of Imagine If.",
+    bands: ["younger"], group: "Questioning and possibility thinking" },
+  { name: "What Can Be", url: "https://pz.harvard.edu/resources/what-can-be",
+    gist: "A possibilities routine for envisioning change.",
+    bands: ["younger", "middle", "senior"], group: "Questioning and possibility thinking" },
+  { name: "How Else and Why?", url: "https://pz.harvard.edu/resources/how-else-and-why",
+    gist: "Generate alternative approaches or uses and reason about them.",
+    bands: ["younger", "middle", "senior"], group: "Questioning and possibility thinking" },
+  { name: "Options Explosion", url: "https://pz.harvard.edu/resources/options-explosion",
+    gist: "Rapidly brainstorm many possible options for a situation or dilemma.",
+    bands: ["younger", "middle", "senior"], group: "Questioning and possibility thinking" },
+  { name: "Options Diamond", url: "https://pz.harvard.edu/resources/options-diamond",
+    gist: "Map options for a dilemma across a diamond of trade-offs.",
+    bands: ["younger", "middle", "senior"], group: "Questioning and possibility thinking" },
+  { name: "Does It Fit?", url: "https://pz.harvard.edu/resources/does-it-fit",
+    gist: "Weigh how well options or ideas fit a situation.",
+    bands: ["younger", "middle", "senior"], group: "Questioning and possibility thinking" },
+  { name: "Portable Surprise", url: "https://pz.harvard.edu/resources/portable-surprise",
+    gist: "A possibilities/curiosity routine.",
+    bands: ["younger", "middle", "senior"], group: "Questioning and possibility thinking" },
+
+  // --- Perspective taking and empathy ---
+  { name: "Circle of Viewpoints", url: "https://pz.harvard.edu/resources/circle-of-viewpoints",
+    gist: "Brainstorm the different perspectives around a topic, then speak from one of them.",
+    bands: ["senior"], group: "Perspective taking and empathy" },
+  { name: "Step Inside", url: "https://pz.harvard.edu/resources/step-inside",
+    gist: "Step into the perspective of a person or thing and speak from within it.",
+    bands: ["senior"], group: "Perspective taking and empathy" },
+  { name: "Step In, Step Out, Step Back", url: "https://pz.harvard.edu/resources/step-step-out-step-back",
+    gist: "Take another's perspective, note the limits of what you can know, then reflect on your own thinking.",
+    bands: ["younger", "middle", "senior"], group: "Perspective taking and empathy" },
+  { name: "Think, Feel, Care", url: "https://pz.harvard.edu/resources/think-feel-care",
+    gist: "Step into roles within a system: what does each person think, feel, and care about?",
+    bands: ["middle"], group: "Perspective taking and empathy" },
+  { name: "Think, Feel, Care (For Younger Children)", url: "https://pz.harvard.edu/resources/think-feel-care-younger-children",
+    gist: "The early-years adaptation of Think, Feel, Care.",
+    bands: ["younger"], group: "Perspective taking and empathy" },
+  { name: "Same, Different, Connect, Engage", url: "https://pz.harvard.edu/resources/same-different-connect-engage",
+    gist: "Consider how you and another person are similar and different, then connect and engage.",
+    bands: ["younger", "middle", "senior"], group: "Perspective taking and empathy" },
+  { name: "Same and Different", url: "https://pz.harvard.edu/resources/same-and-different",
+    gist: "A simpler comparison routine, well suited to younger children.",
+    bands: ["younger", "middle", "senior"], group: "Perspective taking and empathy" },
+  { name: "My Perspective, Other Perspectives (For Exploring Complexity)", url: "https://pz.harvard.edu/resources/my-perspective-other-perspectives-exploring-complexity",
+    gist: "Articulate your own view on something complex, then deliberately seek out others'.",
+    bands: ["middle", "senior"], group: "Perspective taking and empathy" },
+  { name: "Who Am I?", url: "https://pz.harvard.edu/resources/who-am-i",
+    gist: "An identity and perspective routine.",
+    bands: ["younger", "middle", "senior"], group: "Perspective taking and empathy" },
+  { name: "Seek to See", url: "https://pz.harvard.edu/resources/seek-see",
+    gist: "Look beyond first impressions and assumptions.",
+    bands: ["younger", "middle", "senior"], group: "Perspective taking and empathy" },
+
+  // --- Truth, evidence, and fairness ---
+  { name: "Claim, Support, Question", url: "https://pz.harvard.edu/resources/claim-support-question",
+    gist: "Make a claim, identify support for it, and raise a question it leaves open.",
+    bands: ["middle", "senior"], group: "Truth, evidence, and fairness" },
+  { name: "Tug for Truth", url: "https://pz.harvard.edu/resources/tug-truth",
+    gist: "Tug-of-war for evidence: the reasons a claim might be true, and might not be.",
+    bands: ["middle"], group: "Truth, evidence, and fairness" },
+  { name: "Tug of War", url: "https://pz.harvard.edu/resources/tug-war",
+    gist: "Explore the competing pulls on both sides of a dilemma before taking a position.",
+    bands: ["senior"], group: "Truth, evidence, and fairness" },
+  { name: "True for Who?", url: "https://pz.harvard.edu/resources/true-who",
+    gist: "Examine how a claim's truth looks different from different vantage points.",
+    bands: ["senior"], group: "Truth, evidence, and fairness" },
+  { name: "Facts or Fiction", url: "https://pz.harvard.edu/resources/facts-or-fiction",
+    gist: "Evaluate the reliability of information and claims.",
+    bands: ["middle", "senior"], group: "Truth, evidence, and fairness" },
+  { name: "Red Light, Yellow Light", url: "https://pz.harvard.edu/resources/red-light-yellow-light",
+    gist: "Identify stop and caution signals that warrant skepticism about a claim or source.",
+    bands: ["middle"], group: "Truth, evidence, and fairness" },
+  { name: "Reporter's Notebook", url: "https://pz.harvard.edu/resources/reporters-notebook",
+    gist: "Separate the facts and events of a situation from thoughts and feelings about it.",
+    bands: ["middle", "senior"], group: "Truth, evidence, and fairness" },
+  { name: "Take a Stand", url: "https://pz.harvard.edu/resources/take-stand",
+    gist: "Take and justify a position on an issue, staying open to revising it.",
+    bands: ["senior"], group: "Truth, evidence, and fairness" },
+  { name: "Sticking Points", url: "https://pz.harvard.edu/resources/sticking-points",
+    gist: "Surface the points of tension or disagreement within a controversy.",
+    bands: ["middle", "senior"], group: "Truth, evidence, and fairness" },
+  { name: "Hotspots", url: "https://pz.harvard.edu/resources/hotspots",
+    gist: "Identify the charged or high-interest moments within an issue or discussion.",
+    bands: ["middle", "senior"], group: "Truth, evidence, and fairness" },
+  { name: "Beauty and Truth", url: "https://pz.harvard.edu/resources/beauty-and-truth",
+    gist: "Explore how art or texts convey beauty and truth, and where the two intersect.",
+    bands: ["middle", "senior"], group: "Truth, evidence, and fairness" },
+
+  // --- Objects, systems, and complexity (Agency by Design) ---
+  { name: "Parts, Purposes, Complexities", url: "https://pz.harvard.edu/resources/parts-purposes-complexities",
+    gist: "Look at an object or system's parts, their purposes, and its complexities.",
+    bands: ["middle"], group: "Objects, systems, and complexity (Agency by Design)" },
+  { name: "Parts, Purposes, Complexities (For Exploring Complexity)", url: "https://pz.harvard.edu/resources/parts-purposes-complexities-exploring-complexity",
+    gist: "The complexity-focused variation of Parts, Purposes, Complexities.",
+    bands: ["middle", "senior"], group: "Objects, systems, and complexity (Agency by Design)" },
+  { name: "Parts, Purposes, Complexities (For Younger Children)", url: "https://pz.harvard.edu/resources/parts-purposes-complexities-younger-children",
+    gist: "The early-years adaptation of Parts, Purposes, Complexities.",
+    bands: ["younger"], group: "Objects, systems, and complexity (Agency by Design)" },
+  { name: "Parts, People, Interactions", url: "https://pz.harvard.edu/resources/parts-people-interactions",
+    gist: "Identify a system's parts, the people connected to it, and how they interact.",
+    bands: ["senior"], group: "Objects, systems, and complexity (Agency by Design)" },
+  { name: "Parts, People, Interactions (For Exploring Complexity)", url: "https://pz.harvard.edu/resources/parts-people-interactions-exploring-complexity",
+    gist: "The complexity-focused variation of Parts, People, Interactions.",
+    bands: ["middle", "senior"], group: "Objects, systems, and complexity (Agency by Design)" },
+  { name: "Parts, People, Interactions (For Younger Children)", url: "https://pz.harvard.edu/resources/parts-people-interactions-younger-children",
+    gist: "The early-years adaptation of Parts, People, Interactions.",
+    bands: ["younger"], group: "Objects, systems, and complexity (Agency by Design)" },
+  { name: "Parts, Perspectives, Me", url: "https://pz.harvard.edu/resources/parts-perspectives-me",
+    gist: "Examine a system's parts, connected people's perspectives, and your own relationship to it.",
+    bands: ["middle", "senior"], group: "Objects, systems, and complexity (Agency by Design)" },
+  { name: "Parts, Perspectives, Me (For Exploring Complexity)", url: "https://pz.harvard.edu/resources/parts-perspectives-me-exploring-complexity",
+    gist: "The complexity-focused variation of Parts, Perspectives, Me.",
+    bands: ["middle", "senior"], group: "Objects, systems, and complexity (Agency by Design)" },
+  { name: "Name, Describe, Act", url: "https://pz.harvard.edu/resources/name-describe-act",
+    gist: "An object-exploration routine for young children.",
+    bands: ["younger", "middle", "senior"], group: "Objects, systems, and complexity (Agency by Design)" },
+  { name: "Ways Things Can Be Complex", url: "https://pz.harvard.edu/resources/ways-things-can-be-complex",
+    gist: "Explore the different dimensions along which something can be complex.",
+    bands: ["middle", "senior"], group: "Objects, systems, and complexity (Agency by Design)" },
+  { name: "The Complexity Scale", url: "https://pz.harvard.edu/resources/complexity-scale",
+    gist: "Rate and discuss how complex something is, and what makes it so.",
+    bands: ["middle", "senior"], group: "Objects, systems, and complexity (Agency by Design)" },
+  { name: "Slow Complexity Capture", url: "https://pz.harvard.edu/resources/slow-complexity-capture",
+    gist: "A slow-looking routine for gradually capturing the complexity of something.",
+    bands: ["middle", "senior"], group: "Objects, systems, and complexity (Agency by Design)" },
+  { name: "Layers", url: "https://pz.harvard.edu/resources/layers",
+    gist: "Analyze a creative work through multiple layers of meaning and construction.",
+    bands: ["middle", "senior"], group: "Objects, systems, and complexity (Agency by Design)" },
+  { name: "Lenses", url: "https://pz.harvard.edu/resources/lenses",
+    gist: "Examine a topic through a series of different lenses or angles.",
+    bands: ["middle", "senior"], group: "Objects, systems, and complexity (Agency by Design)" },
+  { name: "Outside In", url: "https://pz.harvard.edu/resources/outside",
+    gist: "Consider outside influences on a system or topic.",
+    bands: ["middle", "senior"], group: "Objects, systems, and complexity (Agency by Design)" },
+  { name: "Pass the Parcel", url: "https://pz.harvard.edu/resources/pass-parcel",
+    gist: "A collaborative, turn-taking idea-building routine.",
+    bands: ["younger", "middle", "senior"], group: "Objects, systems, and complexity (Agency by Design)" },
+
+  // --- Global and civic thinking ---
+  { name: "The 3 Whys", url: "https://pz.harvard.edu/resources/3-whys",
+    gist: "Why might this matter to me? To the people around me? To the world?",
+    bands: ["younger"], group: "Global and civic thinking" },
+  { name: "Circles of Action", url: "https://pz.harvard.edu/resources/circles-of-action",
+    gist: "Consider possible actions in widening spheres, from close to home to the wider world.",
+    bands: ["younger", "middle", "senior"], group: "Global and civic thinking" },
+  { name: "Unveiling Stories", url: "https://pz.harvard.edu/resources/unveiling-stories",
+    gist: "Explore an image or event's layered stories: visible, untold, human, world, new.",
+    bands: ["senior"], group: "Global and civic thinking" },
+  { name: "Projecting Across Time", url: "https://pz.harvard.edu/resources/projecting-across-time",
+    gist: "Imagine how a topic looked in the past and might look in the future.",
+    bands: ["younger", "middle", "senior"], group: "Global and civic thinking" },
+  { name: "Projecting Across Distance", url: "https://pz.harvard.edu/resources/projecting-across-distance",
+    gist: "Imagine how a topic plays out in other places around the world.",
+    bands: ["younger", "middle", "senior"], group: "Global and civic thinking" },
+  { name: "Here Now / There Then", url: "https://pz.harvard.edu/resources/here-now-there-then",
+    gist: "Compare present-day perspectives with those of another time and place.",
+    bands: ["younger", "middle", "senior"], group: "Global and civic thinking" },
+  { name: "Values, Identities, Actions", url: "https://pz.harvard.edu/resources/values-identities-actions",
+    gist: "Examine the values, identities, and actions a work or issue evokes and invites.",
+    bands: ["senior"], group: "Global and civic thinking" },
+
+  // --- Digital life and wellbeing ---
+  { name: "Digital Habits Checkup", url: "https://pz.harvard.edu/resources/digital-habits-checkup",
+    gist: "Reflect on and evaluate personal digital habits.",
+    bands: ["younger", "middle", "senior"], group: "Digital life and wellbeing" },
+  { name: "Feelings and Options", url: "https://pz.harvard.edu/resources/feelings-and-options",
+    gist: "Identify the feelings at play in a digital dilemma and consider ways to respond.",
+    bands: ["younger", "middle", "senior"], group: "Digital life and wellbeing" },
+
+  // --- Reflection on daily life ---
+  { name: "Walk the Week", url: "https://pz.harvard.edu/resources/walk-week",
+    gist: "A reflection routine tied to noticing and reviewing everyday experience.",
+    bands: ["younger", "middle", "senior"], group: "Reflection on daily life" },
+];
 const ROUTINE_SOURCE = "Harvard Project Zero Thinking Routines · pz.harvard.edu/thinking-routines";
+
+// Bridges the old PYP/Middle/Senior vocabulary (still spoken by the legacy prompt/
+// select below — Task 11 rewrites that path) onto the new bands: tags on ROUTINES.
+const BAND_TAG_OF = { PYP: "younger", Middle: "middle", Senior: "senior" };
+function routinesForBand(bandKey) {
+  const tag = BAND_TAG_OF[bandKey] || "middle";
+  return ROUTINES.filter(r => r.bands.includes(tag));
+}
+
+// Made to Stick "stickiness" boosters the Analyse step can recommend alongside a
+// routine — short authoring nudges the teacher can toggle on/off before Generate.
+const BOOSTERS = [
+  { id: "curiosityGapTitle", label: "Curiosity-gap title", line: "Write the title so it opens a curiosity gap — pose what we don't yet know (Made to Stick: Unexpected)." },
+  { id: "concreteQuestion",  label: "Concrete question",   line: "Make the provocative question concrete and sensory — people, actions, things, not abstractions (Concrete)." },
+  { id: "leadWithStory",     label: "Lead with the story", line: "Frame the stimulus as a story with a protagonist and stakes (Stories)." },
+  { id: "unexpectedFact",    label: "Unexpected fact",     line: "Surface the most schema-breaking fact in the stimulus early (Unexpected)." },
+  { id: "humanScaleStat",    label: "Human-scale numbers", line: "Re-express any statistic at human scale (Credible)." },
+  { id: "emotionalHook",     label: "Emotional hook",      line: "Connect to something students already care about — identity or self-interest (Emotional)." },
+];
 
 const MODE_FRAMING = { media: "Look closely, then discuss.", image: "Look closely, then discuss.", article: "Read, then discuss.", video: "Watch, then discuss." };
 const MODE_VERB = { media: "Look", image: "Look", article: "Read", video: "Watch" };
@@ -901,7 +1199,7 @@ function shapeDeck(parsed, { band, title }) {
     title: stripMd(parsed.title || title || "Digital Life Spotlight"),
     summary: stripMd(parsed.summary || ""),
     framing: stripMd(parsed.framing || ""),
-    routineName: stripMd(parsed.routineName || ROUTINES[band][0].name),
+    routineName: stripMd(parsed.routineName || routinesForBand(band)[0].name),
     routineIntro: stripMd(parsed.routineIntro || ""),
     steps,
     guidingQuestions: normGuiding(parsed.guidingQuestions),
@@ -983,8 +1281,8 @@ async function generateSpotlight({ passcode, mode, band, year, theme, title, med
     ? `The teacher provided this title: "${title}". Use it (lightly polished if needed).`
     : `No title was provided — invent a short, inviting title (max ~8 words).`;
 
-  const routineList = ROUTINES[band].map(r => `- ${r.name}: ${r.moves}`).join("\n");
-  const chosen = routineChoice ? ROUTINES[band].find(r => r.name === routineChoice) : null;
+  const routineList = routinesForBand(band).map(r => `- ${r.name}: ${r.gist}`).join("\n");
+  const chosen = routineChoice ? routinesForBand(band).find(r => r.name === routineChoice) : null;
 
   // Per-field schema fragments, assembled by scope so a single-slide regenerate
   // asks the model for only that slide's fields.
@@ -1019,7 +1317,7 @@ async function generateSpotlight({ passcode, mode, band, year, theme, title, med
 
   const routineBlock = includesRoutine
     ? "\n" + (chosen
-        ? `Use EXACTLY this Harvard Project Zero thinking routine — do not pick another: "${chosen.name}" — ${chosen.moves} Build "routineIntro" and the steps around it as LOOSE INSPIRATION (capture its spirit, but DON'T mechanically echo its exact wording). Write genuinely engaging, provocative discussion prompts that maximise intrigue and debate for the band.`
+        ? `Use EXACTLY this Harvard Project Zero thinking routine — do not pick another: "${chosen.name}" — ${chosen.gist} Build "routineIntro" and the steps around it as LOOSE INSPIRATION (capture its spirit, but DON'T mechanically echo its exact wording). Write genuinely engaging, provocative discussion prompts that maximise intrigue and debate for the band.`
         : `Choose the SINGLE MOST EFFECTIVE routine from this Harvard Project Zero list for THIS specific stimulus — do the analysis in "routineRationale" first, then commit to it in "routineName". Different stimuli reward different thinking: an image or close-up rewards observation routines; a clear ethical dilemma rewards stance or stakeholder-viewpoint routines; a surprising claim or statistic rewards prediction or claim-testing routines; an open-ended scenario rewards wondering or connecting routines. Match the routine to where the real intrigue in this stimulus lives. Do NOT fall back on a familiar, all-purpose routine just because it can fit almost anything — Claim, Support, Question and Compass Points in particular are badly over-chosen. Pick Claim, Support, Question ONLY when the stimulus specifically rewards staking and testing an argument, and Compass Points ONLY when it rewards weighing mixed reactions to a dilemma; never as a safe default. If two routines seem to fit, prefer the one that is MORE specific to this stimulus's particular kind of thinking (observation, prediction, stakeholder perspective, reconsidering a belief) over the generic claim/issue routine. Once chosen, use the routine as LOOSE INSPIRATION only — capture its spirit, but DON'T mechanically echo its exact wording. Write genuinely engaging, provocative discussion prompts that maximise intrigue and debate for the band:\n${routineList}`)
       + `\nRules: this is a FAST 5-minute TALKING activity. Every step must be students DISCUSSING out loud (in pairs, small groups, or whole class) — never silent independent writing or solo work. Keep it to 2–3 short steps, each 1–2 minutes, and the step "minutes" MUST total 5 or less with time to spare. Prioritise quick, punchy prompts that get students talking immediately.`
     : "";
@@ -1103,6 +1401,78 @@ Write every field in PLAIN TEXT — no markdown, no asterisks, no #, no backtick
     e._raw = raw;
     throw e;
   }
+}
+
+/* ----------------------- Analyse stimulus (the new step before Generate) -----------------------
+   Reads the stimulus and recommends 3 thinking routines (band-filtered from ROUTINES) plus 2-3
+   Made-to-Stick boosters, so the teacher picks a routine before Generate runs. Media-parts
+   packaging mirrors generateSpotlight above. */
+async function analyseStimulus({ passcode, mode, media = [], sourceText = "", classInfo }) {
+  const band = bandOf(classInfo.yearLevel); // "younger" | "middle" | "senior"
+  const bandRoutines = ROUTINES.filter(r => r.bands.includes(band));
+  const routineMenu = bandRoutines.map(r => `- ${r.name}: ${r.gist}`).join("\n");
+  const sys = `You help a ${classInfo.curriculum} teacher of ${classInfo.subject}, year ${classInfo.yearLevel}, launch student thinking from a stimulus.
+Return STRICT JSON only: {"summary": string (<=40 words, what the stimulus shows),
+"routines": [{"name": string, "why": string (<=20 words, why it fits THIS stimulus and age group)} x3],
+"boosters": [2-3 ids from: ${BOOSTERS.map(b => b.id).join(", ")}]}
+Routine names MUST be copied exactly from this menu:\n${routineMenu}`;
+
+  const userContent = [];
+  const mediaItems = Array.isArray(media) ? media : [];
+  if (mode === "media" && mediaItems.length) {
+    userContent.push({ type: "text", text: "Analyse this stimulus and recommend routines + boosters per the system instructions." });
+    mediaItems.forEach(m => {
+      if (m.kind === "image") userContent.push({ type: "image_url", image_url: { url: m.dataUrl } });
+      else (m.frames || []).forEach(fr => userContent.push({ type: "image_url", image_url: { url: fr } }));
+    });
+  } else {
+    const trimmed = (sourceText || "").slice(0, 12000).replace(/"{3,}/g, "“”");
+    userContent.push({ type: "text", text: `Analyse this article text and recommend routines + boosters per the system instructions:\n\n"""\n${trimmed}\n"""` });
+  }
+
+  const resp = await fetch(API_BASE + "/api/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-sb-passcode": passcode },
+    body: JSON.stringify({
+      messages: [
+        { role: "system", content: sys },
+        { role: "user", content: userContent },
+      ],
+      response_format: { type: "json_object" },
+      max_completion_tokens: 700,
+    }),
+  });
+  if (!resp.ok) throw new Error(await backendErrorMessage(resp));
+
+  const data = await resp.json();
+  const raw = data?.choices?.[0]?.message?.content || "";
+  if (!raw.trim()) throw new Error("The model returned an empty response.");
+  const parsed = parseJsonLoose(raw);
+
+  // Canonicalise routine names against ROUTINES (case-insensitive), dropping anything the
+  // model invents; top up to 3 from the band-filtered list so the UI never shows fewer than
+  // 3 real, linkable routines even on a flaky/partial reply.
+  const byLower = new Map(bandRoutines.map(r => [r.name.toLowerCase(), r.name]));
+  const seen = new Set();
+  const routines = [];
+  (Array.isArray(parsed.routines) ? parsed.routines : []).forEach(r => {
+    const nameRaw = stripMd(r && r.name);
+    const canon = byLower.get(String(nameRaw).toLowerCase().trim());
+    if (canon && !seen.has(canon)) {
+      seen.add(canon);
+      routines.push({ name: canon, why: stripMd((r && r.why) || "") });
+    }
+  });
+  for (const r of bandRoutines) {
+    if (routines.length >= 3) break;
+    if (!seen.has(r.name)) { seen.add(r.name); routines.push({ name: r.name, why: r.gist }); }
+  }
+
+  const boosterIds = new Set(BOOSTERS.map(b => b.id));
+  const boosters = [...new Set((Array.isArray(parsed.boosters) ? parsed.boosters : []).map(String).filter(id => boosterIds.has(id)))].slice(0, 3);
+  if (!boosters.length) boosters.push(BOOSTERS[0].id, BOOSTERS[1].id);
+
+  return { summary: stripMd(parsed.summary || ""), routines: routines.slice(0, 3), boosters };
 }
 
 /* Merge a scoped regenerate's parsed fields back into the spot, normalising like generate(). */
@@ -1296,6 +1666,14 @@ function App() {
   const [genProgress, setGenProgress] = useState(0); // 0-100, eased estimate while generating
   const [regenSlide, setRegenSlide] = useState(null);   // which slide is regenerating: "title" | "provocation" | "takeaway"
   const [routineChoice, setRoutineChoice] = useState(""); // "" = let AI choose; else an exact routine name
+
+  // analyse step (runs before Generate): AI recommendation + the teacher's pick
+  const [analysis, setAnalysis] = useState(null);       // { summary, routines: [{name,why}], boosters: [id] } | null
+  const [analysing, setAnalysing] = useState(false);
+  const [analyseError, setAnalyseError] = useState("");
+  const [selectedRoutine, setSelectedRoutine] = useState(""); // "" until the teacher picks a card
+  const [boostersOn, setBoostersOn] = useState(() => new Set()); // Set of BOOSTERS ids currently toggled on
+
   const [fetchingArticle, setFetchingArticle] = useState(false);
   const [error, setError] = useState("");
   const [rawDump, setRawDump] = useState("");
@@ -1442,6 +1820,44 @@ function App() {
     const hasStimulus = mode === "media" ? media.length > 0 : mode === "article" ? articleText.trim().length > 20 : false;
     return hasStimulus && !!classInfo.subject.trim() && !!classInfo.yearLevel.trim();
   }
+
+  /* ------- analyse (recommend routines + boosters, before Generate) ------- */
+  async function runAnalyse() {
+    if (analysing) return;
+    setAnalyseError("");
+    if (!passcode.trim()) { setAnalyseError("Enter the school passcode first."); return; }
+    if (!inputReady()) { setAnalyseError("Please add a stimulus first, and fill in the subject and year level."); return; }
+    setAnalysing(true);
+    try {
+      const sourceText = mode === "article" ? articleText : "";
+      const result = await analyseStimulus({ passcode: passcode.trim(), mode, media, sourceText, classInfo });
+      setAnalysis(result);
+      setSelectedRoutine("");
+      setRoutineChoice(""); // legacy prompt plumbing — Task 11 rewires this to read selectedRoutine directly
+      setBoostersOn(new Set(result.boosters));
+    } catch (err) {
+      setAnalyseError(err.message || String(err));
+    } finally {
+      setAnalysing(false);
+    }
+  }
+  function pickRoutine(name) {
+    setSelectedRoutine(name);
+    setRoutineChoice(name); // keeps the old ROUTINES[band]-driven generate/regenerate prompt working until Task 11
+  }
+  function toggleBooster(id) {
+    setBoostersOn(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  }
+  const analyseBandRoutines = useMemo(() => {
+    const tag = bandOf(classInfo.yearLevel);
+    return ROUTINES.filter(r => r.bands.includes(tag));
+  }, [classInfo.yearLevel]);
+  const routineGroups = useMemo(() => {
+    const map = new Map();
+    analyseBandRoutines.forEach(r => { if (!map.has(r.group)) map.set(r.group, []); map.get(r.group).push(r); });
+    return [...map.entries()];
+  }, [analyseBandRoutines]);
+  const routineUrl = (name) => (ROUTINES.find(r => r.name === name) || {}).url || "https://pz.harvard.edu/thinking-routines";
 
   /* ------- generate ------- */
   async function generate() {
@@ -1883,7 +2299,7 @@ function App() {
         <select aria-label="Choose the thinking routine" value={routineChoice} disabled={!!regenSlide || loading}
           onChange={e => { setRoutineChoice(e.target.value); regenerateSlide("provocation", e.target.value); }}>
           <option value="">✨ Let AI choose the routine</option>
-          {ROUTINES[band].map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
+          {routinesForBand(band).map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
         </select>
       </div>
       <textarea className="editable" rows={1} aria-label="Thinking routine name" style={{ fontWeight: 700, fontSize: 16 }} value={spot.routineName} onChange={e => patch({ routineName: e.target.value })} />
@@ -2067,11 +2483,71 @@ function App() {
             </div>
           </div>
 
-          <button className="btn primary" ref={genBtnRef} disabled={loading || !!regenSlide} aria-busy={loading} onClick={generate}>
+          {/* ----------------- ANALYSE STEP ----------------- */}
+          <div className="group">
+            <label className="cap">Analyse stimulus</label>
+            <button type="button" className="btn ghost" disabled={!inputReady() || analysing} aria-busy={analysing} onClick={runAnalyse}>
+              {analysing
+                ? <React.Fragment><span className="spinner sm dark"></span> Analysing…</React.Fragment>
+                : <React.Fragment><Icon d={I.generate} size={16} stroke /> Analyse stimulus</React.Fragment>}
+            </button>
+            <div className="hint">Reads your stimulus and suggests a thinking routine + stickiness boosters before you generate.</div>
+
+            {analyseError && <div className="alert bad" role="alert">{analyseError}</div>}
+
+            {analysis && (
+              <React.Fragment>
+                <p className="hint" style={{ marginTop: 10 }}>{analysis.summary}</p>
+
+                <div className="routine-cards">
+                  {analysis.routines.map(r => (
+                    <div className={"routine-card" + (selectedRoutine === r.name ? " on" : "")} key={r.name}>
+                      <label className="routine-card-pick">
+                        <input type="radio" name="routineCard" value={r.name}
+                          checked={selectedRoutine === r.name} onChange={() => pickRoutine(r.name)} />
+                        <span className="routine-card-name">{r.name}</span>
+                      </label>
+                      <p className="routine-card-why">{r.why}</p>
+                      <a className="routine-card-link" href={routineUrl(r.name)} target="_blank" rel="noopener">View routine ↗</a>
+                    </div>
+                  ))}
+                </div>
+
+                <details className="routine-browse">
+                  <summary>Browse all routines</summary>
+                  {routineGroups.map(([group, list]) => (
+                    <div className="routine-browse-group" key={group}>
+                      <div className="routine-browse-heading">{group}</div>
+                      {list.map(r => (
+                        <label className="routine-browse-item" key={r.name}>
+                          <input type="radio" name="routineCard" value={r.name}
+                            checked={selectedRoutine === r.name} onChange={() => pickRoutine(r.name)} />
+                          <span>{r.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ))}
+                </details>
+
+                <div className="cap" style={{ marginTop: 12 }}>Make it stick</div>
+                <div className="advisory-chips" role="group" aria-label="Stickiness boosters">
+                  {BOOSTERS.map(b => (
+                    <button key={b.id} type="button" className={"advisory-chip" + (boostersOn.has(b.id) ? " on" : "")}
+                      aria-pressed={boostersOn.has(b.id)} title={b.line} onClick={() => toggleBooster(b.id)}>
+                      {b.label}
+                    </button>
+                  ))}
+                </div>
+              </React.Fragment>
+            )}
+          </div>
+
+          <button className="btn primary" ref={genBtnRef} disabled={loading || !!regenSlide || !selectedRoutine} aria-busy={loading} onClick={generate}>
             {loading ? <React.Fragment><ProgressRing value={genProgress} /> Generating… {Math.round(genProgress)}%</React.Fragment>
               : spot ? <React.Fragment><Icon d={I.refresh} size={16} stroke /> Regenerate</React.Fragment>
               : <React.Fragment><Icon d={I.generate} size={16} /> Generate Spotlight</React.Fragment>}
           </button>
+          {!selectedRoutine && <div className="hint">Analyse the stimulus and pick a thinking routine to enable Generate.</div>}
 
           {/* Screen-reader-only live status: announces the generation lifecycle (the
               visible cue is the button text/spinner; errors are announced via role=alert). */}
