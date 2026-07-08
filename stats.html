@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>Springboard — Stats</title>
+
+<style>
+  /* Graphik — same self-hosted family as index.html, weights actually used here only. */
+  @font-face { font-family: "Graphik"; font-weight: 400;     font-style: normal; font-display: swap; src: url("fonts/Graphik-Regular.woff2") format("woff2"); }
+  @font-face { font-family: "Graphik"; font-weight: 600 800; font-style: normal; font-display: swap; src: url("fonts/Graphik-Semibold.woff2") format("woff2"); }
+
+  :root {
+    --ink: #2b2536;
+    --muted: #574f63;
+    --line: #e7e1ef;
+    --bg: #f6f2fb;
+    --panel: #ffffff;
+    --accent: #4f2759;        /* Wesley Purple — the single data colour */
+    --accent-deep: #3d1d45;
+    --accent-soft: #e9deeb;
+    --bad: #e83534; --bad-bg: #fdafbd; --bad-ink: #8f1d2e;
+    --grid: #d9d3e2;          /* muted gray-purple gridlines */
+    --font-body: "Graphik", Arial, sans-serif;
+    --radius: 14px;
+    --shadow: 0 6px 24px rgba(60,40,90,.10);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: var(--font-body); color: var(--ink);
+    background: linear-gradient(160deg, #f6f2fb 0%, #ffffff 100%); min-height: 100vh;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 20px 60px; }
+
+  header.app { display: flex; align-items: baseline; gap: 12px; padding-bottom: 16px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
+  header.app h1 { font-size: 20px; margin: 0; }
+  header.app p { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+
+  #statusMsg { font-size: 13px; color: var(--muted); margin: 0 0 14px; }
+
+  .gate { max-width: 360px; margin: 40px auto; }
+  .gate label { display: block; font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin-bottom: 6px; }
+  .gate input[type=password] { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; font: inherit; margin-bottom: 12px; color: var(--ink); }
+  .gate input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+  .btn { padding: 10px 16px; border: 0; border-radius: 12px; font: inherit; font-weight: 700; cursor: pointer; }
+  .btn.primary { background: var(--accent); color: #fff; width: 100%; }
+  .btn.primary:hover { background: var(--accent-deep); }
+  .btn.ghost { background: #fff; border: 1px solid var(--line); color: var(--ink); width: auto; }
+  .btn.ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+
+  .alert.bad { background: var(--bad-bg); color: var(--bad-ink); border: 1px solid var(--bad); border-radius: 10px; padding: 10px 12px; font-size: 13px; margin: 10px 0 0; }
+
+  #dash[hidden], #gate[hidden] { display: none; }
+  .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+
+  .totals-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; text-align: center; }
+  .tile .n { font-size: 28px; font-weight: 800; color: var(--accent); line-height: 1.1; }
+  .tile .label { font-size: 12.5px; color: var(--muted); margin-top: 4px; text-transform: capitalize; }
+
+  .card { margin-bottom: 24px; }
+  .card h2 { font-size: 15px; margin: 0 0 12px; }
+  .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 860px) { .charts-grid { grid-template-columns: 1fr; } }
+
+  .empty-note { color: var(--muted); font-size: 13px; padding: 24px 4px; text-align: center; margin: 0; }
+
+  svg.chart { display: block; max-width: 100%; }
+  svg.chart text { font-family: var(--font-body); fill: var(--ink); font-size: 12px; }
+  svg.chart .axis-label { fill: var(--muted); }
+  svg.chart .gridline { stroke: var(--grid); stroke-width: 1; }
+  svg.chart .bar { fill: var(--accent); }
+  svg.chart .line-path { fill: none; stroke: var(--accent); stroke-width: 2; }
+  svg.chart .dot { fill: var(--accent); }
+
+  .table-scroll { overflow-x: auto; }
+  table.recent { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.recent th, table.recent td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  table.recent th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); font-weight: 700; }
+  table.recent td:nth-child(2) { white-space: normal; min-width: 220px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app">
+    <div>
+      <h1>Springboard — Admin Stats</h1>
+      <p>Usage analytics. Password-protected.</p>
+    </div>
+  </header>
+
+  <p id="statusMsg" role="status" hidden></p>
+
+  <section id="gate" class="panel gate">
+    <form id="gateForm" novalidate>
+      <label for="pw">Admin password</label>
+      <input type="password" id="pw" name="pw" autocomplete="current-password" required />
+      <button type="submit" class="btn primary">View stats</button>
+    </form>
+    <p id="gateMsg" class="alert bad" role="alert" hidden></p>
+  </section>
+
+  <section id="dash" hidden>
+    <div class="toolbar">
+      <button type="button" id="refreshBtn" class="btn ghost">Refresh</button>
+      <span id="errMsg" class="alert bad" role="alert" hidden></span>
+    </div>
+
+    <div id="totalsStrip" class="totals-strip" aria-label="Event totals"></div>
+
+    <div class="card panel">
+      <h2>PowerPoints generated per day (last 30 days)</h2>
+      <div id="byDayChart"></div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="card panel">
+        <h2>By curriculum</h2>
+        <div id="byCurriculumChart"></div>
+      </div>
+      <div class="card panel">
+        <h2>By routine (top 10)</h2>
+        <div id="byRoutineChart"></div>
+      </div>
+      <div class="card panel">
+        <h2>By stimulus type</h2>
+        <div id="byStimulusChart"></div>
+      </div>
+      <div class="card panel">
+        <h2>By subject</h2>
+        <div id="bySubjectChart"></div>
+      </div>
+    </div>
+
+    <div class="card panel">
+      <h2>Recent activity</h2>
+      <div class="table-scroll">
+        <table class="recent">
+          <thead>
+            <tr>
+              <th scope="col">Time</th>
+              <th scope="col">Topic</th>
+              <th scope="col">Curriculum</th>
+              <th scope="col">Subject</th>
+              <th scope="col">Year</th>
+              <th scope="col">Routine</th>
+            </tr>
+          </thead>
+          <tbody id="recentBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // Same API_BASE logic as index.html (duplicated on purpose — the two pages are independent).
+  var API_BASE = (location.hostname === "localhost" || location.hostname === "127.0.0.1" || location.protocol === "file:")
+    ? "http://localhost:3000"
+    : "https://SPRINGBOARD-API.vercel.app"; // real URL substituted at deploy time
+
+  var EVENT_TYPES = ["analyse", "generate", "regenerate", "download"];
+  var STORE_KEY = "sb_admin";
+
+  function $(id) { return document.getElementById(id); }
+  var gate = $("gate"), gateForm = $("gateForm"), pwInput = $("pw"), gateMsg = $("gateMsg");
+  var dash = $("dash"), statusMsg = $("statusMsg"), errMsg = $("errMsg"), refreshBtn = $("refreshBtn");
+
+  function showGateError(msg) { gateMsg.textContent = msg; gateMsg.hidden = false; }
+  function clearGateError() { gateMsg.hidden = true; gateMsg.textContent = ""; }
+  function showLoadError(msg) { errMsg.textContent = msg; errMsg.hidden = false; }
+  function clearLoadError() { errMsg.hidden = true; errMsg.textContent = ""; }
+
+  function fetchStats(password) {
+    return fetch(API_BASE + "/api/stats", {
+      method: "POST",
+      headers: { "x-sb-admin": password },
+    }).then(function (res) {
+      if (res.status === 401) { var e = new Error("wrong-password"); e.code = 401; throw e; }
+      if (!res.ok) { var e2 = new Error("http-" + res.status); e2.code = res.status; throw e2; }
+      return res.json();
+    });
+  }
+
+  function loadStats(password) {
+    clearGateError();
+    clearLoadError();
+    statusMsg.hidden = false;
+    statusMsg.textContent = "Loading stats…";
+    return fetchStats(password).then(function (data) {
+      sessionStorage.setItem(STORE_KEY, password);
+      gate.hidden = true;
+      dash.hidden = false;
+      render(data);
+    }).catch(function (err) {
+      if (err.code === 401) {
+        sessionStorage.removeItem(STORE_KEY);
+        dash.hidden = true;
+        gate.hidden = false;
+        showGateError("Wrong password.");
+      } else if (dash.hidden) {
+        showGateError("Couldn't reach the server. Try again.");
+      } else {
+        showLoadError("Couldn't refresh stats. Try again.");
+      }
+    }).then(function () {
+      statusMsg.hidden = true;
+      statusMsg.textContent = "";
+    });
+  }
+
+  gateForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var pw = pwInput.value;
+    if (!pw) { showGateError("Enter a password."); return; }
+    loadStats(pw);
+  });
+
+  refreshBtn.addEventListener("click", function () {
+    var pw = sessionStorage.getItem(STORE_KEY);
+    if (pw) loadStats(pw);
+  });
+
+  // Auto-fetch if a password is already remembered for this tab.
+  var stored = sessionStorage.getItem(STORE_KEY);
+  if (stored) loadStats(stored);
+
+  // ---------- rendering (DOM APIs only — server strings are teacher free text, never innerHTML) ----------
+
+  function render(data) {
+    renderTotals(data.totals || []);
+    lineChart($("byDayChart"), fill30Days(data.byDay || []));
+    barChart($("byCurriculumChart"), data.byCurriculum || [], "curriculum");
+    barChart($("byRoutineChart"), (data.byRoutine || []).slice(0, 10), "routine");
+    barChart($("byStimulusChart"), data.byStimulus || [], "stimulus_type");
+    barChart($("bySubjectChart"), data.bySubject || [], "subject");
+    renderRecent(data.recent || []);
+  }
+
+  function renderTotals(totals) {
+    var el = $("totalsStrip");
+    el.textContent = "";
+    var byEvent = {};
+    totals.forEach(function (r) { byEvent[r.event] = r.n; });
+    EVENT_TYPES.forEach(function (type) {
+      var tile = document.createElement("div");
+      tile.className = "tile";
+      var n = document.createElement("div");
+      n.className = "n";
+      n.textContent = String(byEvent[type] || 0);
+      var label = document.createElement("div");
+      label.className = "label";
+      label.textContent = type;
+      tile.appendChild(n);
+      tile.appendChild(label);
+      el.appendChild(tile);
+    });
+  }
+
+  function renderRecent(rows) {
+    var tbody = $("recentBody");
+    tbody.textContent = "";
+    if (!rows.length) {
+      var tr = document.createElement("tr");
+      var td = document.createElement("td");
+      td.colSpan = 6;
+      td.className = "empty-note";
+      td.textContent = "No recent activity yet.";
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      return;
+    }
+    var cols = ["ts", "topic", "curriculum", "subject", "year_level", "routine"];
+    rows.forEach(function (r) {
+      var tr = document.createElement("tr");
+      cols.forEach(function (key) {
+        var td = document.createElement("td");
+        var v = r[key];
+        td.textContent = (v === null || v === undefined || v === "") ? "—" : String(v);
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+  }
+
+  // Fill the trailing 30-day window with 0 on days with no rows. Empty input -> empty
+  // output, so barChart/lineChart show the "No data yet" placeholder instead of a
+  // flat 30-day line of zeros.
+  function fill30Days(rows) {
+    if (!rows.length) return [];
+    var byDay = {};
+    rows.forEach(function (r) { byDay[r.day] = r.n; });
+    var out = [];
+    var today = new Date();
+    for (var i = 29; i >= 0; i--) {
+      var d = new Date(today);
+      d.setDate(d.getDate() - i);
+      var key = d.toISOString().slice(0, 10);
+      out.push({ day: key, n: byDay[key] || 0 });
+    }
+    return out;
+  }
+
+  function truncate(s, max) {
+    return s.length > max ? s.slice(0, max - 1) + "…" : s;
+  }
+
+  // ---------- hand-rolled SVG chart helpers ----------
+
+  var SVG_NS = "http://www.w3.org/2000/svg";
+  function svgEl(tag, attrs) {
+    var el = document.createElementNS(SVG_NS, tag);
+    for (var k in attrs) el.setAttribute(k, attrs[k]);
+    return el;
+  }
+  function emptyNote(el) {
+    el.textContent = "";
+    var p = document.createElement("p");
+    p.className = "empty-note";
+    p.textContent = "No data yet.";
+    el.appendChild(p);
+  }
+
+  // Horizontal bar chart. rows: [{ [labelKey]: string, n: number }], already sorted desc.
+  function barChart(el, rows, labelKey) {
+    el.textContent = "";
+    if (!rows.length) { emptyNote(el); return; }
+
+    var rowH = 28, gap = 8, leftPad = 210, chartW = 340, rightPad = 55, topPad = 10;
+    var width = leftPad + chartW + rightPad;
+    var height = topPad * 2 + rows.length * (rowH + gap) - gap;
+    var max = Math.max.apply(null, rows.map(function (r) { return r.n || 0; }).concat([1]));
+
+    var svg = svgEl("svg", {
+      "class": "chart", viewBox: "0 0 " + width + " " + height, width: "100%",
+      height: String(height), role: "img", "aria-label": "Bar chart of " + labelKey,
+    });
+
+    // gridlines at 0/50/100% of max, with numeric ticks along the bottom.
+    [0, 0.5, 1].forEach(function (f) {
+      var x = leftPad + chartW * f;
+      svg.appendChild(svgEl("line", { "class": "gridline", x1: x, x2: x, y1: topPad, y2: height - topPad }));
+      var tick = svgEl("text", { "class": "axis-label", x: x, y: height - 1, "text-anchor": f === 0 ? "start" : (f === 1 ? "end" : "middle") });
+      tick.textContent = String(Math.round(max * f));
+      svg.appendChild(tick);
+    });
+
+    rows.forEach(function (row, i) {
+      var y = topPad + i * (rowH + gap);
+      var fullLabel = String(row[labelKey] == null ? "—" : row[labelKey]);
+      var n = row.n || 0;
+      var barW = Math.max((n / max) * chartW, 1);
+
+      var g = svgEl("g", {});
+      var title = svgEl("title", {});
+      title.textContent = fullLabel + ": " + n;
+      g.appendChild(title);
+
+      var labelText = svgEl("text", { x: leftPad - 10, y: y + rowH / 2 + 4, "text-anchor": "end" });
+      labelText.textContent = truncate(fullLabel, 28);
+      g.appendChild(labelText);
+
+      var rect = svgEl("rect", { "class": "bar", x: leftPad, y: y, width: barW, height: rowH - 8, rx: 4 });
+      g.appendChild(rect);
+
+      var valueText = svgEl("text", { "class": "axis-label", x: leftPad + barW + 8, y: y + rowH / 2 + 4 });
+      valueText.textContent = String(n);
+      g.appendChild(valueText);
+
+      svg.appendChild(g);
+    });
+
+    el.appendChild(svg);
+  }
+
+  // Line chart. rows: [{ day: "YYYY-MM-DD", n: number }], pre-filled + ascending.
+  function lineChart(el, rows) {
+    el.textContent = "";
+    if (!rows.length) { emptyNote(el); return; }
+
+    var width = 700, height = 220, padL = 40, padR = 16, padT = 16, padB = 26;
+    var plotW = width - padL - padR, plotH = height - padT - padB;
+    var max = Math.max.apply(null, rows.map(function (r) { return r.n || 0; }).concat([1]));
+
+    var svg = svgEl("svg", {
+      "class": "chart", viewBox: "0 0 " + width + " " + height, width: "100%",
+      height: String(height), role: "img", "aria-label": "Line chart of PowerPoints generated per day",
+    });
+
+    [0, 0.5, 1].forEach(function (f) {
+      var y = padT + plotH * (1 - f);
+      svg.appendChild(svgEl("line", { "class": "gridline", x1: padL, x2: width - padR, y1: y, y2: y }));
+      var t = svgEl("text", { "class": "axis-label", x: padL - 8, y: y + 4, "text-anchor": "end" });
+      t.textContent = String(Math.round(max * f));
+      svg.appendChild(t);
+    });
+
+    var stepX = rows.length > 1 ? plotW / (rows.length - 1) : 0;
+    var points = rows.map(function (r, i) {
+      return { x: padL + stepX * i, y: padT + plotH * (1 - (r.n || 0) / max), row: r };
+    });
+
+    var d = points.map(function (p, i) { return (i === 0 ? "M" : "L") + p.x.toFixed(1) + "," + p.y.toFixed(1); }).join(" ");
+    svg.appendChild(svgEl("path", { "class": "line-path", d: d }));
+
+    points.forEach(function (p, i) {
+      if (i === 0 || i === points.length - 1 || i % 5 === 0) {
+        var t = svgEl("text", { "class": "axis-label", x: p.x, y: height - 6, "text-anchor": "middle" });
+        t.textContent = p.row.day.slice(5); // MM-DD
+        svg.appendChild(t);
+      }
+      var dot = svgEl("circle", { "class": "dot", cx: p.x, cy: p.y, r: 3 });
+      var title = svgEl("title", {});
+      title.textContent = p.row.day + ": " + (p.row.n || 0);
+      dot.appendChild(title);
+      svg.appendChild(dot);
+    });
+
+    el.appendChild(svg);
+  }
+})();
+</script>
+</body>
+</html>
