@@ -29,18 +29,23 @@ test("rejects wrong passcode", async () => {
 });
 
 test("forwards audio bytes to OpenAI and returns its JSON", async () => {
+  const origFetch = globalThis.fetch;
   let sentUrl = null;
   globalThis.fetch = async (url, opts) => {
     sentUrl = url;
     assert.ok(opts.body instanceof FormData);
     return { json: async () => ({ text: "hello world" }) };
   };
-  const res = mockRes();
-  await handler(streamReq({
-    headers: { "x-sb-passcode": "test-pass", "x-sb-filename": "clip.wav" },
-    chunks: ["RIFF....WAVEdata"],
-  }), res);
-  assert.equal(res.statusCode, 200);
-  assert.equal(sentUrl, "https://api.openai.com/v1/audio/transcriptions");
-  assert.equal(res.body.text, "hello world");
+  try {
+    const res = mockRes();
+    await handler(streamReq({
+      headers: { "x-sb-passcode": "test-pass", "x-sb-filename": "clip.wav" },
+      chunks: ["RIFF....WAVEdata"],
+    }), res);
+    assert.equal(res.statusCode, 200);
+    assert.equal(sentUrl, "https://api.openai.com/v1/audio/transcriptions");
+    assert.equal(res.body.text, "hello world");
+  } finally {
+    globalThis.fetch = origFetch;
+  }
 });
