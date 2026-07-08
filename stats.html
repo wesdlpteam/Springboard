@@ -293,17 +293,16 @@
 
   // Fill the trailing 30-day window with 0 on days with no rows. Empty input -> empty
   // output, so barChart/lineChart show the "No data yet" placeholder instead of a
-  // flat 30-day line of zeros.
+  // flat 30-day line of zeros. Uses pure epoch-ms arithmetic to stay UTC-consistent
+  // (never crosses timezone frame via getDate/setDate).
   function fill30Days(rows) {
-    if (!rows.length) return [];
     var byDay = {};
-    rows.forEach(function (r) { byDay[r.day] = r.n; });
+    (rows || []).forEach(function (r) { byDay[r.day] = r.n; });
     var out = [];
-    var today = new Date();
+    var DAY_MS = 86400000;
+    var todayUtcMs = Math.floor(Date.now() / DAY_MS) * DAY_MS;
     for (var i = 29; i >= 0; i--) {
-      var d = new Date(today);
-      d.setDate(d.getDate() - i);
-      var key = d.toISOString().slice(0, 10);
+      var key = new Date(todayUtcMs - i * DAY_MS).toISOString().slice(0, 10);
       out.push({ day: key, n: byDay[key] || 0 });
     }
     return out;
