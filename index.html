@@ -375,6 +375,12 @@
 <script type="text/babel" data-presets="react-classic">
 const { useState, useRef, useMemo } = React;
 
+// Backend base URL: local `vercel dev` while developing on this machine, the
+// deployed API everywhere else (real URL substituted in Task 16).
+const API_BASE = (location.hostname === "localhost" || location.hostname === "127.0.0.1" || location.protocol === "file:")
+  ? "http://localhost:3000"           // `vercel dev` during development
+  : "https://SPRINGBOARD-API.vercel.app"; // real URL substituted in Task 16
+
 /* ---- Lazy-load heavy CDN libs only when actually needed (export / PDF) ----
    Keeps them off the critical render path. Idempotent: each src loads at most once. */
 const _scriptCache = {};
@@ -1103,38 +1109,41 @@ function advisoryThemeLine(cats) {
   return ordered.map(c => ADVISORY_CATEGORIES[c].theme).join(" · ");
 }
 
-const TRANSCRIBE_LIMIT = 25 * 1024 * 1024; // OpenAI audio endpoint per-file cap
-// Transcribe a video/audio File via OpenAI. Sends the file directly when small
-// enough; otherwise downsamples to 16 kHz mono WAV (and truncates very long clips).
-async function transcribeMedia({ apiKey, file }) {
-  let sendFile = file, truncated = false;
-  if (file.size > TRANSCRIBE_LIMIT) {
-    const { blob, truncated: t } = await videoFileToWav16k(file);
-    sendFile = new File([blob], "audio.wav", { type: "audio/wav" });
-    truncated = t;
-    if (sendFile.size > TRANSCRIBE_LIMIT) {
-      const { blob: b2, truncated: t2 } = await videoFileToWav16k(file, 600);
-      sendFile = new File([b2], "audio.wav", { type: "audio/wav" }); truncated = t2 || t;
-    }
+const TRANSCRIBE_LIMIT = 25 * 1024 * 1024; // backend/OpenAI audio endpoint per-file cap
+
+// Turn a failed backend response into a plain, teacher-facing message. 401 means
+// the passcode is wrong; anything else surfaces the server's own error text.
+async function backendErrorMessage(resp) {
+  if (resp.status === 401) return "Passcode incorrect — check with the Digital Learning team.";
+  let detail = "";
+  try { const j = await resp.json(); detail = j && j.error ? String(j.error) : ""; }
+  catch (_) { detail = await resp.text().catch(() => ""); }
+  return `Server error (${resp.status}).${detail ? " " + detail : ""}`;
+}
+
+// Transcribe a video/audio File via the backend. Always downsamples to a 16 kHz
+// mono WAV first (the backend only accepts raw WAV bytes), truncating very long
+// clips so the upload stays under the size cap.
+async function transcribeMedia({ passcode, file }) {
+  let { blob: wavBlob, truncated } = await videoFileToWav16k(file);
+  if (wavBlob.size > TRANSCRIBE_LIMIT) {
+    const { blob: b2, truncated: t2 } = await videoFileToWav16k(file, 600);
+    wavBlob = b2; truncated = t2 || truncated;
   }
-  const fd = new FormData();
-  fd.append("file", sendFile);
-  fd.append("model", "gpt-4o-transcribe");
-  fd.append("response_format", "text");
-  const resp = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-    method: "POST", headers: { Authorization: "Bearer " + apiKey }, body: fd,
+  const resp = await fetch(API_BASE + "/api/transcribe", {
+    method: "POST",
+    headers: { "x-sb-passcode": passcode, "x-sb-filename": file.name.replace(/\.[^.]+$/, "") + ".wav", "Content-Type": "application/octet-stream" },
+    body: wavBlob,
   });
-  if (!resp.ok) {
-    let detail = ""; try { detail = JSON.stringify((await resp.json()).error || {}); } catch (_) { detail = await resp.text().catch(() => ""); }
-    throw new Error(`Transcription failed (${resp.status}). ${detail}`);
-  }
-  const text = (await resp.text()).trim();
+  if (!resp.ok) throw new Error(await backendErrorMessage(resp));
+  const data = await resp.json();
+  const text = (data.text || "").trim();
   return { text, truncated };
 }
 
-/* --------------------------- OpenAI call --------------------------- */
+/* --------------------------- Backend call --------------------------- */
 
-async function generateSpotlight({ apiKey, model, mode, band, year, theme, title, media = [], sourceText = "", scope = "all", routineChoice = "", current = null }) {
+async function generateSpotlight({ passcode, mode, band, year, theme, title, media = [], sourceText = "", scope = "all", routineChoice = "", current = null }) {
   const yearStr = year ? ` Specifically pitch to ${year}.` : "";
   const titleInstruction = title
     ? `The teacher provided this title: "${title}". Use it (lightly polished if needed).`
@@ -1235,11 +1244,10 @@ Write every field in PLAIN TEXT — no markdown, no asterisks, no #, no backtick
     userContent.push({ type: "text", text: textParts.join("\n") + "\n\n" + schema });
   }
 
-  const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+  const resp = await fetch(API_BASE + "/api/generate", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + apiKey },
+    headers: { "Content-Type": "application/json", "x-sb-passcode": passcode },
     body: JSON.stringify({
-      model,
       messages: [
         { role: "system", content: systemMsg },
         { role: "user", content: userContent },
@@ -1249,12 +1257,7 @@ Write every field in PLAIN TEXT — no markdown, no asterisks, no #, no backtick
     }),
   });
 
-  if (!resp.ok) {
-    let detail = "";
-    try { detail = JSON.stringify((await resp.json()).error || {}, null, 2); }
-    catch (_) { detail = await resp.text().catch(() => ""); }
-    throw new Error(`OpenAI API error (${resp.status}).\n${detail}`);
-  }
+  if (!resp.ok) throw new Error(await backendErrorMessage(resp));
 
   const data = await resp.json();
   const raw = data?.choices?.[0]?.message?.content || "";
@@ -1310,7 +1313,7 @@ function snapToTheme(raw) {
   return best;
 }
 
-async function suggestThemeFromStimulus({ apiKey, model, mode, media = [], sourceText = "" }) {
+async function suggestThemeFromStimulus({ passcode, mode, media = [], sourceText = "" }) {
   const list = THEMES.map(t => `"${t}"`).join(", ");
   const sys = `You are an IB digital-citizenship coach. Pick the single best FOCUS THEME for a 5-minute cyber-safety / digital-citizenship discussion built on the given stimulus. You MUST choose EXACTLY ONE theme from this fixed list and reply with ONLY that theme, copied verbatim (exact spelling and capitalisation), with no quotes, punctuation, or explanation:\n${list}`;
   const ask = `Choose the ONE best-fitting theme from the allowed list for a cyber-safety / digital-citizenship discussion based on this stimulus. Reply with only the theme text, exactly as written in the list.`;
@@ -1324,21 +1327,15 @@ async function suggestThemeFromStimulus({ apiKey, model, mode, media = [], sourc
   } else {
     userContent.push({ type: "text", text: ask + `\nStimulus:\n"""\n${(sourceText || "").slice(0, 8000).replace(/"{3,}/g, "“”")}\n"""` });
   }
-  const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+  const resp = await fetch(API_BASE + "/api/generate", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + apiKey },
+    headers: { "Content-Type": "application/json", "x-sb-passcode": passcode },
     body: JSON.stringify({
-      model,
       messages: [{ role: "system", content: sys }, { role: "user", content: userContent }],
       max_completion_tokens: 800,
     }),
   });
-  if (!resp.ok) {
-    let detail = "";
-    try { detail = JSON.stringify((await resp.json()).error || {}, null, 2); }
-    catch (_) { detail = await resp.text().catch(() => ""); }
-    throw new Error(`OpenAI API error (${resp.status}).\n${detail}`);
-  }
+  if (!resp.ok) throw new Error(await backendErrorMessage(resp));
   const data = await resp.json();
   const raw = (data?.choices?.[0]?.message?.content || "").trim();
   // Keep the first line, then snap it to the closest canonical THEME so the result
@@ -1488,20 +1485,19 @@ function MediaCarousel({ items, index, setIndex }) {
   );
 }
 
-const KEY_STORE = "dss_openai_key";
+const KEY_STORE = "sb_passcode";
 
 function App() {
-  // config — API key persists in this browser's localStorage (per user request)
-  const [apiKey, setApiKey] = useState(() => { try { return localStorage.getItem(KEY_STORE) || ""; } catch (_) { return ""; } });
-  const saveApiKey = (v) => { setApiKey(v); try { v ? localStorage.setItem(KEY_STORE, v) : localStorage.removeItem(KEY_STORE); } catch (_) {} };
+  // config — passcode persists in this browser's localStorage (per user request)
+  const [passcode, setPasscode] = useState(() => { try { return localStorage.getItem(KEY_STORE) || ""; } catch (_) { return ""; } });
+  const savePasscode = (v) => { setPasscode(v); try { v ? localStorage.setItem(KEY_STORE, v) : localStorage.removeItem(KEY_STORE); } catch (_) {} };
   async function forgetAll() {
-    saveApiKey("");
+    savePasscode("");
     await idbDeleteHandle("media"); await idbDeleteHandle("lessons");
     setFolderHandle(null); setFolderName(""); setFolderReady(false);
     setLessonsHandle(null); setLessonsName(""); setLessonsReady(false);
-    setMediaNote("Forgotten from this browser: API key cleared and any SharePoint folders disconnected.");
+    setMediaNote("Forgotten from this browser: passcode cleared and any SharePoint folders disconnected.");
   }
-  const [model, setModel] = useState("gpt-5.4");
 
   // inputs
   const [mode, setMode] = useState("media");
@@ -1754,7 +1750,7 @@ function App() {
           const { frames, poster, width, height } = await extractVideoFrames(f, 4);
           const vidId = newId();
           setMedia(m => m.length >= MAX_MEDIA ? m : [...m, { id: vidId, kind: "video", dataUrl, name: f.name, sizeBytes: f.size,
-            poster, aspect: width && height ? width / height : 0, frames, text: "", transcribeState: apiKey.trim() ? "running" : "idle", transcribeNote: "",
+            poster, aspect: width && height ? width / height : 0, frames, text: "", transcribeState: passcode.trim() ? "running" : "idle", transcribeNote: "",
             sharePointUrl: "" }]);
           if (!frames.length) setMediaNote("Couldn't read frames from " + f.name + " — add a description under its thumbnail. It will still embed in the PowerPoint.");
           else if (f.size > VIDEO_EMBED_MAX_BYTES) setMediaNote(`${f.name} is large (${formatBytes(f.size)}) — the deck will use its first frame (add a Link on the left for a clickable link + QR) instead of embedding.`);
@@ -1772,10 +1768,10 @@ function App() {
               }
             })();
           }
-          if (apiKey.trim()) {
+          if (passcode.trim()) {
             (async () => {
               try {
-                const { text, truncated } = await transcribeMedia({ apiKey: apiKey.trim(), file: f });
+                const { text, truncated } = await transcribeMedia({ passcode: passcode.trim(), file: f });
                 setMedia(m => m.map(x => x.id === vidId ? { ...x, text, transcribeState: "done", transcribeNote: truncated ? "(transcript truncated)" : "" } : x));
               } catch (_) {
                 setMedia(m => m.map(x => x.id === vidId ? { ...x, transcribeState: "failed", transcribeNote: "couldn't get transcript — frames will be used" } : x));
@@ -1841,12 +1837,12 @@ function App() {
   /* ------- suggest a focus theme from the current stimulus ------- */
   async function suggestTheme() {
     setError("");
-    if (!apiKey.trim()) { setError("Please paste your OpenAI API key first."); return; }
+    if (!passcode.trim()) { setError("Enter the school passcode first."); return; }
     if (!inputReady()) { setError("Add a stimulus first, then Suggest a theme."); return; }
     setSuggestingTheme(true);
     try {
       const t = await suggestThemeFromStimulus({
-        apiKey: apiKey.trim(), model, mode, media,
+        passcode: passcode.trim(), mode, media,
         sourceText: mode === "article" ? articleText : "",
       });
       if (t) setTheme(t);
@@ -1862,7 +1858,7 @@ function App() {
   async function generate() {
     if (regenSlide || loading) return; // a slide regen is in flight, or a generate is already running
     setError(""); setRawDump("");
-    if (!apiKey.trim()) { setError("Please paste your OpenAI API key first."); return; }
+    if (!passcode.trim()) { setError("Enter the school passcode first."); return; }
     if (mode === "media" && !media.length) { setError("Add at least one image or video first."); return; }
     if (!inputReady()) { setError("Please add a stimulus first (images/video, or article text/PDF)."); return; }
 
@@ -1884,7 +1880,7 @@ function App() {
         const genBand = ordered[0];
         setGenStatus(`Generating combined ${comboBandLabel(ordered)}…`);
         const { parsed, raw } = await generateSpotlight({
-          apiKey: apiKey.trim(), model, mode, band: genBand, year: "", theme,
+          passcode: passcode.trim(), mode, band: genBand, year: "", theme,
           title: title.trim(), media, sourceText,
         });
         const deck = shapeDeck(parsed, { band: genBand, title });
@@ -1899,7 +1895,7 @@ function App() {
           const b = bands[i];
           setGenStatus(`Generating ${bandLabelOf(b)}… ${i + 1} of ${bands.length}`);
           const { parsed, raw } = await generateSpotlight({
-            apiKey: apiKey.trim(), model, mode, band: b, year: years[b] || "", theme,
+            passcode: passcode.trim(), mode, band: b, year: years[b] || "", theme,
             title: title.trim(), media, sourceText,
           });
           built[b] = shapeDeck(parsed, { band: b, title });
@@ -1925,13 +1921,13 @@ function App() {
   /* ------- regenerate a single slide (targeted, keeps the other slides) ------- */
   async function regenerateSlide(scope, routineChoiceArg) {
     if (!spot || regenSlide || loading) return;
-    if (!apiKey.trim()) { setError("Please paste your OpenAI API key first."); return; }
+    if (!passcode.trim()) { setError("Enter the school passcode first."); return; }
     setError(""); setRawDump("");
     setRegenSlide(scope);
     try {
       const sourceText = mode === "article" ? articleText : "";
       const { parsed } = await generateSpotlight({
-        apiKey: apiKey.trim(), model, mode, band, year, theme,
+        passcode: passcode.trim(), mode, band, year, theme,
         title: title.trim(), media, sourceText,
         scope, routineChoice: routineChoiceArg !== undefined ? routineChoiceArg : routineChoice, current: spot,
       });
@@ -2396,21 +2392,12 @@ function App() {
         {/* ----------------- INPUT PANEL ----------------- */}
         <div className="panel input">
           <div className="group">
-            <label className="cap" htmlFor="f-apikey">OpenAI API key</label>
+            <label className="cap" htmlFor="f-passcode">School passcode</label>
             <div style={{ display: "flex", gap: 6 }}>
-              <input id="f-apikey" type="password" value={apiKey} placeholder="sk-…" onChange={e => saveApiKey(e.target.value)} />
-              {apiKey && <button className="btn ghost" style={{ width: "auto", padding: "9px 12px", whiteSpace: "nowrap" }} title="Remove the saved key from this browser" onClick={forgetAll}>Forget</button>}
+              <input id="f-passcode" type="password" value={passcode} placeholder="Passcode" onChange={e => savePasscode(e.target.value)} />
+              {passcode && <button className="btn ghost" style={{ width: "auto", padding: "9px 12px", whiteSpace: "nowrap" }} title="Remove the saved passcode from this browser" onClick={forgetAll}>Forget</button>}
             </div>
-            <div className="hint">Saved in <b>this browser only</b> (localStorage). <b>Forget</b> clears the key <b>and</b> disconnects any SharePoint folders — use it on a shared computer.</div>
-          </div>
-
-          <div className="group">
-            <label className="cap" htmlFor="f-model">Model</label>
-            <select id="f-model" value={model} onChange={e => setModel(e.target.value)}>
-              <option value="gpt-5.4">gpt-5.4</option>
-              <option value="gpt-5.5">gpt-5.5</option>
-              <option value="gpt-5.4-mini">gpt-5.4-mini</option>
-            </select>
+            <div className="hint">Ask the Digital Learning team for the passcode. Saved in this browser only — Forget clears it.</div>
           </div>
 
           <div className="group">
