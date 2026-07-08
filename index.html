@@ -127,6 +127,12 @@
     display: block; font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase;
     color: var(--muted); font-weight: 700; margin-bottom: 6px;
   }
+  /* Class settings panel (curriculum/subject/year/outcome) — same field rhythm as .group. */
+  .field-row { margin-bottom: 12px; }
+  .field-row label {
+    display: block; font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--muted); font-weight: 700; margin-bottom: 6px;
+  }
   input[type=text], input[type=password], textarea, select {
     width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px;
     font: inherit; color: var(--ink); background: #fff; outline: none;
@@ -492,59 +498,38 @@ const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 // Bump on every deploy so a glance at the header confirms the cache is current.
 const APP_VERSION = "v0.1.0 · 2026-07-08";
 
-// Closed theme taxonomy — every spotlight (and the "Suggest" button) must resolve
-// to exactly one of these so the Theme stays a tidy, filterable set. Order is
-// roughly: wellbeing · conduct · data · truth · AI · safety · money.
-// EDIT this list to match the themes you want offered.
-const DEFAULT_THEMES = [
-  "Digital Balance",
-  "Online Kindness",
-  "Cyberbullying",
-  "Privacy & Data",
-  "Digital Footprint",
-  "Misinformation",
-  "Academic Integrity",
-  "Verifying AI Claims",
-  "Ethical AI Learning",
-  "AI Ad Transparency",
-  "Living with AI",
-  "AI & the Future of Work",
-  "Scams & Fraud",
-  "Staying Safe Online",
-  "Respect & Relationships Online",
-  "Healthy Gaming",
-  "Online Trends & Pressure",
-];
+// Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
+// inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
+// set a generated spotlight is pitched to.
+function bandOf(yearLevel) {
+  const s = String(yearLevel);
+  const n = parseInt(s.replace(/\D/g, ""), 10);
+  if (/prep|foundation|^k$/i.test(s.trim()) || (!Number.isNaN(n) && n <= 6)) return "younger"; // Prep–Y6
+  if (!Number.isNaN(n) && n <= 9) return "middle";                                             // Y7–9
+  return "senior";                                                                             // Y10–12 (default)
+}
+// bandOf() speaks "younger/middle/senior"; ROUTINES/BAND_GUIDANCE/BANDS (and the
+// CSS band- classes) speak "PYP/Middle/Senior" — bridge the two vocabularies here
+// so the rest of the generation/export machinery doesn't need to change.
+const BAND_KEY_OF = { younger: "PYP", middle: "Middle", senior: "Senior" };
 
-// The cybersafety theme presets are user-editable (see the Focus-theme picker).
-// THEMES is the live list read at call-time by the AI prompt builders and
-// snapToTheme; DEFAULT_THEMES is the always-available fallback. Resolution
-// order: localStorage > defaults.
-const THEMES_STORE = "tsg-themes";
-function normalizeThemes(arr) {
-  const out = [], seen = new Set();
-  for (const raw of (Array.isArray(arr) ? arr : [])) {
-    const t = String(raw == null ? "" : raw).replace(/[^\p{L}\p{N} &'./+-]/gu, "").replace(/\s+/g, " ").trim();
-    if (!t || t.length > 60) continue;
-    const k = t.toLowerCase();
-    if (seen.has(k)) continue;
-    seen.add(k); out.push(t);
-  }
-  return out;
-}
-function loadCachedThemes() {
+// One curriculum + subject + year level + outcome describes the single class this
+// generator run is for (replaces the old multi-band checkboxes — one run, one class).
+const CURRICULA = ["VCE", "IB PYP", "IB MYP", "IB DP", "Australian Curriculum", "Custom"];
+const CLASS_STORE = "sb_class";
+function loadClassInfo() {
+  const fallback = { curriculum: "IB MYP", subject: "", yearLevel: "", outcome: "" };
   try {
-    const raw = JSON.parse(localStorage.getItem(THEMES_STORE) || "null");
-    const arr = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.themes) ? raw.themes : null);
-    if (!arr) return null;
-    const clean = normalizeThemes(arr);
-    return clean.length ? clean : null;
-  } catch (_) { return null; }
+    const raw = JSON.parse(localStorage.getItem(CLASS_STORE) || "null");
+    if (!raw || typeof raw !== "object") return fallback;
+    return {
+      curriculum: typeof raw.curriculum === "string" && raw.curriculum ? raw.curriculum : fallback.curriculum,
+      subject: typeof raw.subject === "string" ? raw.subject : fallback.subject,
+      yearLevel: typeof raw.yearLevel === "string" ? raw.yearLevel : fallback.yearLevel,
+      outcome: typeof raw.outcome === "string" ? raw.outcome : fallback.outcome,
+    };
+  } catch (_) { return fallback; }
 }
-function saveCachedThemes(themes) {
-  try { localStorage.setItem(THEMES_STORE, JSON.stringify(themes)); } catch (_) {}
-}
-let THEMES = loadCachedThemes() || DEFAULT_THEMES.slice();
 
 // A "combined" deck serves several bands at once (one deck, shared language). It is
 // stored under its LOWEST band key so all the per-band machinery still works, and
@@ -1141,58 +1126,6 @@ function mergeScopedFields(spot, scope, p) {
   return out;
 }
 
-// Ask the model for ONE short focus-theme phrase based on the current stimulus.
-// Sends the same content kinds generate() would (text + any image/frames) but asks
-// only for a 2-4 word theme. Returns a cleaned phrase, or "" on empty.
-// Snap any free text to the closest canonical THEME so the deck only ever
-// carries a value from our closed set. Match is case-insensitive: exact
-// first, then word-overlap, else the first theme as a safe default.
-function snapToTheme(raw) {
-  const s = String(raw || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
-  if (!s) return THEMES[0];
-  const exact = THEMES.find(t => t.toLowerCase() === s);
-  if (exact) return exact;
-  const words = new Set(s.split(" ").filter(w => w.length > 2));
-  let best = THEMES[0], bestScore = 0;
-  for (const t of THEMES) {
-    const tw = t.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(" ").filter(w => w.length > 2);
-    const score = tw.reduce((n, w) => n + (words.has(w) ? 1 : 0), 0);
-    if (score > bestScore) { bestScore = score; best = t; }
-  }
-  return best;
-}
-
-async function suggestThemeFromStimulus({ passcode, mode, media = [], sourceText = "" }) {
-  const list = THEMES.map(t => `"${t}"`).join(", ");
-  const sys = `You are an IB digital-citizenship coach. Pick the single best FOCUS THEME for a 5-minute cyber-safety / digital-citizenship discussion built on the given stimulus. You MUST choose EXACTLY ONE theme from this fixed list and reply with ONLY that theme, copied verbatim (exact spelling and capitalisation), with no quotes, punctuation, or explanation:\n${list}`;
-  const ask = `Choose the ONE best-fitting theme from the allowed list for a cyber-safety / digital-citizenship discussion based on this stimulus. Reply with only the theme text, exactly as written in the list.`;
-  const userContent = [];
-  if (mode === "media" && media.length) {
-    userContent.push({ type: "text", text: ask + ` The stimulus is a reel of ${media.length} item(s).` });
-    media.forEach(m => {
-      if (m.kind === "image") userContent.push({ type: "image_url", image_url: { url: m.dataUrl } });
-      else (m.frames || []).forEach(fr => userContent.push({ type: "image_url", image_url: { url: fr } }));
-    });
-  } else {
-    userContent.push({ type: "text", text: ask + `\nStimulus:\n"""\n${(sourceText || "").slice(0, 8000).replace(/"{3,}/g, "“”")}\n"""` });
-  }
-  const resp = await fetch(API_BASE + "/api/generate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-sb-passcode": passcode },
-    body: JSON.stringify({
-      messages: [{ role: "system", content: sys }, { role: "user", content: userContent }],
-      max_completion_tokens: 800,
-    }),
-  });
-  if (!resp.ok) throw new Error(await backendErrorMessage(resp));
-  const data = await resp.json();
-  const raw = (data?.choices?.[0]?.message?.content || "").trim();
-  // Keep the first line, then snap it to the closest canonical THEME so the result
-  // is always a member of the closed set (never free-form drift).
-  const first = raw.split("\n")[0].replace(/^["'`]+|["'`.]+$/g, "").trim();
-  return snapToTheme(first);
-}
-
 /* ------------------------------ Icons ------------------------------ */
 /* Inline SVG, currentColor-driven, so they inherit text colour and stay crisp
    on every OS (emoji rendered inconsistently and the sparkle read as AI flash). */
@@ -1351,24 +1284,18 @@ function App() {
   const [pdfName, setPdfName] = useState("");
   const [title, setTitle] = useState("");
   const [link, setLink] = useState("");
-  const [bands, setBands] = useState(["PYP"]);       // selected bands, ordered
-  const [combine, setCombine] = useState(false);     // make ONE shared deck for all selected bands
-  const [years, setYears] = useState({});            // { [band]: yearLevel }
   const [activeBand, setActiveBand] = useState(null);// which generated deck is shown
-  const [theme, setTheme] = useState(THEMES[0]);
-  const [themeList, setThemeList] = useState(THEMES);
-  const [editThemes, setEditThemes] = useState(false);
-  const [newTheme, setNewTheme] = useState("");
-  const [themeMsg, setThemeMsg] = useState("");
+  // classInfo replaces the old multi-band checkboxes + theme presets: one class
+  // (curriculum/subject/year/outcome) drives one generator run.
+  const [classInfo, setClassInfo] = useState(() => loadClassInfo());
+  const saveClassInfo = (next) => { setClassInfo(next); try { localStorage.setItem(CLASS_STORE, JSON.stringify(next)); } catch (_) {} };
   const [design, setDesign] = useState("classic");
 
   // generation
   const [loading, setLoading] = useState(false);
   const [genProgress, setGenProgress] = useState(0); // 0-100, eased estimate while generating
-  const [genStatus, setGenStatus] = useState(""); // per-band progress line while generating multiple decks
   const [regenSlide, setRegenSlide] = useState(null);   // which slide is regenerating: "title" | "provocation" | "takeaway"
   const [routineChoice, setRoutineChoice] = useState(""); // "" = let AI choose; else an exact routine name
-  const [suggestingTheme, setSuggestingTheme] = useState(false);
   const [fetchingArticle, setFetchingArticle] = useState(false);
   const [error, setError] = useState("");
   const [rawDump, setRawDump] = useState("");
@@ -1380,28 +1307,6 @@ function App() {
   const [extractingVideo, setExtractingVideo] = useState(false); // any video frame-extraction in flight
   const [mediaNote, setMediaNote] = useState(""); // soft inline status under the dropzone
 
-  // Single place that mutates the theme list: normalize -> live THEMES -> state -> cache.
-  function applyThemes(next) {
-    const clean = normalizeThemes(next);
-    if (!clean.length) return;
-    THEMES = clean;
-    setThemeList(clean);
-    saveCachedThemes(clean);
-  }
-  function addTheme() {
-    const name = newTheme.replace(/\s+/g, " ").trim();
-    if (!name) return;
-    if (name.length > 60) { setThemeMsg("Keep theme names under 60 characters."); return; }
-    if (themeList.some(t => t.toLowerCase() === name.toLowerCase())) { setThemeMsg('"' + name + '" is already in the list.'); return; }
-    applyThemes([...themeList, name]);
-    setNewTheme(""); setThemeMsg("");
-  }
-  function removeTheme(name) {
-    if (themeList.length <= 1) { setThemeMsg("Keep at least one theme."); return; }
-    applyThemes(themeList.filter(t => t.toLowerCase() !== name.toLowerCase()));
-    setThemeMsg("");
-  }
-
   const mediaInput = useRef(null);
   const pdfInput = useRef(null);
   const genBtnRef = useRef(null);
@@ -1411,18 +1316,13 @@ function App() {
   const firstStill = media[0] ? (media[0].kind === "image" ? media[0].dataUrl : media[0].poster) : "";
 
   // Active band drives the (single) preview/edit/export view; before generation
-  // it falls back to the first selected band so chips/labels still resolve.
-  const band = activeBand || bands[0] || "PYP";
-  const year = years[band] || "";
+  // it falls back to the band derived from the class settings panel.
+  const band = activeBand || BAND_KEY_OF[bandOf(classInfo.yearLevel)];
+  const year = classInfo.yearLevel || "";
+  const theme = classInfo.outcome || classInfo.subject || "";
   // If the active deck is a combined one, its cover/label reads "Middle & Senior".
   const activeCombo = (spots[activeBand] && spots[activeBand].comboBands) || null;
   const bandLabel = activeCombo ? comboBandLabel(activeCombo) : bandLabelOf(band);
-  const toggleBand = (b) => setBands(prev => {
-    const has = prev.includes(b);
-    const next = has ? prev.filter(x => x !== b) : [...prev, b];
-    return BAND_ORDER.filter(x => next.includes(x)); // keep canonical order
-  });
-  const setBandYear = (b, y) => setYears(prev => ({ ...prev, [b]: y }));
 
   // The preview/edit/export view is single-deck: `spot` is the active band's deck,
   // and `setSpot` (accepting a value OR a function updater, like the old useState
@@ -1442,8 +1342,6 @@ function App() {
 
   // Keep reelIndex in range whenever the reel shrinks.
   React.useEffect(() => { if (reelIndex > Math.max(0, media.length - 1)) setReelIndex(0); }, [media.length]);
-  // "Combine" only makes sense with 2+ bands — auto-clear it if the selection drops below.
-  React.useEffect(() => { if (bands.length < 2 && combine) setCombine(false); }, [bands.length]);
 
   /* ------- file handlers ------- */
   const newId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
@@ -1541,29 +1439,8 @@ function App() {
 
   /* ------- validation ------- */
   function inputReady() {
-    if (mode === "media") return media.length > 0;
-    if (mode === "article") return articleText.trim().length > 20;
-    return false;
-  }
-
-  /* ------- suggest a focus theme from the current stimulus ------- */
-  async function suggestTheme() {
-    setError("");
-    if (!passcode.trim()) { setError("Enter the school passcode first."); return; }
-    if (!inputReady()) { setError("Add a stimulus first, then Suggest a theme."); return; }
-    setSuggestingTheme(true);
-    try {
-      const t = await suggestThemeFromStimulus({
-        passcode: passcode.trim(), mode, media,
-        sourceText: mode === "article" ? articleText : "",
-      });
-      if (t) setTheme(t);
-      else setError("The model didn't return a theme — try again or type one.");
-    } catch (err) {
-      setError("Couldn't suggest a theme: " + (err.message || String(err)));
-    } finally {
-      setSuggestingTheme(false);
-    }
+    const hasStimulus = mode === "media" ? media.length > 0 : mode === "article" ? articleText.trim().length > 20 : false;
+    return hasStimulus && !!classInfo.subject.trim() && !!classInfo.yearLevel.trim();
   }
 
   /* ------- generate ------- */
@@ -1572,7 +1449,7 @@ function App() {
     setError(""); setRawDump("");
     if (!passcode.trim()) { setError("Enter the school passcode first."); return; }
     if (mode === "media" && !media.length) { setError("Add at least one image or video first."); return; }
-    if (!inputReady()) { setError("Please add a stimulus first (images/video, or article text/PDF)."); return; }
+    if (!inputReady()) { setError("Please add a stimulus first (images/video, or article text/PDF), and fill in the subject and year level."); return; }
 
     setLoading(true);
     // Estimated progress: ease toward ~92% while the single request is in flight,
@@ -1581,42 +1458,19 @@ function App() {
     setGenProgress(3);
     const progTick = setInterval(() => setGenProgress(p => (p < 92 ? p + (92 - p) * 0.06 : p)), 250);
     try {
-      if (!bands.length) { setError("Pick at least one band first."); setLoading(false); clearInterval(progTick); return; }
       const sourceText = mode === "article" ? articleText : "";
-      const built = {};
-      if (combine && bands.length > 1) {
-        // ONE shared deck for all selected bands. Pitch + thinking routine come from the
-        // LOWEST band (accessible to everyone); the deck is stored under that key and
-        // tagged with comboBands so its label/filename/metadata read as combined.
-        const ordered = BAND_ORDER.filter(b => bands.includes(b));
-        const genBand = ordered[0];
-        setGenStatus(`Generating combined ${comboBandLabel(ordered)}…`);
-        const { parsed, raw } = await generateSpotlight({
-          passcode: passcode.trim(), mode, band: genBand, year: "", theme,
-          title: title.trim(), media, sourceText,
-        });
-        const deck = shapeDeck(parsed, { band: genBand, title });
-        deck.comboBands = ordered;
-        if (!deck.framing) deck.framing = MODE_FRAMING[mode];
-        built[genBand] = deck;
-        setRawDump(raw);
-        setSpots(built);
-        setActiveBand(genBand);
-      } else {
-        for (let i = 0; i < bands.length; i++) {
-          const b = bands[i];
-          setGenStatus(`Generating ${bandLabelOf(b)}… ${i + 1} of ${bands.length}`);
-          const { parsed, raw } = await generateSpotlight({
-            passcode: passcode.trim(), mode, band: b, year: years[b] || "", theme,
-            title: title.trim(), media, sourceText,
-          });
-          built[b] = shapeDeck(parsed, { band: b, title });
-          if (i === bands.length - 1) setRawDump(raw);
-          if (!built[b].framing) built[b].framing = MODE_FRAMING[mode];
-        }
-        setSpots(built);
-        setActiveBand(bands[0]);
-      }
+      // Single-class-per-run: one generate() call produces one deck, pitched to the
+      // band derived from classInfo.yearLevel (bandOf + BAND_KEY_OF above).
+      const genBand = BAND_KEY_OF[bandOf(classInfo.yearLevel)];
+      const { parsed, raw } = await generateSpotlight({
+        passcode: passcode.trim(), mode, band: genBand, year: classInfo.yearLevel, theme,
+        title: title.trim(), media, sourceText,
+      });
+      const deck = shapeDeck(parsed, { band: genBand, title });
+      if (!deck.framing) deck.framing = MODE_FRAMING[mode];
+      setRawDump(raw);
+      setSpots({ [genBand]: deck });
+      setActiveBand(genBand);
       genStimKey.current = stimKey; // remember the stimulus fingerprint for the stale-deck hint
       setGenProgress(100);
     } catch (err) {
@@ -1625,7 +1479,6 @@ function App() {
     } finally {
       clearInterval(progTick);
       setLoading(false);
-      setGenStatus("");
       setTimeout(() => setGenProgress(0), 500);
     }
   }
@@ -1687,7 +1540,7 @@ function App() {
     const spot = deck;                       // body reads spot.*
     const band = bandKey;
     // A combined deck shows no single year and reads "Middle & Senior" on its slides.
-    const year = deck.comboBands ? "" : (years[bandKey] || "");
+    const year = deck.comboBands ? "" : (classInfo.yearLevel || "");
     const bandLabel = deck.comboBands ? comboBandLabel(deck.comboBands) : bandLabelOf(bandKey);
     const kw = Array.isArray(spot.keywords) ? spot.keywords.filter(Boolean) : []; // search terms for notes + core props
     try {
@@ -2188,71 +2041,30 @@ function App() {
           </div>
 
           <div className="group">
-            <label className="cap">Band &amp; year <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· tick one or more</span></label>
-            <div className="band-multi">
-              {BAND_ORDER.map(b => {
-                const on = bands.includes(b);
-                return (
-                  <div key={b} className={"band-opt" + (on ? " on" : "")}>
-                    <label className="band-check">
-                      <input type="checkbox" checked={on} onChange={() => { toggleBand(b); setRoutineChoice(""); }} />
-                      <span className={"band-dot band-" + b.toLowerCase()}></span>
-                      {bandLabelOf(b)}
-                    </label>
-                    {on && (
-                      <select aria-label={"Year level for " + bandLabelOf(b)} value={years[b] || ""} onChange={e => setBandYear(b, e.target.value)}>
-                        <option value="">Whole band</option>
-                        {BANDS[b].years.map(y => <option key={y} value={y}>{y}</option>)}
-                      </select>
-                    )}
-                  </div>
-                );
-              })}
+            <label className="cap">Class settings</label>
+            <div className="field-row">
+              <label htmlFor="f-curr">Curriculum</label>
+              <select id="f-curr" value={classInfo.curriculum}
+                      onChange={e => saveClassInfo({ ...classInfo, curriculum: e.target.value })}>
+                {CURRICULA.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
             </div>
-            {bands.length > 1 && (
-              <label className="band-check" style={{ marginTop: 10 }}>
-                <input type="checkbox" checked={combine} onChange={() => setCombine(c => !c)} />
-                <span>Combine into <b>one shared deck</b> for {comboBandLabel(BAND_ORDER.filter(b => bands.includes(b)))}</span>
-              </label>
-            )}
-            {bands.length > 1 && (
-              <div className="hint">{combine
-                ? "One deck, shared language (pitched to the youngest band) — saved as a single file tagged with every selected band."
-                : "Off = a separate deck per band. Tick to make one deck that fits them all."}</div>
-            )}
-          </div>
-
-          <div className="group">
-            <div className="theme-head">
-              <label className="cap" htmlFor="f-theme">Focus theme</label>
-              <button type="button" className="theme-edit-toggle" onClick={() => { setEditThemes(v => !v); setThemeMsg(""); setNewTheme(""); }}>
-                {editThemes ? "Done" : "Edit themes"}
-              </button>
+            <div className="field-row">
+              <label htmlFor="f-subj">Subject</label>
+              <input id="f-subj" type="text" placeholder="e.g. Science, English, Humanities"
+                     value={classInfo.subject} onChange={e => saveClassInfo({ ...classInfo, subject: e.target.value })} />
             </div>
-            <div style={{ display: "flex", gap: 6 }}>
-              <input id="f-theme" type="text" value={theme} placeholder="Type a theme, tap a preset, or Suggest" onChange={e => setTheme(e.target.value)} />
-              <button type="button" className="btn ghost" style={{ width: "auto", padding: "9px 12px", whiteSpace: "nowrap" }} disabled={suggestingTheme || !inputReady()} title="Suggest a theme from your stimulus" onClick={suggestTheme}>
-                {suggestingTheme ? <React.Fragment><span className="spinner" style={{ borderTopColor: "var(--accent)", borderColor: "var(--accent-soft)" }}></span> Suggesting…</React.Fragment> : "Suggest"}
-              </button>
+            <div className="field-row">
+              <label htmlFor="f-year">Year level</label>
+              <input id="f-year" type="text" placeholder="e.g. Prep, 4, 8, 11"
+                     value={classInfo.yearLevel} onChange={e => saveClassInfo({ ...classInfo, yearLevel: e.target.value })} />
             </div>
-            <div className="theme-picks">
-              {themeList.map((t, i) => (
-                <span key={t} className={"pick-wrap" + (editThemes ? " editing" : "")}>
-                  <button type="button" className={"pick tint-" + (i % 5) + (theme === t ? " on" : "")} onClick={() => setTheme(t)}>{t}</button>
-                  {editThemes && <button type="button" className="pick-x" aria-label={"Remove theme: " + t} title={"Remove " + t} onClick={() => removeTheme(t)}>×</button>}
-                </span>
-              ))}
-              {editThemes && (
-                <span className="theme-add">
-                  <input type="text" value={newTheme} placeholder="New theme…" onChange={e => setNewTheme(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addTheme(); } }} />
-                  <button type="button" className="btn ghost" onClick={addTheme}>Add</button>
-                </span>
-              )}
+            <div className="field-row">
+              <label htmlFor="f-outcome">Outcome or topic (optional — paste from your planner)</label>
+              <textarea id="f-outcome" rows={2}
+                        placeholder="e.g. 'Students analyse how text structures shape meaning' or 'Unit: Body systems'"
+                        value={classInfo.outcome} onChange={e => saveClassInfo({ ...classInfo, outcome: e.target.value })} />
             </div>
-            {editThemes && <div className="hint">Themes are saved in this browser.</div>}
-            {themeMsg && <div className="hint" style={{ color: "var(--bad-ink)" }}>{themeMsg}</div>}
-            <div className="hint">Type any theme, tap a preset above, or <b>Suggest</b> one from your stimulus.</div>
           </div>
 
           <button className="btn primary" ref={genBtnRef} disabled={loading || !!regenSlide} aria-busy={loading} onClick={generate}>
@@ -2260,8 +2072,6 @@ function App() {
               : spot ? <React.Fragment><Icon d={I.refresh} size={16} stroke /> Regenerate</React.Fragment>
               : <React.Fragment><Icon d={I.generate} size={16} /> Generate Spotlight</React.Fragment>}
           </button>
-
-          {genStatus && <div className="hint">{genStatus}</div>}
 
           {/* Screen-reader-only live status: announces the generation lifecycle (the
               visible cue is the button text/spinner; errors are announced via role=alert). */}
