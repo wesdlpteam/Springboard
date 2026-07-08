@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Digital Life Spotlight Generator</title>
+<title>Springboard</title>
 
 <!-- React + Babel (in-browser JSX, no build step) -->
 <script crossorigin="anonymous" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
@@ -12,7 +12,7 @@
 
 <!-- QR codes (qrcode-generator: exposes a global `qrcode` with synchronous createDataURL) -->
 <script crossorigin="anonymous" integrity="sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k" src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-<!-- JSZip: post-process the generated .pptx to inject SharePoint online-video markup -->
+<!-- JSZip: post-process the generated .pptx to stamp custom document properties -->
 <script crossorigin="anonymous" integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG" src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <!-- pptxgenjs (PowerPoint export, ~155KB) and pdf.js (PDF text extraction, ~73KB) are
      heavy and only needed on user action, so they're lazy-loaded on demand via
@@ -417,75 +417,10 @@ function makeTexture(kind, opts) {
   return c.toDataURL("image/png");
 }
 
-/* ---- SharePoint online-video post-processing ----
-   pptxgenjs cannot emit a working SharePoint online-video object (its output
-   corrupts). So for a video that has a sharePointUrl we export its first frame
-   as a *marked* poster image (altText -> <p:cNvPr descr="TSG-VIDEO::<url>">),
-   then rewrite each marked <p:pic> here into PowerPoint's exact online-video
-   markup: an external `video` relationship + <a:videoFile r:link> + an
-   <a:hlinkClick action="ppaction://media"/>, keeping the poster blipFill. */
-const VIDEO_MARK_PREFIX = "TSG-VIDEO::";
-// The EXACT <p:timing> markup PowerPoint wrote for Start->Automatically (verified
-// to autoplay in PowerPoint-web during planning). SPID_PLACEHOLDER marks all 5
-// shape-id references; substitute the converted video pic's <p:cNvPr id>.
-const AUTOPLAY_TIMING_TEMPLATE = `<p:timing><p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst><p:seq concurrent="1" nextAc="seek"><p:cTn id="2" dur="indefinite" nodeType="mainSeq"><p:childTnLst><p:par><p:cTn id="3" fill="hold"><p:stCondLst><p:cond delay="indefinite"/><p:cond evt="onBegin" delay="0"><p:tn val="2"/></p:cond></p:stCondLst><p:childTnLst><p:par><p:cTn id="4" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="5" presetID="1" presetClass="mediacall" presetSubtype="0" fill="hold" nodeType="afterEffect"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst><p:cmd type="call" cmd="playFrom(0.0)"><p:cBhvr><p:cTn id="6" dur="1" fill="hold"/><p:tgtEl><p:spTgt spid="SPID_PLACEHOLDER"/></p:tgtEl></p:cBhvr></p:cmd></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn><p:prevCondLst><p:cond evt="onPrev" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst><p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst></p:seq><p:video><p:cMediaNode vol="80000"><p:cTn id="7" fill="hold" display="0"><p:stCondLst><p:cond delay="indefinite"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid="SPID_PLACEHOLDER"/></p:tgtEl></p:cMediaNode></p:video><p:seq concurrent="1" nextAc="seek"><p:cTn id="8" restart="whenNotActive" fill="hold" evtFilter="cancelBubble" nodeType="interactiveSeq"><p:stCondLst><p:cond evt="onClick" delay="0"><p:tgtEl><p:spTgt spid="SPID_PLACEHOLDER"/></p:tgtEl></p:cond></p:stCondLst><p:endSync evt="end" delay="0"><p:rtn val="all"/></p:endSync><p:childTnLst><p:par><p:cTn id="9" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="10" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="11" presetID="2" presetClass="mediacall" presetSubtype="0" fill="hold" nodeType="clickEffect"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst><p:cmd type="call" cmd="togglePause"><p:cBhvr><p:cTn id="12" dur="1" fill="hold"/><p:tgtEl><p:spTgt spid="SPID_PLACEHOLDER"/></p:tgtEl></p:cBhvr></p:cmd></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn><p:nextCondLst><p:cond evt="onClick" delay="0"><p:tgtEl><p:spTgt spid="SPID_PLACEHOLDER"/></p:tgtEl></p:cond></p:nextCondLst></p:seq></p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>`;
-// Convert each marked poster <p:pic> into a real online-video object referencing its SharePoint URL.
-async function injectOnlineVideos(blob, videoMarks) {
-  if (!videoMarks.length || typeof JSZip === "undefined") return blob;
-  const zip = await JSZip.loadAsync(blob);
-  const slidePaths = Object.keys(zip.files).filter(p => /^ppt\/slides\/slide\d+\.xml$/.test(p));
-  for (const sp of slidePaths) {
-    let xml = await zip.file(sp).async("string");
-    if (xml.indexOf(VIDEO_MARK_PREFIX) === -1) continue;
-    const relPath = sp.replace(/slides\/(slide\d+)\.xml$/, "slides/_rels/$1.xml.rels");
-    let rels = await zip.file(relPath).async("string");
-    let relSeq = 0;
-    let lastVideoSpid = null;
-    // Each marked pic carries descr="TSG-VIDEO::<url>" on its <p:cNvPr>.
-    xml = xml.replace(/<p:pic>[\s\S]*?<\/p:pic>/g, (pic) => {
-      const m = pic.match(/descr="TSG-VIDEO::([^"]+)"/);
-      if (!m) return pic;
-      const idm = pic.match(/<p:cNvPr\s+id="(\d+)"/);
-      if (idm) lastVideoSpid = idm[1];
-      const rid = "rIdVid" + (++relSeq);
-      // add external video relationship (Target keeps the XML-escaped url, e.g. &amp;)
-      rels = rels.replace("</Relationships>",
-        `<Relationship Id="${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/video" Target="${m[1]}" TargetMode="External"/></Relationships>`);
-      // strip the marker, add hlinkClick(media) into cNvPr, add videoFile into nvPr
-      let p = pic.replace(/\s*descr="TSG-VIDEO::[^"]+"/, "");
-      p = p.replace(/(<p:cNvPr\b[^>]*?)(\/>|>)/, (full, head, close) => {
-        if (close === "/>") return head + '><a:hlinkClick r:id="" action="ppaction://media"/></p:cNvPr>';
-        return head + '><a:hlinkClick r:id="" action="ppaction://media"/>';
-      });
-      // Insert <a:videoFile> into the pic's <p:nvPr>. pptxgenjs already emits a
-      // (usually empty) <p:nvPr> for an image; OOXML allows only ONE per nvPicPr,
-      // so reuse it if present, otherwise create one before </p:nvPicPr>.
-      const vf = `<a:videoFile r:link="${rid}"/>`;
-      if (/<p:nvPr\s*\/>/.test(p)) {
-        p = p.replace(/<p:nvPr\s*\/>/, `<p:nvPr>${vf}</p:nvPr>`);
-      } else if (/<p:nvPr>[\s\S]*?<\/p:nvPr>/.test(p)) {
-        p = p.replace(/<\/p:nvPr>/, `${vf}</p:nvPr>`);
-      } else {
-        p = p.replace(/<\/p:nvPicPr>/, `<p:nvPr>${vf}</p:nvPr></p:nvPicPr>`);
-      }
-      return p;
-    });
-    // Autoplay-on-open: inject the verified timing block referencing the video shape id.
-    if (lastVideoSpid) {
-      const timing = AUTOPLAY_TIMING_TEMPLATE.replace(/SPID_PLACEHOLDER/g, lastVideoSpid);
-      xml = xml.replace(/<\/p:sld>/, timing + "</p:sld>");
-    }
-    zip.file(sp, xml);
-    zip.file(relPath, rels);
-  }
-  return await zip.generateAsync({ type: "blob" });
-}
-
-/* ---- SharePoint metadata stamping ----
-   Writes Band + Theme into the .pptx as custom document properties (docProps/custom.xml)
-   so a Power Automate "When a file is created" flow can read them and set the SharePoint
-   "Band"/"Theme" columns automatically (Theme lives only here; Band is also in the
-   filename). Each prop is a plain string. No-op if JSZip is missing or no props given. */
+/* ---- Custom document-property stamping ----
+   Writes arbitrary metadata into the .pptx as custom document properties
+   (docProps/custom.xml). Each prop is a plain string. No-op if JSZip is
+   missing or no props given. */
 const DOCPROPS_FMTID = "{D5CDD505-2E9C-101B-9397-08002B2CF9AE}"; // standard custom-props fmtid
 function xmlEsc(s) {
   return String(s == null ? "" : s)
@@ -524,8 +459,8 @@ async function stampDocProps(blob, props, keywords) {
     zip.file(relPath, rels);
   }
 
-  // Office "Tags"/Keywords core property — SharePoint search indexes this so teachers
-  // can find a lesson by topic words. Inject <cp:keywords> into the existing core.xml.
+  // Office "Tags"/Keywords core property — helps a teacher find a lesson by topic
+  // words later. Inject <cp:keywords> into the existing core.xml.
   const kws = Array.isArray(keywords) ? keywords.filter(Boolean) : [];
   if (kws.length) {
     const corePath = "docProps/core.xml";
@@ -555,12 +490,12 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v1.12.2 · 2026-07-06";
+const APP_VERSION = "v0.1.0 · 2026-07-08";
 
 // Closed theme taxonomy — every spotlight (and the "Suggest" button) must resolve
-// to exactly one of these so the SharePoint "Theme" column stays a tidy, filterable
-// set. Order is roughly: wellbeing · conduct · data · truth · AI · safety · money.
-// EDIT this list to match your SharePoint "Theme" choice column verbatim.
+// to exactly one of these so the Theme stays a tidy, filterable set. Order is
+// roughly: wellbeing · conduct · data · truth · AI · safety · money.
+// EDIT this list to match the themes you want offered.
 const DEFAULT_THEMES = [
   "Digital Balance",
   "Online Kindness",
@@ -581,10 +516,10 @@ const DEFAULT_THEMES = [
   "Online Trends & Pressure",
 ];
 
-// The cybersafety theme presets are user-editable (see the Focus-theme picker) and
-// shared via themes.json in a connected SharePoint folder. THEMES is the live list
-// read at call-time by the AI prompt builders and snapToTheme; DEFAULT_THEMES is the
-// always-available fallback. Resolution order: themes.json > localStorage > defaults.
+// The cybersafety theme presets are user-editable (see the Focus-theme picker).
+// THEMES is the live list read at call-time by the AI prompt builders and
+// snapToTheme; DEFAULT_THEMES is the always-available fallback. Resolution
+// order: localStorage > defaults.
 const THEMES_STORE = "tsg-themes";
 function normalizeThemes(arr) {
   const out = [], seen = new Set();
@@ -611,103 +546,16 @@ function saveCachedThemes(themes) {
 }
 let THEMES = loadCachedThemes() || DEFAULT_THEMES.slice();
 
-// Generator band key -> the code used by the SharePoint "Band" column (e.g. SS, MS).
-// EDIT the values to match your column. PYP defaults to "JS" (Junior School).
-const BAND_SP = { PYP: "JS", Middle: "MS", Senior: "SS" };
-const bandSpCode = (k) => BAND_SP[k] || k;
-
 // A "combined" deck serves several bands at once (one deck, shared language). It is
 // stored under its LOWEST band key so all the per-band machinery still works, and
-// carries deck.comboBands = ["Middle","Senior"] to drive its label/filename/metadata.
+// carries deck.comboBands = ["Middle","Senior"] to drive its label/metadata.
 const BAND_SHORT = { PYP: "PYP", Middle: "Middle", Senior: "Senior" };
 const comboBandLabel = (keys) => (keys || []).map(k => BAND_SHORT[k] || bandLabelOf(k)).join(" & ");
-const comboBandCode  = (keys) => (keys || []).map(bandSpCode).join("+"); // e.g. "MS+SS"
-
-// Saved Lessons filenames always carry the Band as a "[SS]" suffix, e.g.
-//   "Addiction by Design (2026-06-29) [SS].pptx"
-// so the band is visible in the library AND trivially parseable by a Power Automate
-// flow. Band + Theme are also written as custom document properties (see stampDocProps).
-// Flip this to true to also fold the Theme into the suffix: "[SS · Digital Balance]".
-const INCLUDE_THEME_IN_FILENAME = true;
 
 // Videos at or under this size are embedded directly in the .pptx; larger ones
 // fall back to a poster frame + link/QR so the deck stays portable.
 const VIDEO_EMBED_MAX_BYTES = 25 * 1024 * 1024; // 25 MB
 const MAX_MEDIA = 10; // max images+videos in one provocation reel
-
-// SharePoint Media library base — EDIT if the library moves. Uploaded videos become
-// online videos at this URL + their filename. The connected folder (see Connect button)
-// must be the local OneDrive-synced copy of this same library.
-const SHAREPOINT_BASE = "https://wesleycollegemelbourne.sharepoint.com/sites/DigitalSpotlight/Media/";
-
-// Persist the chosen FileSystemDirectoryHandle across sessions (handles are structured-cloneable).
-function idbOpen() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open("tsg-fs", 1);
-    req.onupgradeneeded = () => req.result.createObjectStore("handles");
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-async function idbSaveHandle(key, h) {
-  const db = await idbOpen();
-  return new Promise((res, rej) => { const tx = db.transaction("handles", "readwrite"); tx.objectStore("handles").put(h, key); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
-}
-async function idbLoadHandle(key) {
-  const db = await idbOpen();
-  return new Promise((res) => { const tx = db.transaction("handles", "readonly"); const g = tx.objectStore("handles").get(key); g.onsuccess = () => res(g.result || null); g.onerror = () => res(null); });
-}
-async function idbDeleteHandle(key) {
-  try {
-    const db = await idbOpen();
-    return await new Promise((res) => {
-      const tx = db.transaction("handles", "readwrite");
-      tx.objectStore("handles").delete(key);
-      tx.oncomplete = () => res(true); tx.onerror = () => res(false);
-    });
-  } catch (_) { return false; }
-}
-
-// Collision-proof filename for the SharePoint folder; keeps it URL/file-safe.
-function sharePointFileName(original) {
-  const dot = original.lastIndexOf(".");
-  const base = (dot > 0 ? original.slice(0, dot) : original).replace(/[^A-Za-z0-9 _.+-]/g, "").replace(/\s+/g, " ").trim() || "video";
-  const ext = dot > 0 ? original.slice(dot).toLowerCase() : ".mp4";
-  const tag = Math.random().toString(16).slice(2, 8);
-  return base + "-" + tag + ext;
-}
-// Write a video into the connected folder and return its plain-path SharePoint URL.
-async function putVideoToSharePoint(dirHandle, file) {
-  const savedName = sharePointFileName(file.name);
-  const fh = await dirHandle.getFileHandle(savedName, { create: true });
-  const w = await fh.createWritable();
-  await w.write(file);
-  await w.close();
-  const url = SHAREPOINT_BASE + savedName.replace(/ /g, "%20"); // spaces -> %20, keep + literal
-  return { url, savedName };
-}
-
-// Shared theme list lives as themes.json in the connected SharePoint folder so all
-// teachers who connect the same library see the same presets (OneDrive sync;
-// last-write-wins). Reads are tolerant: any error/absent/malformed -> null.
-const THEMES_FILE = "themes.json";
-async function readThemesFile(dirHandle) {
-  try {
-    const fh = await dirHandle.getFileHandle(THEMES_FILE); // no create -> throws if absent
-    const text = await (await fh.getFile()).text();
-    const data = JSON.parse(text);
-    const arr = Array.isArray(data) ? data : (data && Array.isArray(data.themes) ? data.themes : null);
-    if (!arr) return null;
-    const clean = normalizeThemes(arr);
-    return clean.length ? clean : null;
-  } catch (_) { return null; }
-}
-async function writeThemesFile(dirHandle, themes) {
-  const fh = await dirHandle.getFileHandle(THEMES_FILE, { create: true });
-  const w = await fh.createWritable();
-  await w.write(JSON.stringify({ version: 1, themes, updated: new Date().toISOString() }, null, 2));
-  await w.close();
-}
 
 const BAND_GUIDANCE = {
   PYP:    "Audience: IB PYP (Prep–Year 6). Use concrete, simple, inquiry-based language. Short warm sentences. Centre noticing and wondering; avoid abstraction and jargon.",
@@ -1296,9 +1144,9 @@ function mergeScopedFields(spot, scope, p) {
 // Ask the model for ONE short focus-theme phrase based on the current stimulus.
 // Sends the same content kinds generate() would (text + any image/frames) but asks
 // only for a 2-4 word theme. Returns a cleaned phrase, or "" on empty.
-// Snap any free text to the closest canonical THEME so the SharePoint "Theme"
-// column only ever sees values from our closed set. Match is case-insensitive:
-// exact first, then word-overlap, else the first theme as a safe default.
+// Snap any free text to the closest canonical THEME so the deck only ever
+// carries a value from our closed set. Match is case-insensitive: exact
+// first, then word-overlap, else the first theme as a safe default.
 function snapToTheme(raw) {
   const s = String(raw || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
   if (!s) return THEMES[0];
@@ -1492,13 +1340,7 @@ function App() {
   // config — passcode persists in this browser's localStorage (per user request)
   const [passcode, setPasscode] = useState(() => { try { return localStorage.getItem(KEY_STORE) || ""; } catch (_) { return ""; } });
   const savePasscode = (v) => { setPasscode(v); try { v ? localStorage.setItem(KEY_STORE, v) : localStorage.removeItem(KEY_STORE); } catch (_) {} };
-  async function forgetAll() {
-    savePasscode("");
-    await idbDeleteHandle("media"); await idbDeleteHandle("lessons");
-    setFolderHandle(null); setFolderName(""); setFolderReady(false);
-    setLessonsHandle(null); setLessonsName(""); setLessonsReady(false);
-    setMediaNote("Forgotten from this browser: passcode cleared and any SharePoint folders disconnected.");
-  }
+  function forgetAll() { savePasscode(""); }
 
   // inputs
   const [mode, setMode] = useState("media");
@@ -1532,64 +1374,19 @@ function App() {
   const [rawDump, setRawDump] = useState("");
   const [spots, setSpots] = useState({});            // { [band]: deckObject }
   const [exporting, setExporting] = useState(false); // PowerPoint download in flight (drives button disabled)
-  const [saving, setSaving] = useState(false);       // Save-to-SharePoint in flight (drives button disabled)
-  const busyRef = useRef({ exporting: false, saving: false }); // synchronous re-entrancy guard (beats same-tick double-clicks before React re-renders)
+  const busyRef = useRef({ exporting: false }); // synchronous re-entrancy guard (beats same-tick double-clicks before React re-renders)
 
   // media reel
   const [extractingVideo, setExtractingVideo] = useState(false); // any video frame-extraction in flight
   const [mediaNote, setMediaNote] = useState(""); // soft inline status under the dropzone
 
-  // link helper — loopback server on 127.0.0.1:7717
-  const fsSupported = typeof window !== "undefined" && "showDirectoryPicker" in window;
-  const [folderHandle, setFolderHandle] = useState(null);
-  const [folderName, setFolderName] = useState("");
-  const [folderReady, setFolderReady] = useState(false);   // write permission actually granted right now
-  const [lessonsHandle, setLessonsHandle] = useState(null);
-  const [lessonsName, setLessonsName] = useState("");
-  const [lessonsReady, setLessonsReady] = useState(false);
-  React.useEffect(() => {
-    if (!fsSupported) return;
-    // Restore the remembered folders AND check whether write permission still persists
-    // (Chrome 122+ "Allow on every visit" / installed-PWA grants survive a reload), so the
-    // UI can show "ready" instead of nagging "Reconnect" when no click is actually needed.
-    idbLoadHandle("media").then(async h => { if (h) { setFolderHandle(h); setFolderName(h.name || "folder"); setFolderReady(await folderWritable(h)); } });
-    idbLoadHandle("lessons").then(async h => { if (h) { setLessonsHandle(h); setLessonsName(h.name || "folder"); setLessonsReady(await folderWritable(h)); } });
-  }, []);
-  // Whenever a folder becomes available (restored on load, or freshly connected), adopt
-  // its shared themes.json (or seed it). Deps don't change inside the effect, so no loop.
-  React.useEffect(() => { syncThemesFromFolder(); }, [folderHandle, lessonsHandle]);
   // Single place that mutates the theme list: normalize -> live THEMES -> state -> cache.
-  // (writeFile is wired to themes.json in Task 3.)
-  function applyThemes(next, writeFile = true) {
+  function applyThemes(next) {
     const clean = normalizeThemes(next);
     if (!clean.length) return;
     THEMES = clean;
     setThemeList(clean);
     saveCachedThemes(clean);
-    if (writeFile) {
-      (async () => {
-        try {
-          const h = await pickThemesFolder(folderHandle, lessonsHandle);
-          if (h) await writeThemesFile(h, clean);
-        } catch (_) { setMediaNote("Couldn't save the shared theme list — your changes are saved in this browser."); }
-      })();
-    }
-  }
-  // Prefer writable Media folder, then Lessons; returns null if neither is writable.
-  // Defined inside the component so it can call the component-scoped folderWritable().
-  async function pickThemesFolder(mediaH, lessonsH) {
-    if (mediaH && await folderWritable(mediaH)) return mediaH;
-    if (lessonsH && await folderWritable(lessonsH)) return lessonsH;
-    return null;
-  }
-  // On connect/load: if themes.json exists, adopt it (cache only); if absent, seed it.
-  async function syncThemesFromFolder() {
-    if (!fsSupported) return;
-    const h = await pickThemesFolder(folderHandle, lessonsHandle);
-    if (!h) return;
-    const arr = await readThemesFile(h);
-    if (arr) applyThemes(arr, false);      // adopt the shared list (cache only; don't rewrite)
-    else { try { await writeThemesFile(h, THEMES); } catch (_) {} } // seed file from current list
   }
   function addTheme() {
     const name = newTheme.replace(/\s+/g, " ").trim();
@@ -1603,77 +1400,6 @@ function App() {
     if (themeList.length <= 1) { setThemeMsg("Keep at least one theme."); return; }
     applyThemes(themeList.filter(t => t.toLowerCase() !== name.toLowerCase()));
     setThemeMsg("");
-  }
-
-  // Shown after a grant so teachers know how to stop reconnecting each session.
-  const PERSIST_TIP = ' Tip: choose "Allow on every visit" in the browser prompt so you don\'t reconnect next time.';
-  async function connectMediaFolder() {
-    try {
-      if (folderHandle) {
-        // Re-grant the existing folder without re-picking (one click per session).
-        if ((await folderHandle.requestPermission({ mode: "readwrite" })) === "granted") {
-          setFolderReady(true); setMediaNote('SharePoint Media folder ready: "' + folderName + '".' + PERSIST_TIP); return;
-        }
-      }
-      const h = await window.showDirectoryPicker({ mode: "readwrite" });
-      await idbSaveHandle("media", h);
-      setFolderHandle(h); setFolderName(h.name || "folder"); setFolderReady(true);
-      setMediaNote('Connected "' + (h.name || "folder") + '" — uploaded videos will auto-upload to SharePoint.' + PERSIST_TIP);
-    } catch (_) { /* user cancelled the picker */ }
-  }
-  async function connectLessonsFolder() {
-    try {
-      if (lessonsHandle) {
-        if ((await lessonsHandle.requestPermission({ mode: "readwrite" })) === "granted") {
-          setLessonsReady(true); setMediaNote('Lessons folder ready: "' + lessonsName + '".' + PERSIST_TIP); return;
-        }
-      }
-      const h = await window.showDirectoryPicker({ mode: "readwrite" });
-      await idbSaveHandle("lessons", h);
-      setLessonsHandle(h); setLessonsName(h.name || "folder"); setLessonsReady(true);
-      setMediaNote('Connected Lessons folder "' + (h.name || "folder") + '".' + PERSIST_TIP);
-    } catch (_) { /* user cancelled the picker */ }
-  }
-  async function folderWritable(h) {
-    if (!h) return false;
-    try { return (await h.queryPermission({ mode: "readwrite" })) === "granted"; } catch (_) { return false; }
-  }
-  // Lesson filename: hook title (fallback to deck title, then "Lesson") + date, .pptx.
-  function lessonFileName(deck) {
-    const raw = (deck && (deck.hook || deck.title)) || "Lesson";
-    const base = raw.replace(/[^A-Za-z0-9 _.+-]/g, "").replace(/\s+/g, " ").trim() || "Lesson";
-    const d = new Date();
-    // Australian day-month-year, e.g. "29-06-2026".
-    const date = String(d.getDate()).padStart(2, "0") + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + d.getFullYear();
-    // Band (always) + optional Theme as a bracketed, filename-safe, parseable suffix.
-    // Combined decks carry both codes, e.g. "[MS+SS · Living with AI]".
-    const band = (deck && deck.comboBands) ? comboBandCode(deck.comboBands) : bandSpCode(activeBand);
-    const tag = INCLUDE_THEME_IN_FILENAME && theme ? band + " · " + theme : band;
-    return base + " (" + date + ") [" + tag + "].pptx";
-  }
-  async function saveLessonToSharePoint() {
-    if (!spot || !activeBand) return;
-    if (!(await folderWritable(lessonsHandle))) { setLessonsReady(false); setMediaNote(lessonsHandle ? 'Click "Reconnect" on the Lessons folder to enable saving this session.' : "Connect a Lessons folder first to save to SharePoint."); return; }
-    if (busyRef.current.saving) return;
-    busyRef.current.saving = true;
-    setSaving(true);
-    setLessonsReady(true);
-    setMediaNote("Saving lesson to SharePoint Lessons…");
-    try {
-      const finalBlob = await buildDeckBlob(activeBand, spots[activeBand]);
-      if (!finalBlob) { setMediaNote("Couldn't build the PowerPoint to save — see the error above."); return; }
-      const name = lessonFileName(spots[activeBand]);
-      const fh = await lessonsHandle.getFileHandle(name, { create: true });
-      const w = await fh.createWritable();
-      await w.write(finalBlob);
-      await w.close();
-      setMediaNote('Saved to SharePoint Lessons ✓  "' + name + '"');
-    } catch (_) {
-      setMediaNote("Couldn't save the lesson to SharePoint — try Reconnect on the Lessons folder.");
-    } finally {
-      busyRef.current.saving = false;
-      setSaving(false);
-    }
   }
 
   const mediaInput = useRef(null);
@@ -1751,24 +1477,9 @@ function App() {
           const { frames, poster, width, height } = await extractVideoFrames(f, 4);
           const vidId = newId();
           setMedia(m => m.length >= MAX_MEDIA ? m : [...m, { id: vidId, kind: "video", dataUrl, name: f.name, sizeBytes: f.size,
-            poster, aspect: width && height ? width / height : 0, frames, text: "", transcribeState: passcode.trim() ? "running" : "idle", transcribeNote: "",
-            sharePointUrl: "" }]);
+            poster, aspect: width && height ? width / height : 0, frames, text: "", transcribeState: passcode.trim() ? "running" : "idle", transcribeNote: "" }]);
           if (!frames.length) setMediaNote("Couldn't read frames from " + f.name + " — add a description under its thumbnail. It will still embed in the PowerPoint.");
           else if (f.size > VIDEO_EMBED_MAX_BYTES) setMediaNote(`${f.name} is large (${formatBytes(f.size)}) — the deck will use its first frame (add a Link on the left for a clickable link + QR) instead of embedding.`);
-          // Auto-upload to the connected SharePoint Media folder (background, non-blocking).
-          if (folderHandle) {
-            (async () => {
-              try {
-                if (!(await folderWritable(folderHandle))) { setFolderReady(false); setMediaNote('Click "Reconnect" on the Media folder to let videos upload to SharePoint this session.'); return; }
-                setFolderReady(true);
-                setMediaNote("Uploading video to SharePoint — give it a moment before sharing the deck.");
-                const { url } = await putVideoToSharePoint(folderHandle, f);
-                setMedia(m => m.map(x => x.id === vidId ? { ...x, sharePointUrl: url } : x));
-              } catch (_) {
-                setMediaNote("Couldn't save to SharePoint — the clip will embed with a link/QR instead.");
-              }
-            })();
-          }
           if (passcode.trim()) {
             (async () => {
               try {
@@ -1980,9 +1691,6 @@ function App() {
     const bandLabel = deck.comboBands ? comboBandLabel(deck.comboBands) : bandLabelOf(bandKey);
     const kw = Array.isArray(spot.keywords) ? spot.keywords.filter(Boolean) : []; // search terms for notes + core props
     try {
-      // SharePoint online-video markers recorded during the build; applied to the
-      // .pptx blob post-build by injectOnlineVideos(). Scoped per band/call.
-      const videoMarks = [];
       const ST = STYLES[design] || STYLES.classic;
       const T = ST.palette;
       const accent = T.accent, accent2 = T.accent2, bar = T.bar, ink = T.ink, muted = T.muted;
@@ -2221,18 +1929,9 @@ function App() {
           let vw = lw2, vh = vw / ar; if (vh > mediaH) { vh = mediaH; vw = vh * ar; }
           vw = +vw.toFixed(2); vh = +vh.toFixed(2);
           const vX = +(lx + (lw2 - vw) / 2).toFixed(2), vY = +(colY + (mediaH - vh) / 2).toFixed(2);
-          if (item.sharePointUrl) {
-            // Marked poster — converted into a real online-video by post-processing (injectOnlineVideos).
-            const firstStillFallback = item.poster || WESLEY_LOGO_HORIZ;
-            s3.addImage({ data: item.poster || firstStillFallback, x: vX, y: vY, w: vw, h: vh,
-              sizing: { type: "contain", w: vw, h: vh },
-              altText: VIDEO_MARK_PREFIX + item.sharePointUrl });
-            videoMarks.push({ url: item.sharePointUrl, name: item.name || "video.mp4" });
-          } else {
-            const embed = !!item.dataUrl && item.sizeBytes <= VIDEO_EMBED_MAX_BYTES;
-            if (embed) s3.addMedia({ type: "video", data: item.dataUrl, cover: item.poster || undefined, x: vX, y: vY, w: vw, h: vh });
-            else if (item.poster) s3.addImage({ data: item.poster, x: vX, y: vY, w: vw, h: vh, sizing: { type: "contain", w: vw, h: vh } });
-          }
+          const embed = !!item.dataUrl && item.sizeBytes <= VIDEO_EMBED_MAX_BYTES;
+          if (embed) s3.addMedia({ type: "video", data: item.dataUrl, cover: item.poster || undefined, x: vX, y: vY, w: vw, h: vh });
+          else if (item.poster) s3.addImage({ data: item.poster, x: vX, y: vY, w: vw, h: vh, sizing: { type: "contain", w: vw, h: vh } });
         } else {
           // article / no-media: lead image + summary (legacy behavior).
           let stimImg = "";
@@ -2285,18 +1984,13 @@ function App() {
 
       // Core document properties (surface in PowerPoint's File ▸ Info and most tools).
       const lessonTitle = spot.title || spot.hook || "Digital Life Spotlight";
-      const spTheme = theme || "";   // same focus theme printed on the deck (component state)
-      const spBand = deck.comboBands ? comboBandCode(deck.comboBands) : bandSpCode(bandKey);
       pptx.title = lessonTitle;
-      pptx.subject = [spBand, spTheme].filter(Boolean).join(" · ");
-      pptx.company = "Wesley College — Digital Spotlight";
-      pptx.author = "Digital Spotlight Generator";
+      pptx.company = "Wesley College — Springboard";
+      pptx.author = "Springboard";
 
-      // Build to a blob, post-process any SharePoint videos, then stamp Band + Theme as
-      // custom doc properties for the Power Automate flow that fills the SharePoint columns.
+      // Build to a blob, then stamp Title + search keywords as custom doc properties.
       const blob = await pptx.write({ outputType: "blob" });
-      const withVideos = await injectOnlineVideos(blob, videoMarks);
-      return await stampDocProps(withVideos, { Band: spBand, Theme: spTheme, Title: lessonTitle }, kw);
+      return await stampDocProps(blob, { Title: lessonTitle }, kw);
     } catch (err) {
       setError("PowerPoint export failed: " + (err.message || String(err)));
       return null;
@@ -2383,8 +2077,8 @@ function App() {
       <header className="app">
         <div className="logo"><Icon d={I.shield} size={22} /></div>
         <div>
-          <h1>Digital Spotlight Generator</h1>
-          <p>5-minute cyber-safety &amp; digital-citizenship discussion prompts → PowerPoint</p>
+          <h1>Springboard</h1>
+          <p>Launch student thinking — stimulus to slides in two minutes.</p>
         </div>
         <span className="appver" title="App version — check this matches after a refresh">{APP_VERSION}</span>
       </header>
@@ -2488,40 +2182,6 @@ function App() {
             </div>
           )}
 
-          {/* SharePoint folders — shown in BOTH modes so an article deck can still be
-              saved to the Lessons library (these used to be trapped in media mode). */}
-          {fsSupported && (
-            <div className="group">
-              <label className="cap">SharePoint folders</label>
-              <div className="link-import" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {!folderHandle ? (
-                  <button type="button" className="btn ghost" style={{ width: "auto" }} onClick={connectMediaFolder}>Connect SharePoint Media folder</button>
-                ) : folderReady ? (
-                  <div className="hint">✓ Media folder ready: <b>{folderName}</b> — videos auto-upload &amp; embed.</div>
-                ) : (
-                  <div className="hint">
-                    Media folder <b>{folderName}</b> remembered — click{" "}
-                    <button type="button" className="btn ghost" style={{ width: "auto", padding: "4px 10px" }} onClick={connectMediaFolder}>Reconnect</button>{" "}
-                    to re-enable this session.
-                  </div>
-                )}
-                {folderHandle && <button type="button" className="btn ghost" style={{ width: "auto", padding: "9px 12px" }} onClick={async () => { await idbDeleteHandle("media"); setFolderHandle(null); setFolderName(""); setFolderReady(false); setMediaNote("Disconnected the SharePoint Media folder from this browser."); }}>Disconnect</button>}
-                {!lessonsHandle ? (
-                  <button type="button" className="btn ghost" style={{ width: "auto" }} onClick={connectLessonsFolder}>Connect Lessons folder</button>
-                ) : lessonsReady ? (
-                  <div className="hint">✓ Lessons folder ready: <b>{lessonsName}</b> — for saving finished decks.</div>
-                ) : (
-                  <div className="hint">
-                    Lessons folder <b>{lessonsName}</b> remembered — click{" "}
-                    <button type="button" className="btn ghost" style={{ width: "auto", padding: "4px 10px" }} onClick={connectLessonsFolder}>Reconnect</button>{" "}
-                    to re-enable this session.
-                  </div>
-                )}
-                {lessonsHandle && <button type="button" className="btn ghost" style={{ width: "auto", padding: "9px 12px" }} onClick={async () => { await idbDeleteHandle("lessons"); setLessonsHandle(null); setLessonsName(""); setLessonsReady(false); setMediaNote("Disconnected the Lessons folder from this browser."); }}>Disconnect</button>}
-              </div>
-            </div>
-          )}
-
           <div className="group">
             <label className="cap" htmlFor="f-title">Title (optional)</label>
             <input id="f-title" type="text" value={title} placeholder="Leave blank to auto-generate" onChange={e => setTitle(e.target.value)} />
@@ -2590,7 +2250,7 @@ function App() {
                 </span>
               )}
             </div>
-            {editThemes && <div className="hint">Themes are shared with teachers who connect a SharePoint folder.</div>}
+            {editThemes && <div className="hint">Themes are saved in this browser.</div>}
             {themeMsg && <div className="hint" style={{ color: "var(--bad-ink)" }}>{themeMsg}</div>}
             <div className="hint">Type any theme, tap a preset above, or <b>Suggest</b> one from your stimulus.</div>
           </div>
@@ -2642,11 +2302,6 @@ function App() {
               <div className="toolbar">
                 <button type="button" className="btn ghost" disabled={loading} onClick={generate}><Icon d={I.refresh} size={16} stroke /> Regenerate</button>
                 <button type="button" className="btn primary" disabled={exporting} onClick={download}><Icon d={I.download} size={16} stroke /> {exporting ? "Preparing…" : "Download PowerPoint"}</button>
-                {fsSupported && lessonsHandle && (
-                  <button type="button" className="btn ghost" disabled={saving} onClick={saveLessonToSharePoint} title="Save this lesson's .pptx to the SharePoint Lessons library">
-                    <Icon d={I.upload || I.download} size={16} stroke /> {saving ? "Saving…" : "Save to SharePoint Lessons"}
-                  </button>
-                )}
               </div>
 
               {/* Content advisory — AI suggests, teacher confirms; chips drive the slide's theme line */}
