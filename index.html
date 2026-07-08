@@ -1426,8 +1426,6 @@ const KEY_STORE = "sb_passcode";
 function App() {
   // config — passcode persists in this browser's localStorage (per user request)
   const [passcode, setPasscode] = useState(() => { try { return localStorage.getItem(KEY_STORE) || ""; } catch (_) { return ""; } });
-  const savePasscode = (v) => { setPasscode(v); try { v ? localStorage.setItem(KEY_STORE, v) : localStorage.removeItem(KEY_STORE); } catch (_) {} };
-  function forgetAll() { savePasscode(""); }
 
   // inputs
   const [mode, setMode] = useState("media");
@@ -1560,19 +1558,17 @@ function App() {
           const { frames, poster, width, height } = await extractVideoFrames(f, 4);
           const vidId = newId();
           setMedia(m => m.length >= MAX_MEDIA ? m : [...m, { id: vidId, kind: "video", dataUrl, name: f.name, sizeBytes: f.size,
-            poster, aspect: width && height ? width / height : 0, frames, text: "", transcribeState: passcode.trim() ? "running" : "idle", transcribeNote: "" }]);
+            poster, aspect: width && height ? width / height : 0, frames, text: "", transcribeState: "running", transcribeNote: "" }]);
           if (!frames.length) setMediaNote("Couldn't read frames from " + f.name + " — add a description under its thumbnail. It will still embed in the PowerPoint.");
           else if (f.size > VIDEO_EMBED_MAX_BYTES) setMediaNote(`${f.name} is large (${formatBytes(f.size)}) — the deck will use its first frame (add a Link on the left for a clickable link + QR) instead of embedding.`);
-          if (passcode.trim()) {
-            (async () => {
-              try {
-                const { text, truncated } = await transcribeMedia({ passcode: passcode.trim(), file: f });
-                setMedia(m => m.map(x => x.id === vidId ? { ...x, text, transcribeState: "done", transcribeNote: truncated ? "(transcript truncated)" : "" } : x));
-              } catch (_) {
-                setMedia(m => m.map(x => x.id === vidId ? { ...x, transcribeState: "failed", transcribeNote: "couldn't get transcript — frames will be used" } : x));
-              }
-            })();
-          }
+          (async () => {
+            try {
+              const { text, truncated } = await transcribeMedia({ passcode: passcode.trim(), file: f });
+              setMedia(m => m.map(x => x.id === vidId ? { ...x, text, transcribeState: "done", transcribeNote: truncated ? "(transcript truncated)" : "" } : x));
+            } catch (_) {
+              setMedia(m => m.map(x => x.id === vidId ? { ...x, transcribeState: "failed", transcribeNote: "couldn't get transcript — frames will be used" } : x));
+            }
+          })();
         } catch (_) { setError("Could not read video: " + f.name); }
         finally { setExtractingVideo(false); }
       }
@@ -1632,7 +1628,6 @@ function App() {
   async function runAnalyse() {
     if (analysing) return;
     setAnalyseError("");
-    if (!passcode.trim()) { setAnalyseError("Enter the school passcode first."); return; }
     if (!inputReady()) { setAnalyseError("Please add a stimulus first, and fill in the subject and year level."); return; }
     setAnalysing(true);
     try {
@@ -1673,7 +1668,6 @@ function App() {
   async function generate() {
     if (regenSlide || loading) return; // a slide regen is in flight, or a generate is already running
     setError(""); setRawDump("");
-    if (!passcode.trim()) { setError("Enter the school passcode first."); return; }
     if (mode === "media" && !media.length) { setError("Add at least one image or video first."); return; }
     if (!inputReady()) { setError("Please add a stimulus first (images/video, or article text/PDF), and fill in the subject and year level."); return; }
 
@@ -1718,7 +1712,6 @@ function App() {
   /* ------- regenerate a single slide (targeted, keeps the other slides) ------- */
   async function regenerateSlide(scope) {
     if (!spot || regenSlide || loading) return;
-    if (!passcode.trim()) { setError("Enter the school passcode first."); return; }
     setError(""); setRawDump("");
     setRegenSlide(scope);
     try {
@@ -2049,15 +2042,6 @@ function App() {
       <main className="layout">
         {/* ----------------- INPUT PANEL ----------------- */}
         <div className="panel input">
-          <div className="group">
-            <label className="cap" htmlFor="f-passcode">School passcode</label>
-            <div style={{ display: "flex", gap: 6 }}>
-              <input id="f-passcode" type="password" value={passcode} placeholder="Passcode" onChange={e => savePasscode(e.target.value)} />
-              {passcode && <button className="btn ghost" style={{ width: "auto", padding: "9px 12px", whiteSpace: "nowrap" }} title="Remove the saved passcode from this browser" onClick={forgetAll}>Forget</button>}
-            </div>
-            <div className="hint">Ask the Digital Learning team for the passcode. Saved in this browser only — Forget clears it.</div>
-          </div>
-
           <div className="group">
             <label className="cap" id="lbl-mode">Stimulus mode</label>
             <div className="modes" role="group" aria-labelledby="lbl-mode">

@@ -24,6 +24,9 @@ export function applyCors(req, res) {
 }
 
 export function requireTeacher(req, res) {
+  // Open mode: when no TEACHER_PASSCODE is configured, the school has chosen
+  // to run without a passcode (cost protection = OpenAI spend cap).
+  if (!process.env.TEACHER_PASSCODE) return true;
   if (!safeEqual(req.headers["x-sb-passcode"], process.env.TEACHER_PASSCODE)) {
     res.status(401).json({ error: "Invalid passcode" });
     return false;

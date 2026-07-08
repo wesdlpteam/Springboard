@@ -34,6 +34,14 @@ test("requireTeacher 401s on wrong or missing passcode, passes on match", () => 
   assert.equal(requireTeacher(m.req, m.res), true);
 });
 
+test("requireTeacher open mode: passes everyone when no TEACHER_PASSCODE is configured", () => {
+  delete process.env.TEACHER_PASSCODE;
+  const m = mockReqRes({ headers: {} }); // no passcode header either
+  assert.equal(requireTeacher(m.req, m.res), true);
+  assert.equal(m.res.statusCode, 0); // no 401 written
+  process.env.TEACHER_PASSCODE = "test-pass"; // restore for any later tests
+});
+
 test("requireAdmin checks x-sb-admin against ADMIN_PASSWORD", () => {
   process.env.ADMIN_PASSWORD = "admin-pass";
   let m = mockReqRes({ headers: { "x-sb-admin": "nope" } });
