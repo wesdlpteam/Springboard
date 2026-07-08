@@ -884,7 +884,8 @@ function extractVideoFrames(file, count = 4) {
 
 // Decode a media file's audio, downmix to 16 kHz mono, return a 16-bit PCM WAV Blob.
 // Caps at maxSeconds (truncating long clips) so the result stays under the API limit.
-async function videoFileToWav16k(file, maxSeconds = 780) {
+// Default (120s) keeps a 16kHz/16-bit mono WAV (~32 KB/s) under TRANSCRIBE_LIMIT with margin.
+async function videoFileToWav16k(file, maxSeconds = 120) {
   const arrayBuf = await file.arrayBuffer();
   const Ctx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
   const tmp = new (window.AudioContext || window.webkitAudioContext)();
@@ -1109,7 +1110,7 @@ function advisoryThemeLine(cats) {
   return ordered.map(c => ADVISORY_CATEGORIES[c].theme).join(" · ");
 }
 
-const TRANSCRIBE_LIMIT = 25 * 1024 * 1024; // backend/OpenAI audio endpoint per-file cap
+const TRANSCRIBE_LIMIT = 4 * 1024 * 1024; // Vercel serverless function request-body limit is ~4.5 MB; stay under it
 
 // Turn a failed backend response into a plain, teacher-facing message. 401 means
 // the passcode is wrong; anything else surfaces the server's own error text.
@@ -1127,7 +1128,7 @@ async function backendErrorMessage(resp) {
 async function transcribeMedia({ passcode, file }) {
   let { blob: wavBlob, truncated } = await videoFileToWav16k(file);
   if (wavBlob.size > TRANSCRIBE_LIMIT) {
-    const { blob: b2, truncated: t2 } = await videoFileToWav16k(file, 600);
+    const { blob: b2, truncated: t2 } = await videoFileToWav16k(file, 90);
     wavBlob = b2; truncated = t2 || truncated;
   }
   const resp = await fetch(API_BASE + "/api/transcribe", {
