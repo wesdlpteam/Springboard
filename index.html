@@ -358,22 +358,6 @@
   .toolbar { display: flex; gap: 10px; margin-bottom: 16px; }
   .toolbar .btn { width: auto; flex: 1; }
 
-  .design-row { display: flex; gap: 14px; align-items: center; margin-bottom: 16px; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 12px; box-shadow: var(--shadow); }
-  .thumb-slide { width: 226px; height: 127px; flex: 0 0 auto; border-radius: 10px; padding: 0; overflow: hidden; position: relative; box-shadow: var(--shadow); }
-  .thumb-bar { position: absolute; top: 0; left: 0; right: 0; height: 5px; }
-  .thumb-kick { font-size: 8px; letter-spacing: 1.5px; font-weight: 800; margin-top: 4px; }
-  .thumb-title { font-size: 15px; font-weight: 800; line-height: 1.12; margin-top: 3px; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
-  .thumb-meta { font-size: 8px; position: absolute; bottom: 10px; left: 12px; right: 12px; }
-  .tpl-picks { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-  .tpl-swatch { display: flex; flex-direction: column; gap: 4px; width: 84px; padding: 4px; background: #fff; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; font: inherit; transition: border-color .15s, box-shadow .15s; }
-  .tpl-swatch:hover { border-color: var(--accent); }
-  .tpl-swatch:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-  .tpl-swatch.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
-  .tpl-cover { position: relative; height: 40px; border-radius: 6px; overflow: hidden; display: block; }
-  .tpl-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; display: block; }
-  .tpl-name { font-size: 10.5px; font-weight: 600; color: var(--ink); text-align: center; line-height: 1.1; }
-  .tpl-swatch.on .tpl-name { color: var(--accent); }
-  @media (prefers-reduced-motion: reduce) { .tpl-swatch { transition: none; } }
   .spinner { width: 16px; height: 16px; border: 2.5px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
   .spinner.sm { width: 13px; height: 13px; border-width: 2px; }
   .spinner.dark { border-color: var(--accent-soft); border-top-color: var(--accent); }
@@ -433,24 +417,6 @@ const PPTX_SRC = "https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bun
 const PDFJS_SRC = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
 const PPTX_SRI = "sha384-Cck14aA9cifjYolcnjebXRfWGkz5ltHMBiG4px/j8GS+xQcb7OhNQWZYyWjQ+UwQ";
 const PDFJS_SRI = "sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e";
-
-// Canvas-generated slide textures (no external asset files). Returns a PNG data-URL sized to
-// the slide so pptxgenjs can addImage it as a full-bleed background layer.
-function makeTexture(kind, opts) {
-  const o = Object.assign({ w: 1280, h: 720, color: "#C59F40", bg: null, dot: 16, alpha: 0.5 }, opts || {});
-  const c = document.createElement("canvas"); c.width = o.w; c.height = o.h;
-  const x = c.getContext("2d");
-  if (o.bg) { x.fillStyle = o.bg; x.fillRect(0, 0, o.w, o.h); }
-  x.globalAlpha = o.alpha; x.fillStyle = o.color;
-  if (kind === "halftone") {
-    const r = o.dot * 0.18;
-    for (let yy = o.dot; yy < o.h; yy += o.dot)
-      for (let xx = o.dot; xx < o.w; xx += o.dot) { x.beginPath(); x.arc(xx, yy, r, 0, 7); x.fill(); }
-  } else { // grain: scattered 1px specks
-    for (let i = 0; i < o.w * o.h * 0.03; i++) x.fillRect(Math.random()*o.w|0, Math.random()*o.h|0, 1, 1);
-  }
-  return c.toDataURL("image/png");
-}
 
 /* ---- Custom document-property stamping ----
    Writes arbitrary metadata into the .pptx as custom document properties
@@ -526,10 +492,6 @@ const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
 const APP_VERSION = "v0.1.0 · 2026-07-08";
-
-// Export still speaks the OLD deck shape; Task 12 rewrites it to the 4-slide deck.
-// Until then the Download button is gated off so the app compiles and runs cleanly.
-const EXPORT_READY = false;
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -890,14 +852,6 @@ const ROUTINES = [
 ];
 const ROUTINE_SOURCE = "Harvard Project Zero Thinking Routines · pz.harvard.edu/thinking-routines";
 
-// Bridges the old PYP/Middle/Senior vocabulary (still spoken by the legacy prompt/
-// select below — Task 11 rewrites that path) onto the new bands: tags on ROUTINES.
-const BAND_TAG_OF = { PYP: "younger", Middle: "middle", Senior: "senior" };
-function routinesForBand(bandKey) {
-  const tag = BAND_TAG_OF[bandKey] || "middle";
-  return ROUTINES.filter(r => r.bands.includes(tag));
-}
-
 // Made to Stick "stickiness" boosters the Analyse step can recommend alongside a
 // routine — short authoring nudges the teacher can toggle on/off before Generate.
 const BOOSTERS = [
@@ -909,60 +863,16 @@ const BOOSTERS = [
   { id: "emotionalHook",     label: "Emotional hook",      line: "Connect to something students already care about — identity or self-interest (Emotional)." },
 ];
 
-const MODE_FRAMING = { media: "Look closely, then discuss.", image: "Look closely, then discuss.", article: "Read, then discuss.", video: "Watch, then discuss." };
 const MODE_VERB = { media: "Look", image: "Look", article: "Read", video: "Watch" };
 
-// Six Wesley export templates — all on the brand primary (purple/gold) and
-// secondary (band) palettes. Hex values carry NO leading '#'. Every title-text,
-// footer, kicker and takeaway-card colour is set per template so each one passes
-// WCAG-AA on its own cover, light or dark.
-//   titleBg/Ink/Sub/Foot/Kick → the cover slide   ·   bar → footer band
-//   accent → readable text/links/kickers on white content (never gold; gold fails AA as text)
-//   cardBg/cardInk → the "key takeaway" card       ·   accent2 → gold tie (on-screen action box)
-// Each style owns its Wesley-built palette + a per-slide-type layout. Palette splits into an
-// on-colour set (text on a filled background: titleInk/Sub/Foot/Kick) and an on-white/on-light
-// set (ink/muted/accent), so AA holds wherever text lands. Ratios verified at AA (>=4.5 body).
-const STYLES = {
-  classic: {
-    key:"classic", label:"Classic", layout:"classic", upper:false, texture:null,
-    blurb:"The flagship — a deep Wesley-purple cover with a gold takeaway. Calm and authoritative.",
-    fonts:{ display:"Arial", body:"Arial", mono:"Consolas" },
-    palette:{
-      titleBg:"4F2759", titleInk:"FFFFFF", titleSub:"E7DCEF", titleFoot:"C9B7D6", titleKick:"E4D1A1",
-      contentBg:"FFFFFF", ink:"2B2536", muted:"6B6478",
-      accent:"4F2759", accent2:"C59F40", bar:"4F2759", cardBg:"C59F40", cardInk:"2B2536" },
-  },
-  brutalist: {
-    key:"brutalist", label:"Neo-Brutalist", layout:"brutalist", upper:true, texture:null,
-    blurb:"Thick black borders, hard offset shadows and flat purple/gold blocks. Bold.",
-    fonts:{ display:"Arial", body:"Arial", mono:"Consolas" },
-    palette:{ // black 000000 on white 21:1; white on 4F2759 ~9:1; gold-ink 6A5018 on white ~6:1 — AA pass
-      titleBg:"FFFFFF", titleInk:"000000", titleSub:"3D1D45", titleFoot:"574F63", titleKick:"6A5018",
-      contentBg:"FFFFFF", ink:"000000", muted:"574F63",
-      accent:"4F2759", accent2:"C59F40", bar:"000000", cardBg:"4F2759", cardInk:"FFFFFF" },
-  },
-  editorial: {
-    key:"editorial", label:"Editorial", layout:"editorial", upper:false, texture:null,
-    blurb:"A light editorial cover in soft neutral with clean headlines and a pull-quote takeaway.",
-    fonts:{ display:"Arial", body:"Arial", mono:"Consolas" },
-    palette:{ // purple 4F2759 on EFEDED ~8:1; gold-ink 6A5018 on EFEDED ~5:1 — AA pass
-      titleBg:"EFEDED", titleInk:"4F2759", titleSub:"574F63", titleFoot:"6A5018", titleKick:"6A5018",
-      contentBg:"FFFFFF", ink:"2B2536", muted:"574F63",
-      accent:"4F2759", accent2:"C59F40", bar:"C59F40", cardBg:null, cardInk:"4F2759" },
-  },
-  popart: {
-    key:"popart", label:"Pop Art", layout:"popart", upper:true,
-    texture:{ kind:"halftone", color:"#4F2759", alpha:0.12, dot:22 },
-    blurb:"Bold caps on a subtle Ben-Day halftone with a speech-bubble takeaway. Punchy but clean.",
-    fonts:{ display:"Arial", body:"Arial", mono:"Consolas" },
-    palette:{ // purple 4F2759 / ink 2B2536 on white — AA pass; gold burst, black borders
-      titleBg:"FFFFFF", titleInk:"4F2759", titleSub:"2B2536", titleFoot:"574F63", titleKick:"4F2759",
-      contentBg:"FFFFFF", ink:"2B2536", muted:"574F63",
-      accent:"4F2759", accent2:"C59F40", bar:"000000", cardBg:"FFFFFF", cardInk:"4F2759",
-      burst:"C59F40", takeawayBg:"E4D1A1", border:"000000" },
-  },
+// Wesley brand tokens (single light layout — the deck-style picker is gone). Hex values
+// carry NO leading '#' so pptxgenjs consumes them directly; the preview wraps them with
+// hx() for CSS. purple = brand primary, gold = accent tie, goldInk = gold that passes AA
+// as body text on white (raw gold fails AA as text), ink/muted = on-white text.
+const WESLEY = {
+  purple:"4F2759", gold:"C59F40", goldInk:"6A5018", goldLight:"E4D1A1",
+  ink:"2B2536", muted:"6B6478", white:"FFFFFF", subtle:"E7DCEF", amber:"E8A33D",
 };
-const STYLE_ORDER = ["classic", "brutalist", "editorial", "popart"];
 const hx = (c) => "#" + c;
 const WESLEY_LOGO_GOLD = "data:image/png;base64,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";
 const WESLEY_LOGO_HORIZ = "data:image/png;base64,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";
@@ -1226,9 +1136,14 @@ function shapeDeck(parsed, { routineName }) {
   };
 }
 
-// Filename-safe band token for the per-band .pptx export.
-function bandFileSlug(bandKey) {
-  return ({ PYP: "PYP", Middle: "Middle-7-9", Senior: "Senior-10-12" })[bandKey] || bandKey;
+// Strip characters that are illegal in Windows/macOS filenames (keeps the en-dash
+// separators and everyday punctuation), collapse whitespace, and cap the length.
+function sanitizeFilename(s) {
+  return String(s == null ? "" : s)
+    .replace(/[\\/:*?"<>|\x00-\x1f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 150) || "Springboard";
 }
 
 // Content-advisory categories the model can flag, and how each reads on the
@@ -1495,79 +1410,6 @@ const ProgressRing = ({ value, size = 18 }) => {
   );
 };
 
-/* A miniature, faithful preview of a deck style's COVER — used both as the large selected-style
-   preview and as each small picker chip (big=false). Decorative (aria-hidden); the button carries
-   the accessible name. Mirrors the export's per-style cover composition so the thumbnail actually
-   looks like the deck you'll get, not just a colour chip. */
-const StyleCover = ({ styleKey, big = false, title = "", bandLabel = "", theme = "" }) => {
-  const st = STYLES[styleKey] || STYLES.classic;
-  const p = st.palette;
-  const cs = (s) => st.upper ? String(s || "").toUpperCase() : String(s || "");
-  const padX = big ? 12 : 6;
-  const titleFs = big ? 15 : 0;
-  const wrap = { position: "absolute", inset: 0, overflow: "hidden", borderRadius: "inherit", fontFamily: st.fonts.body };
-  const footer = <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: big ? 6 : 3, background: hx(p.bar) }} />;
-  // chip headline hint: two short bars suggesting a title, in a given colour
-  const bars = (col) => (<React.Fragment>
-    <span style={{ position: "absolute", left: padX, top: "42%", width: "62%", height: 4, borderRadius: 2, background: col }} />
-    <span style={{ position: "absolute", left: padX, top: "62%", width: "40%", height: 4, borderRadius: 2, background: col, opacity: .6 }} />
-  </React.Fragment>);
-
-  if (st.layout === "brutalist") {
-    const bw = big ? 3 : 2, sh = big ? 4 : 2;
-    return (
-      <span aria-hidden="true" style={{ ...wrap, background: hx(p.titleBg), border: `${bw}px solid ${hx(p.ink)}` }}>
-        {big
-          ? <span style={{ position: "absolute", left: padX, top: 26, right: padX, fontSize: 17, fontWeight: 800, lineHeight: 1.02, letterSpacing: "-.3px", color: hx(p.ink) }}>{cs(title)}</span>
-          : bars(hx(p.ink))}
-        <span style={{ position: "absolute", left: padX, bottom: big ? 14 : 6, width: big ? "52%" : "55%", height: big ? 16 : 8, background: hx(p.accent), border: `${big ? 2 : 1}px solid ${hx(p.ink)}`, boxShadow: `${sh}px ${sh}px 0 ${hx(p.accent2)}` }} />
-      </span>
-    );
-  }
-
-  if (st.layout === "editorial") {
-    return (
-      <span aria-hidden="true" style={{ ...wrap, background: hx(p.titleBg) }}>
-        <span style={{ position: "absolute", left: padX, right: padX, top: big ? 14 : 7, height: big ? 2 : 1.5, background: hx(p.accent2) }} />
-        {big && <span style={{ position: "absolute", left: padX, top: 18, fontSize: 7, letterSpacing: 3, color: hx(p.titleFoot), fontWeight: 700 }}>SPRINGBOARD</span>}
-        {big
-          ? <span style={{ position: "absolute", left: padX, right: padX, top: 34, fontFamily: "Arial, sans-serif", fontSize: 18, fontWeight: 700, lineHeight: 1.06, color: hx(p.titleInk) }}>{cs(title)}</span>
-          : <React.Fragment>
-              <span style={{ position: "absolute", left: padX, top: "46%", width: "66%", height: 4, borderRadius: 2, background: hx(p.titleInk) }} />
-              <span style={{ position: "absolute", left: padX, top: "66%", width: "44%", height: 4, borderRadius: 2, background: hx(p.titleInk), opacity: .55 }} />
-            </React.Fragment>}
-        {big && <span style={{ position: "absolute", left: padX, bottom: 12, fontFamily: "Arial, sans-serif", fontStyle: "italic", fontSize: 8, color: hx(p.titleSub) }}>{bandLabel} · {theme}</span>}
-        <span style={{ position: "absolute", right: padX, bottom: big ? 12 : 6, width: big ? 8 : 5, height: big ? 8 : 5, borderRadius: "50%", background: hx(p.accent2) }} />
-      </span>
-    );
-  }
-
-  if (st.layout === "popart") {
-    const dotSz = big ? 12 : 7;
-    return (
-      <span aria-hidden="true" style={{ ...wrap, background: hx(p.titleBg), backgroundImage: `radial-gradient(circle, ${hx(p.titleInk)}28 1px, transparent ${big ? 1.8 : 1.4}px)`, backgroundSize: `${dotSz}px ${dotSz}px` }}>
-        {big
-          ? <span style={{ position: "absolute", left: padX, right: padX, top: 28, fontSize: 15, fontWeight: 800, lineHeight: 1.05, letterSpacing: "-.3px", color: hx(p.titleInk), display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{cs(title)}</span>
-          : bars(hx(p.titleInk))}
-        {big && <span style={{ position: "absolute", left: padX, bottom: 11, background: "#fff", border: `2px solid ${hx(p.ink)}`, borderRadius: 12, padding: "2px 8px", fontSize: 8, fontWeight: 800, color: hx(p.accent) }}>{bandLabel} · {theme}</span>}
-        {footer}
-      </span>
-    );
-  }
-
-  // classic (default): purple cover, gold crest, headline, meta, footer band
-  return (
-    <span aria-hidden="true" style={{ ...wrap, background: hx(p.titleBg), color: hx(p.titleInk) }}>
-      <span style={{ position: "absolute", right: padX, top: big ? 10 : 5, width: big ? 14 : 8, height: big ? 9 : 5, borderRadius: 2, background: hx(p.accent2) }} />
-      {big
-        ? <span style={{ position: "absolute", left: padX, right: padX, top: 32, fontFamily: st.fonts.display, fontSize: titleFs, fontWeight: 800, lineHeight: 1.12, textTransform: st.upper ? "uppercase" : "none", color: hx(p.titleInk) }}>{cs(title)}</span>
-        : bars(hx(p.titleInk))}
-      {big && <span style={{ position: "absolute", left: padX, bottom: 12, fontSize: 8, color: hx(p.titleSub) }}>{bandLabel} · {theme}</span>}
-      {footer}
-    </span>
-  );
-};
-
 /* ------------------------------ App ------------------------------ */
 
 function MediaCarousel({ items, index, setIndex }) {
@@ -1628,7 +1470,6 @@ function App() {
     setClassInfo(next);
     try { localStorage.setItem(CLASS_STORE, JSON.stringify(next)); } catch (_) {}
   };
-  const [design, setDesign] = useState("classic");
 
   // generation
   const [loading, setLoading] = useState(false);
@@ -1659,9 +1500,6 @@ function App() {
   const pdfInput = useRef(null);
   const genBtnRef = useRef(null);
   const genStimKey = useRef(""); // stimulus fingerprint at last successful generate (stale-deck hint)
-
-  // First item's still image — keeps legacy single-image AI/PPTX paths working.
-  const firstStill = media[0] ? (media[0].kind === "image" ? media[0].dataUrl : media[0].poster) : "";
 
   // Active band drives the (single) preview/edit/export view; before generation
   // it falls back to the band derived from the class settings panel.
@@ -1901,8 +1739,8 @@ function App() {
   const addArr = (slide, key) => setSpot(s => ({ ...s, [slide]: { ...s[slide], [key]: [...s[slide][key], ""] } }));
   const delArr = (slide, key, i) => setSpot(s => ({ ...s, [slide]: { ...s[slide], [key]: s[slide][key].filter((_, j) => j !== i) } }));
 
-  const ST = STYLES[design] || STYLES.classic;
-  const T = ST.palette;
+  // Single Wesley-light palette for the preview accents (purple bar/number chips, gold tie).
+  const T = { accent: WESLEY.purple, accent2: WESLEY.gold };
   const barStyle = { background: hx(T.accent) };
   const RegenButton = ({ scope }) => (
     <button type="button" className="regen" title="Generate a different version of this slide"
@@ -1915,336 +1753,259 @@ function App() {
     </button>
   );
 
-  /* ------- export ------- */
-  // Build + save one deck. Shadows spot/band/year/bandLabel so the ~150-line body
-  // below operates on the passed deck instead of the active-band view.
+  /* ------- export: one Wesley-light 4-slide deck (IGNITE / THINK / LAUNCH / REFLECT) ------- */
+  // Reads the active deck plus classInfo / media / link / includeReflect / includeAdvisory from
+  // the App closure. IGNITE is full-brand (purple, gold crest, big title, stimulus, gold question);
+  // THINK / LAUNCH / REFLECT are white with a thin purple top rule + a small gold crest. A content-
+  // advisory slide leads the deck only when the model flagged it AND the teacher kept it. Every
+  // slide's teacher note goes in its Notes pane via addNotes.
+  // TRAP: pptxgenjs mutates option objects handed to it (shadow especially) — so EVERY addText/
+  // addImage/addShape/addMedia call below gets a FRESH object literal; nothing is shared/reused.
   async function buildDeckBlob(bandKey, deck) {
     if (!deck) return null;
-    const spot = deck;                       // body reads spot.*
-    const band = bandKey;
-    // A combined deck shows no single year and reads "Middle & Senior" on its slides.
-    const year = deck.comboBands ? "" : (classInfo.yearLevel || "");
-    const bandLabel = deck.comboBands ? comboBandLabel(deck.comboBands) : bandLabelOf(bandKey);
-    const kw = Array.isArray(spot.keywords) ? spot.keywords.filter(Boolean) : []; // search terms for notes + core props
     try {
-      const ST = STYLES[design] || STYLES.classic;
-      const T = ST.palette;
-      const accent = T.accent, accent2 = T.accent2, bar = T.bar, ink = T.ink, muted = T.muted;
-      const tFont = ST.fonts.display, bFont = ST.fonts.body;
-      const tCase = (s) => ST.upper ? String(s).toUpperCase() : String(s);
+      const P = WESLEY.purple, GOLD = WESLEY.gold, GOLD_INK = WESLEY.goldInk, GOLD_LT = WESLEY.goldLight,
+            INK = WESLEY.ink, MUTED = WESLEY.muted, WHITE = WESLEY.white, SUB = WESLEY.subtle, AMBER = WESLEY.amber;
+      const FONT = "Arial"; // Graphik can't be embedded in a portable .pptx — Arial is the fork's safe fallback
       const W = 13.33, H = 7.5;
+
+      // Normalise deck fields (re-clamp keywords/steps/prompts to their caps + drop blanks at export).
+      const title = (deck.title || "").trim() || "Springboard";
+      const routine = ((deck.think && deck.think.routine) || "").trim();
+      const structure = ((deck.think && deck.think.structure) || "").trim();
+      const kw = (Array.isArray(deck.keywords) ? deck.keywords : []).map(s => String(s).trim()).filter(Boolean).slice(0, 6);
+      const steps = (Array.isArray(deck.think && deck.think.steps) ? deck.think.steps : []).map(s => String(s).trim()).filter(Boolean).slice(0, 4);
+      const prompts = (Array.isArray(deck.reflect && deck.reflect.prompts) ? deck.reflect.prompts : []).map(s => String(s).trim()).filter(Boolean).slice(0, 4);
+      const igniteQ = ((deck.ignite && deck.ignite.question) || "").trim();
+      const curriculum = (classInfo.curriculum || "").trim();
+      const subject = (classInfo.subject || "").trim();
+      const yearLevel = (classInfo.yearLevel || "").trim();
+      const metaLine = [bandLabelOf(bandKey) + (yearLevel ? " · Year " + yearLevel : ""), subject].filter(Boolean).join("   ·   ");
+
+      const showAdvisory = !!(deck.advisory && deck.advisory.flag) && includeAdvisory;
+      const showReflect = !!includeReflect;
+      const total = 3 + (showAdvisory ? 1 : 0) + (showReflect ? 1 : 0);
 
       await loadScript(PPTX_SRC, PPTX_SRI);
       const pptx = new PptxGenJS();
       pptx.defineLayout({ name: "WIDE", width: W, height: H });
       pptx.layout = "WIDE";
 
-      let n = 0;
-      // Title + one provocation slide per reel item (article = 1) + Key takeaway.
-      const showAdv = !!spot.advisoryShow;
-      const slideOffset = showAdv ? 1 : 0;
-      const total = slideOffset + 2 + ((mode === "media" && media.length) ? media.length : 1);
-      const newSlide = (kind, bgOverride) => {
-        n++;
+      let sNum = 0; // 1-based slide counter, drives the "n / total" footer
+
+      // --- drawing helpers: each only ever builds fresh object literals (no shared options) ---
+      const goldCrest = (s, lw) => { const w = lw || 1.5, h = w / 1.743; s.addImage({ data: WESLEY_LOGO_GOLD, x: W - 0.55 - w, y: 0.4, w, h }); };
+      const wordmark = (s) => { const w = 1.7, h = w / 4.991; s.addImage({ data: WESLEY_LOGO_HORIZ, x: 0.55, y: H - 0.52, w, h }); };
+      const pageNo = (s, onDark) => s.addText(sNum + " / " + total, { x: W - 1.5, y: H - 0.5, w: 0.95, h: 0.3, fontSize: 9, color: onDark ? SUB : MUTED, align: "right", fontFace: FONT });
+      const kicker = (s, txt, color) => s.addText(String(txt || "").toUpperCase(), { x: 0.7, y: 0.62, w: W - 2.3, h: 0.4, fontSize: 13, bold: true, color: color || P, charSpacing: 2, fontFace: FONT });
+      const cap = (s, txt, y) => s.addText(String(txt || "").toUpperCase(), { x: 0.7, y, w: W - 1.4, h: 0.3, fontSize: 11, bold: true, color: GOLD_INK, charSpacing: 1.5, fontFace: FONT });
+      // Letterbox a media box's contents within [bx,by,bw,bh] at the media's own aspect ratio.
+      const contain = (bx, by, bw, bh, ar) => {
+        ar = (ar && isFinite(ar) && ar > 0) ? ar : bw / bh;
+        let iw = bw, ih = iw / ar; if (ih > bh) { ih = bh; iw = ih * ar; }
+        iw = +iw.toFixed(2); ih = +ih.toFixed(2);
+        return { x: +(bx + (bw - iw) / 2).toFixed(2), y: +(by + (bh - ih) / 2).toFixed(2), w: iw, h: ih };
+      };
+
+      // White-slide chrome (THINK / LAUNCH / REFLECT / advisory): purple top rule, small crest,
+      // wordmark + page number. Returns the new slide.
+      const newWhite = () => {
+        sNum++;
         const s = pptx.addSlide();
-        // bgOverride lets a "title"-kind slide use a style-specific background (e.g. Pop Art's
-        // amber takeaway) while keeping the title chrome — footer band, crest and texture.
-        s.background = { color: bgOverride || (kind === "title" ? T.titleBg : T.contentBg) };
-        if (ST.texture) s.addImage({ data: makeTexture(ST.texture.kind, { color: ST.texture.color, alpha: ST.texture.alpha }), x:0, y:0, w:W, h:H });
-        // Wesley footer band: a full-width accent bar along the BOTTOM of every slide.
-        s.addShape(pptx.ShapeType.rect, { x: 0, y: H - 0.18, w: W, h: 0.18, fill: { color: bar } });
-        if (kind === "title") {
-          // Gold crest is 870x499 (aspect 1.743) — size to that ratio so it isn't squished.
-          const lw = 2.1, lh = lw / 1.743;
-          s.addImage({ data: WESLEY_LOGO_GOLD, x: W - 0.6 - lw, y: 0.45, w: lw, h: lh });
-        } else {
-          // Horizontal lockup is 554x111 (aspect 4.991) — sits just above the footer band.
-          const lw = 2.3, lh = lw / 4.991;
-          s.addImage({ data: WESLEY_LOGO_HORIZ, x: W - 0.6 - lw, y: H - 0.62 - lh, w: lw, h: lh });
-        }
-        const footColor = kind === "title" ? T.titleFoot : muted;
-        s.addText(`Digital Life Spotlight · 5-minute discussion · ${n}/${total}`, { x: 0.6, y: H - 0.6, w: W - 3.4, h: 0.3, fontSize: 9, color: footColor, fontFace: bFont });
+        s.background = { color: WHITE };
+        s.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: W, h: 0.12, fill: { color: P } });
+        goldCrest(s, 0.95);
+        wordmark(s);
+        pageNo(s, false);
         return s;
       };
-      const kicker = (s, txt, col) => s.addText(String(txt).toUpperCase(), { x: 0.8, y: 0.55, w: W - 1.6, h: 0.4, fontSize: 13, bold: true, color: col || accent, charSpacing: 2, fontFace: bFont });
 
-      // Estimate the wrapped height (inches) of text in a box of width w at a given
-      // font size. Fixed row heights used to overflow on long prompts — steps squished
-      // together and the source line touched the last step — so we flow by measured
-      // height and shrink the font when a routine's content runs long. Factors are
-      // deliberately generous (more lines / taller lines) so we never under-allocate.
-      const cpl = (fs, w) => Math.max(8, Math.floor(w / (fs * 0.0072)));     // chars per line
-      const txtH = (text, fs, w) => {
-        const per = cpl(fs, w), lh = fs * 0.018;                            // line height (in)
-        const lines = String(text || "").split("\n")
-          .reduce((n, ln) => n + Math.max(1, Math.ceil(ln.length / per)), 0);
-        return lines * lh;
+      // Notes-pane text: a one-line header + the teacher note; keywords appended on IGNITE (search).
+      const NOTE_HEAD = {
+        ignite: "IGNITE — run this in the first minute.",
+        think: "THINK — the thinking routine.",
+        launch: "LAUNCH — bridge into today's lesson.",
+        reflect: "REFLECT — revisit at the end of the lesson.",
       };
-      const drawRoutine = (s, rx2, rw2, colY, colH) => {
-        const stepText = (st) => `${st.minutes} min   ${st.name}` + (st.prompt ? `\n${st.prompt}` : "");
-        const gap = 0.12, srcH = 0.28;
-        // Total column height at scale k; shrink fonts until the routine fits its column.
-        const measure = (k) => {
-          let h = txtH(tCase(spot.routineName), 18 * k, rw2) + gap;
-          if (spot.routineIntro) h += txtH(spot.routineIntro, 12 * k, rw2) + gap;
-          spot.steps.forEach((st) => { h += txtH(stepText(st), 12.5 * k, rw2) + gap; });
-          return h + srcH;
-        };
-        let k = 1;
-        while (k > 0.78 && measure(k) > colH) k -= 0.04;
-        const nameFs = 18 * k, introFs = 12 * k, stepFs = 12.5 * k;
-
-        let ry = colY;
-        const nameH = txtH(tCase(spot.routineName), nameFs, rw2);
-        s.addText(tCase(spot.routineName), { x: rx2, y: ry, w: rw2, h: nameH + 0.08, fontSize: nameFs, bold: true, color: ink, valign: "top", fontFace: tFont });
-        ry += nameH + gap;
-        if (spot.routineIntro) {
-          const ih = txtH(spot.routineIntro, introFs, rw2);
-          s.addText(spot.routineIntro, { x: rx2, y: ry, w: rw2, h: ih + 0.08, fontSize: introFs, italic: true, color: muted, valign: "top", fontFace: bFont });
-          ry += ih + gap;
-        }
-        spot.steps.forEach((st) => {
-          const sh = txtH(stepText(st), stepFs, rw2);
-          s.addText([
-            { text: `${st.minutes} min   `, options: { bold: true, color: accent } },
-            { text: st.name, options: { bold: true, color: ink } },
-            { text: st.prompt ? `\n${st.prompt}` : "", options: { color: ink } },
-          ], { x: rx2, y: ry, w: rw2, h: sh + 0.08, fontSize: stepFs, valign: "top", fontFace: bFont });
-          ry += sh + gap;
-        });
-        s.addText(ROUTINE_SOURCE, { x: rx2, y: Math.min(ry, colY + colH - srcH), w: rw2, h: srcH, fontSize: 8, italic: true, color: muted, valign: "top", fontFace: bFont });
+      const noteFor = (key) => {
+        const body = ((deck.notes && deck.notes[key]) || "").trim();
+        let out = NOTE_HEAD[key] + (body ? "\n\n" + body : "");
+        if (key === "ignite" && kw.length) out += "\n\nKeywords: " + kw.join(", ");
+        return out;
       };
 
-      /* Slide 2..(1+N) — PROVOCATION + THINKING ROUTINE, one slide per media item.
-         Image/video fills the left column; the routine repeats on the right; ◀/▶ corner
-         arrows hyperlink to the adjacent item-slide so it swipes in Slide Show mode. */
-      const colY = 1.95, colH = 4.45;
-      const lx = 0.8, lw2 = 6.6;
-      const rx2 = 7.7, rw2 = W - 0.8 - rx2;
-      const hasLink = !!link.trim();
-      const mediaH = hasLink ? colH - 0.5 : colH;
+      // IGNITE stimulus — reuses the fork's image / video-embed / QR+link media paths. Draws into
+      // [x,y,w,h] on the purple slide; returns true if anything visual was drawn (so a text-only
+      // deck can hand the whole stage to the question instead).
+      async function drawStimulus(s, x, y, w, h) {
+        const items = (mode === "media" && Array.isArray(media)) ? media.filter(m => m && (m.dataUrl || m.poster)) : [];
+        const url = (link || "").trim();
+        let drew = false;
+        const mediaH = url ? h - 0.7 : h; // reserve a QR + link row when there's a link
 
-      // Per-style visual layer: each skin renders cover/provocation-chrome/takeaway differently;
-      // shared media/video/QR/routine logic below stays identical across all styles. Dark styles
-      // get a dark content background automatically via newSlide's T.contentBg (set per-style).
-      const HARD = (color) => ({ type:"outer", color, blur:0, offset:5, angle:45, opacity:1 });
-      const SKINS = {
-        classic: {
-          cover(s, c) {
-            s.addText(c.tCase(c.spot.hook || c.spot.title), { x: 0.9, y: 1.6, w: c.W - 2.6, h: 3.8, fontSize: 44, bold: true, color: c.T.titleInk, valign: "middle", fontFace: c.tFont });
-            s.addText(`${c.bandLabel}${c.year ? " · " + c.year : ""}   ·   ${c.theme}   ·   5-minute discussion`, { x: 0.9, y: 5.7, w: c.W - 1.8, h: 0.4, fontSize: 14, color: c.T.titleSub, fontFace: c.bFont });
-          },
-          provChrome(s, c, idx, reelLen) {
-            c.kicker(s, reelLen > 1 ? `Provocation · ${idx + 1}/${reelLen}` : "Provocation");
-            s.addText(c.spot.framing, { x: 0.8, y: 1.0, w: c.W - 1.6, h: 0.7, fontSize: 22, bold: true, color: c.ink, fontFace: c.tFont });
-          },
-          takeaway(s, c) {
-            c.kicker(s, "Your key takeaway", c.T.titleKick);
-            s.addShape(c.pptx.ShapeType.roundRect, { x: 1.1, y: 2.2, w: c.W - 2.2, h: 2.8, fill: { color: c.T.cardBg }, rectRadius: 0.18 });
-            s.addText(c.spot.studentAction || "—", { x: 1.7, y: 2.4, w: c.W - 3.4, h: 2.4, fontSize: 26, bold: true, color: c.T.cardInk, valign: "middle", align: "center", fontFace: c.tFont, fit: "shrink" });
-            if (c.spot.learnerProfile.filter(Boolean).length)
-              s.addText("IB Learner Profile: " + c.spot.learnerProfile.filter(Boolean).join(", "), { x: 1.1, y: 5.4, w: c.W - 2.2, h: 0.4, fontSize: 14, italic: true, color: c.T.titleSub, align: "center", fontFace: c.bFont });
-          },
-        },
-        brutalist: {
-          cover(s, c) {
-            s.addText(" DIGITAL LIFE SPOTLIGHT ", { x:0.6, y:0.5, w:4.2, h:0.35, fontSize:11, bold:true, color:"E4D1A1", fill:{color:"000000"}, fontFace:"Arial", charSpacing:1 });
-            s.addText(c.tCase(c.spot.hook || c.spot.title), { x:0.7, y:1.5, w:c.W-2.4, h:3.4, fontSize:46, bold:true, color:"000000", valign:"middle", fontFace:c.tFont, charSpacing:-0.5 });
-            s.addShape(c.pptx.ShapeType.rect, { x:0.7, y:5.6, w:6.2, h:0.7, fill:{color:"4F2759"}, line:{color:"000000", width:3}, shadow:HARD("C59F40") });
-            s.addText(`${c.bandLabel}${c.year?" · "+c.year:""}  ·  ${c.theme}  ·  5-MIN`, { x:0.7, y:5.6, w:6.2, h:0.7, fontSize:13, bold:true, color:"FFFFFF", align:"center", valign:"middle", fontFace:c.bFont });
-          },
-          provChrome(s, c, idx, reelLen) {
-            s.addText((reelLen>1?` PROVOCATION ${idx+1}/${reelLen} `:" PROVOCATION "), { x:0.8, y:0.5, w:3.2, h:0.35, fontSize:11, bold:true, color:"000000", fill:{color:"C59F40"}, fontFace:"Arial" });
-            s.addText(c.spot.framing, { x:0.8, y:1.0, w:c.W-1.6, h:0.7, fontSize:22, bold:true, color:c.ink, fontFace:c.tFont });
-          },
-          takeaway(s, c) {
-            s.addText("YOUR KEY TAKEAWAY", { x:0.8, y:1.2, w:c.W-1.6, h:0.4, fontSize:13, bold:true, color:"000000", fontFace:"Arial", charSpacing:2 });
-            s.addShape(c.pptx.ShapeType.rect, { x:1.1, y:2.1, w:c.W-2.2, h:3.0, fill:{color:"4F2759"}, line:{color:"000000", width:3.5}, shadow:HARD("C59F40") });
-            s.addText(c.spot.studentAction || "—", { x:1.6, y:2.3, w:c.W-3.2, h:2.6, fontSize:28, bold:true, color:"FFFFFF", align:"center", valign:"middle", fontFace:c.tFont, fit:"shrink" });
-          },
-        },
-        editorial: {
-          cover(s, c) {
-            s.addShape(c.pptx.ShapeType.line, { x:0.9, y:0.95, w:c.W-1.8, h:0, line:{color:"C59F40", width:1.5} });
-            s.addText("THE DIGITAL LIFE SPOTLIGHT", { x:0.9, y:1.05, w:c.W-1.8, h:0.35, fontSize:12, color:"6A5018", charSpacing:4, fontFace:c.bFont });
-            s.addText(c.spot.hook || c.spot.title, { x:0.9, y:1.9, w:c.W-2.2, h:2.8, fontSize:46, bold:true, color:"4F2759", valign:"top", fontFace:"Arial" });
-            s.addText(`${c.bandLabel}${c.year?" · "+c.year:""}   ·   ${c.theme}   ·   a 5-minute discussion`, { x:0.9, y:5.9, w:c.W-1.8, h:0.4, fontSize:14, italic:true, color:c.T.titleSub, fontFace:"Arial" });
-          },
-          provChrome(s, c, idx, reelLen) {
-            s.addText((reelLen>1?`PROVOCATION · ${idx+1}/${reelLen}`:"PROVOCATION"), { x:0.8, y:0.5, w:c.W-1.6, h:0.3, fontSize:11, color:"6A5018", charSpacing:3, fontFace:c.bFont });
-            s.addShape(c.pptx.ShapeType.line, { x:0.8, y:0.85, w:1.2, h:0, line:{color:"C59F40", width:1} });
-            s.addText(c.spot.framing, { x:0.8, y:1.0, w:c.W-1.6, h:0.7, fontSize:22, bold:true, color:"4F2759", fontFace:"Arial" });
-          },
-          takeaway(s, c) {
-            s.addText("“", { x:0.9, y:1.0, w:1.5, h:1.2, fontSize:90, color:"C59F40", fontFace:"Arial" });
-            // Quote box owns the whole mid-band (y 2.0–5.4) and shrinks to fit, so a long
-            // student action can never overflow into the gold rule / IB line below it.
-            s.addText(c.spot.studentAction || "—", { x:1.4, y:2.0, w:c.W-2.8, h:3.4, fontSize:34, italic:true, bold:true, color:"4F2759", valign:"middle", fontFace:"Arial", fit:"shrink" });
-            s.addShape(c.pptx.ShapeType.line, { x:1.4, y:5.7, w:2.2, h:0, line:{color:"C59F40", width:1.5} });
-            if (c.spot.learnerProfile.filter(Boolean).length)
-              s.addText("IB Learner Profile: " + c.spot.learnerProfile.filter(Boolean).join(", "), { x:1.4, y:5.9, w:c.W-2.8, h:0.4, fontSize:13, italic:true, color:c.muted, fontFace:c.bFont });
-          },
-        },
-        popart: {
-          cover(s, c) {
-            // No top-right starburst — it collided with the Wesley crest. Comic feel comes from
-            // bold caps + subtle halftone + the speech-bubble meta chip. (pptxgenjs `line` on text
-            // draws a BOX around the frame, not a glyph outline, so the headline stays unoutlined.)
-            s.addText(c.tCase(c.spot.hook || c.spot.title), { x:0.7, y:1.3, w:c.W-1.6, h:3.5, fontSize:46, bold:true, color:"4F2759", valign:"middle", fontFace:c.tFont, charSpacing:-0.5 });
-            s.addShape(c.pptx.ShapeType.roundRect, { x:0.7, y:5.6, w:6.0, h:0.7, fill:{color:"FFFFFF"}, line:{color:"000000", width:2.5}, rectRadius:0.35 });
-            s.addText(`${c.bandLabel}${c.year?" · "+c.year:""}  ·  ${c.theme}`, { x:0.7, y:5.6, w:6.0, h:0.7, fontSize:13, bold:true, color:"4F2759", align:"center", valign:"middle", fontFace:c.bFont });
-          },
-          provChrome(s, c, idx, reelLen) {
-            s.addText((reelLen>1?` PROVOCATION ${idx+1}/${reelLen} `:" PROVOCATION "), { x:0.8, y:0.5, w:3.2, h:0.4, fontSize:11, bold:true, color:"FFFFFF", fill:{color:"4F2759"}, line:{color:"000000", width:2}, align:"center", fontFace:c.tFont });
-            s.addText(c.spot.framing, { x:0.8, y:1.05, w:c.W-1.6, h:0.7, fontSize:22, bold:true, color:c.ink, fontFace:c.tFont });
-          },
-          takeaway(s, c) {
-            // The amber field + halftone now come from newSlide (takeawayBg override + texture
-            // hook), so the Wesley footer band + crest survive. Skin only draws the speech card.
-            s.addShape(c.pptx.ShapeType.roundRect, { x:1.2, y:1.9, w:c.W-2.4, h:3.2, fill:{color:"FFFFFF"}, line:{color:"000000", width:3}, rectRadius:0.3 });
-            s.addText(c.tCase("Your key takeaway"), { x:1.6, y:2.1, w:c.W-3.2, h:0.4, fontSize:13, bold:true, color:"4F2759", fontFace:c.tFont, charSpacing:1 });
-            s.addText((c.spot.studentAction || "—") + "!", { x:1.6, y:2.6, w:c.W-3.2, h:2.0, fontSize:26, bold:true, color:"4F2759", valign:"middle", fontFace:c.tFont, fit:"shrink" });
-          },
-        },
-      };
-      const skin = SKINS[ST.layout] || SKINS.classic;
-      const ctx = {
-        pptx, ST, T, W, H, n: () => n, total, spot, bandLabel, year, theme, mode,
-        accent, accent2, bar, ink, muted, tFont, bFont, tCase, kicker, drawRoutine, newSlide,
-        geom: { colY, colH, lx, lw2, rx2, rw2, mediaH, hasLink },
-      };
-
-      /* Advisory slide (slide 1) — unmistakable CONTENT WARNING, identical across all deck styles. */
-      if (showAdv) {
-        n++;
-        const ADV_BG = "000000", ADV_INK = "F7F2EA", ADV_GOLD = "E4D1A1", ADV_AMBER = "E8A33D";
-        // Fixed Wesley brand fonts (not the per-style tFont/bFont) so the advisory
-        // reads identically across all deck styles.
-        const ADV_DISPLAY = "Avenir Black", ADV_BODY = "Graphik";
-        const sa = pptx.addSlide();
-        sa.background = { color: ADV_BG };
-        // Amber caution band across the top so it reads instantly as a warning slide.
-        sa.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: W, h: 0.32, fill: { color: ADV_AMBER } });
-        sa.addShape(pptx.ShapeType.rect, { x: 0, y: H - 0.18, w: W, h: 0.18, fill: { color: ADV_GOLD } });
-        const lw = 2.3, lh = lw / 4.991;
-        sa.addImage({ data: WESLEY_LOGO_HORIZ, x: W - 0.6 - lw, y: H - 0.62 - lh, w: lw, h: lh });
-        sa.addText(`Digital Life Spotlight · 5-minute discussion · ${n}/${total}`, { x: 0.6, y: H - 0.6, w: W - 3.4, h: 0.3, fontSize: 9, color: ADV_INK, fontFace: ADV_BODY });
-        // Warning triangle (amber, dark "!") + bold "CONTENT WARNING" header.
-        sa.addShape(pptx.ShapeType.triangle, { x: 0.9, y: 1.05, w: 1.0, h: 0.9, fill: { color: ADV_AMBER }, line: { color: ADV_BG, width: 2.5 } });
-        sa.addText("!", { x: 0.9, y: 1.32, w: 1.0, h: 0.6, fontSize: 34, bold: true, color: ADV_BG, align: "center", valign: "middle", fontFace: ADV_DISPLAY });
-        sa.addText("CONTENT WARNING", { x: 2.1, y: 1.0, w: W - 3.0, h: 1.0, fontSize: 36, bold: true, color: ADV_AMBER, charSpacing: 3, valign: "middle", fontFace: ADV_DISPLAY });
-        const themeLine = advisoryThemeLine(spot.advisoryCats || []);
-        sa.addText(`Heads up — today's spotlight touches on some things that might feel heavy: ${themeLine}.`, { x: 0.9, y: 2.7, w: W - 1.8, h: 1.5, fontSize: 23, bold: true, color: ADV_INK, valign: "top", fontFace: ADV_BODY, lineSpacingMultiple: 1.15 });
-        sa.addText("If you'd rather step out for this one, just quietly let your teacher know. That's completely okay.", { x: 0.9, y: 4.7, w: W - 1.8, h: 1.2, fontSize: 16, italic: true, color: ADV_INK, valign: "top", fontFace: ADV_BODY, lineSpacingMultiple: 1.2 });
-      }
-
-      /* Slide 1 — TITLE (catchy headline; also carries band/theme) */
-      const s1 = newSlide("title");
-      skin.cover(s1, ctx);
-
-      // For article mode, keep a single provocation slide (reuse the legacy single-stimulus path).
-      const reel = (mode === "media" && media.length) ? media : [null]; // [null] = non-media single slide
-      const provFirst = 2 + slideOffset;  // title is slide 1 (+1 when the advisory slide is present)
-      const provLast = provFirst + reel.length - 1;
-
-      for (let idx = 0; idx < reel.length; idx++) {
-        const item = reel[idx];
-        const s3 = newSlide("content");
-        skin.provChrome(s3, ctx, idx, reel.length);
-
-        // LEFT: this item's media (or article/summary on the single non-media slide).
-        if (item && item.kind === "image") {
-          // Compute "contain" ourselves (pptxgenjs sizing:contain stretches the image to the box).
-          const ar = (item.aspect && isFinite(item.aspect) && item.aspect > 0) ? item.aspect : (lw2 / mediaH);
-          let iw = lw2, ih = iw / ar; if (ih > mediaH) { ih = mediaH; iw = ih * ar; }
-          iw = +iw.toFixed(2); ih = +ih.toFixed(2);
-          const iX = +(lx + (lw2 - iw) / 2).toFixed(2), iY = +(colY + (mediaH - ih) / 2).toFixed(2);
-          s3.addImage({ data: item.dataUrl, x: iX, y: iY, w: iw, h: ih });
-        } else if (item && item.kind === "video") {
-          const ar = (item.aspect && isFinite(item.aspect) && item.aspect > 0) ? item.aspect : (16 / 9);
-          let vw = lw2, vh = vw / ar; if (vh > mediaH) { vh = mediaH; vw = vh * ar; }
-          vw = +vw.toFixed(2); vh = +vh.toFixed(2);
-          const vX = +(lx + (lw2 - vw) / 2).toFixed(2), vY = +(colY + (mediaH - vh) / 2).toFixed(2);
-          const embed = !!item.dataUrl && item.sizeBytes <= VIDEO_EMBED_MAX_BYTES;
-          if (embed) s3.addMedia({ type: "video", data: item.dataUrl, cover: item.poster || undefined, x: vX, y: vY, w: vw, h: vh });
-          else if (item.poster) s3.addImage({ data: item.poster, x: vX, y: vY, w: vw, h: vh, sizing: { type: "contain", w: vw, h: vh } });
-        } else {
-          // article / no-media: lead image + summary (legacy behavior).
-          let stimImg = "";
-          if (mode === "article" && articleImageUrl) stimImg = await urlToDataUrl(articleImageUrl);
-          let ay = colY, aAvail = mediaH;
-          if (stimImg) { const ih = +(aAvail * 0.5).toFixed(2); s3.addImage({ data: stimImg, x: lx, y: ay, w: lw2, h: ih, sizing: { type: "contain", w: lw2, h: ih } }); ay += ih + 0.15; aAvail -= ih + 0.15; }
-          // Cap the box 0.15" above the link/QR row and shrink-to-fit so a long
-          // summary can never overflow its box and collide with the link + QR below.
-          if (spot.summary && spot.summary.trim()) s3.addText(spot.summary, { x: lx, y: ay, w: lw2, h: Math.max(0.6, aAvail - (hasLink ? 0.15 : 0)), fontSize: 13, color: ink, valign: "top", fontFace: bFont, lineSpacingMultiple: 1.1, fit: "shrink" });
-          else if (!stimImg) s3.addText("(Share the stimulus with students directly.)", { x: lx, y: ay, w: lw2, h: 0.6, fontSize: 14, italic: true, color: muted, fontFace: bFont });
+        if (items.length === 1) {
+          const it = items[0];
+          const box = contain(x, y, w, Math.max(0.5, mediaH), it.aspect || (it.kind === "video" ? 16 / 9 : w / mediaH));
+          if (it.kind === "image") { s.addImage({ data: it.dataUrl, x: box.x, y: box.y, w: box.w, h: box.h }); drew = true; }
+          else { // video: embed small clips (play in desktop PowerPoint); otherwise its poster frame
+            const embed = !!it.dataUrl && it.sizeBytes <= VIDEO_EMBED_MAX_BYTES;
+            if (embed) { s.addMedia({ type: "video", data: it.dataUrl, cover: it.poster || undefined, x: box.x, y: box.y, w: box.w, h: box.h }); drew = true; }
+            else if (it.poster) { s.addImage({ data: it.poster, x: box.x, y: box.y, w: box.w, h: box.h }); drew = true; }
+          }
+        } else if (items.length > 1) {
+          // Multiple stimuli → a static 2-column grid of up to 4 (videos shown by poster). The one
+          // IGNITE slide can't be a click-through reel in the 4-slide model, so this is the simplest
+          // faithful treatment; the notes tell the teacher the originals are attached in order.
+          const show = items.slice(0, 4);
+          const cols = 2, rows = Math.ceil(show.length / cols), gap = 0.18;
+          const cw = (w - gap) / cols, ch = (Math.max(0.5, mediaH) - gap * (rows - 1)) / rows;
+          show.forEach((it, i) => {
+            const src = it.kind === "image" ? it.dataUrl : it.poster;
+            if (!src) return;
+            const cx = x + (i % cols) * (cw + gap), cy = y + Math.floor(i / cols) * (ch + gap);
+            const box = contain(cx, cy, cw, ch, it.aspect || (4 / 3));
+            s.addImage({ data: src, x: box.x, y: box.y, w: box.w, h: box.h });
+            drew = true;
+          });
+        } else if (mode === "article" && articleImageUrl) {
+          const img = await urlToDataUrl(articleImageUrl);
+          if (img) { const box = contain(x, y, w, Math.max(0.5, mediaH), 16 / 9); s.addImage({ data: img, x: box.x, y: box.y, w: box.w, h: box.h }); drew = true; }
         }
 
-        // Optional link + QR under the left column.
-        if (hasLink) {
-          const url = link.trim();
+        if (url) {
           const qr = makeQrDataUrl(url);
-          const lineY = colY + colH - 0.5;
-          if (qr) s3.addImage({ data: qr, x: lx, y: lineY, w: 0.5, h: 0.5 });
-          s3.addText([{ text: `${MODE_VERB[mode] || "Source"}: `, options: { color: ink, bold: true } }, { text: url, options: { color: accent, underline: true, hyperlink: { url } } }],
-            { x: lx + (qr ? 0.6 : 0), y: lineY, w: lw2 - (qr ? 0.6 : 0), h: 0.5, fontSize: 9, valign: "middle", fontFace: bFont });
+          const rowY = y + h - 0.55;
+          if (qr) s.addImage({ data: qr, x, y: rowY, w: 0.5, h: 0.5 });
+          s.addText(
+            [{ text: (MODE_VERB[mode] || "Open") + ":  ", options: { bold: true, color: WHITE } },
+             { text: url, options: { color: GOLD_LT, underline: true, hyperlink: { url } } }],
+            { x: x + (qr ? 0.65 : 0), y: rowY, w: w - (qr ? 0.65 : 0), h: 0.5, fontSize: 11, valign: "middle", fontFace: FONT });
+          drew = true;
         }
-
-        // RIGHT: routine (repeated on every item-slide).
-        drawRoutine(s3, rx2, rw2, colY, colH);
-
-        // Carousel nav: ◀/▶ to adjacent item-slides + dot row (only when >1 item).
-        if (reel.length > 1) {
-          const myNum = provFirst + idx;
-          const prevNum = Math.max(provFirst, myNum - 1);
-          const nextNum = Math.min(provLast, myNum + 1);
-          if (myNum > provFirst) s3.addText("‹", { x: lx + 0.05, y: colY + mediaH / 2 - 0.25, w: 0.5, h: 0.5, fontSize: 28, bold: true, color: "FFFFFF", align: "center", valign: "middle", fill: { color: "000000", transparency: 45 }, hyperlink: { slide: prevNum } });
-          if (myNum < provLast) s3.addText("›", { x: lx + lw2 - 0.55, y: colY + mediaH / 2 - 0.25, w: 0.5, h: 0.5, fontSize: 28, bold: true, color: "FFFFFF", align: "center", valign: "middle", fill: { color: "000000", transparency: 45 }, hyperlink: { slide: nextNum } });
-          const dots = reel.map((_, i) => i === idx ? "●" : "○").join("  ");
-          s3.addText(dots, { x: lx, y: colY + mediaH + 0.02, w: lw2, h: 0.3, fontSize: 12, color: accent, align: "center", fontFace: bFont });
-        }
-
-        // Speaker notes on every item-slide.
-        const gq = spot.guidingQuestions.filter(g => (g.q || "").trim());
-        const respLines = spot.steps.map((st, i) => `Step ${i + 1} — ${st.name}: ${st.responses || "(none generated — add your own)"}`);
-        s3.addNotes(
-          (gq.length ? "Guiding questions:\n" + gq.map(g => "• " + g.q + ((g.responses || "").trim() ? "\n    ↳ Possible responses: " + g.responses : "")).join("\n") : "") +
-          (respLines.length ? (gq.length ? "\n\n" : "") + "Likely student responses (per step):\n" + respLines.join("\n") : "") +
-          (kw.length ? "\n\nKeywords: " + kw.join(", ") : "")
-        );
+        return drew;
       }
 
-      /* STUDENT KEY TAKEAWAY */
-      const s6 = newSlide("title", T.takeawayBg);
-      skin.takeaway(s6, ctx);
+      // ---------------- ADVISORY (optional, leads the deck) ----------------
+      if (showAdvisory) {
+        const s = newWhite();
+        const reason = ((deck.advisory && deck.advisory.reason) || "").trim() || "This stimulus touches on a sensitive theme.";
+        s.addShape(pptx.ShapeType.roundRect, { x: 0.7, y: 1.05, w: 3.9, h: 0.6, fill: { color: AMBER }, rectRadius: 0.1 });
+        s.addText("CONTENT ADVISORY", { x: 0.7, y: 1.05, w: 3.9, h: 0.6, fontSize: 15, bold: true, color: INK, align: "center", valign: "middle", charSpacing: 1, fontFace: FONT });
+        s.addText(reason, { x: 0.7, y: 2.05, w: W - 1.4, h: 1.9, fontSize: 22, bold: true, color: P, valign: "top", lineSpacingMultiple: 1.15, fontFace: FONT, fit: "shrink" });
+        s.addText("If you'd rather step out for this one, just quietly let your teacher know. That's completely okay.",
+          { x: 0.7, y: 4.7, w: W - 1.4, h: 1.0, fontSize: 15, italic: true, color: INK, valign: "top", lineSpacingMultiple: 1.2, fontFace: FONT });
+        s.addNotes("CONTENT ADVISORY — decide before class whether to show this. " + reason);
+      }
 
-      // Core document properties (surface in PowerPoint's File ▸ Info and most tools).
-      const lessonTitle = spot.title || spot.hook || "Digital Life Spotlight";
-      pptx.title = lessonTitle;
-      pptx.company = "Wesley College — Springboard";
+      // ---------------- IGNITE (full-brand purple cover) ----------------
+      {
+        sNum++;
+        const s = pptx.addSlide();
+        s.background = { color: P };
+        goldCrest(s, 1.55);
+        s.addText("IGNITE", { x: 0.7, y: 0.58, w: 6, h: 0.4, fontSize: 14, bold: true, color: GOLD_LT, charSpacing: 3, fontFace: FONT });
+        s.addText(title, { x: 0.7, y: 1.05, w: W - 2.5, h: 1.25, fontSize: 33, bold: true, color: WHITE, valign: "top", fontFace: FONT, fit: "shrink" });
+        if (metaLine) s.addText(metaLine, { x: 0.7, y: 2.32, w: W - 1.4, h: 0.32, fontSize: 12, color: SUB, fontFace: FONT });
+
+        const drew = await drawStimulus(s, 0.7, 2.85, W - 1.4, 2.55);
+
+        s.addShape(pptx.ShapeType.rect, { x: 0.7, y: 5.55, w: 2.1, h: 0.045, fill: { color: GOLD } });
+        if (drew) {
+          s.addText(igniteQ, { x: 0.7, y: 5.72, w: W - 1.4, h: 1.15, fontSize: 24, bold: true, color: GOLD, valign: "top", fontFace: FONT, fit: "shrink" });
+        } else {
+          // No stimulus: the provocative question owns the whole stage.
+          s.addText(igniteQ, { x: 0.7, y: 3.05, w: W - 1.4, h: 2.35, fontSize: 40, bold: true, color: GOLD, valign: "middle", fontFace: FONT, fit: "shrink" });
+        }
+        pageNo(s, true);
+        s.addNotes(noteFor("ignite"));
+      }
+
+      // ---------------- THINK ----------------
+      {
+        const s = newWhite();
+        kicker(s, "THINK");
+        s.addText(routine || "Thinking routine", { x: 0.7, y: 1.05, w: W - 1.4, h: 0.75, fontSize: 30, bold: true, color: P, valign: "top", fontFace: FONT, fit: "shrink" });
+        if (structure) s.addText([{ text: "How to run it:  ", options: { bold: true, color: INK } }, { text: structure, options: { color: INK } }],
+          { x: 0.7, y: 1.9, w: W - 1.4, h: 0.5, fontSize: 14, valign: "top", fontFace: FONT });
+        let sy = 2.65;
+        const rowH = steps.length ? Math.min(0.95, (6.35 - sy) / steps.length) : 0;
+        steps.forEach((st, i) => {
+          s.addShape(pptx.ShapeType.ellipse, { x: 0.7, y: sy, w: 0.42, h: 0.42, fill: { color: P } });
+          s.addText(String(i + 1), { x: 0.7, y: sy, w: 0.42, h: 0.42, fontSize: 15, bold: true, color: WHITE, align: "center", valign: "middle", fontFace: FONT });
+          s.addText(st, { x: 1.3, y: sy - 0.04, w: W - 2.1, h: rowH, fontSize: 16, color: INK, valign: "top", fontFace: FONT });
+          sy += rowH + 0.14;
+        });
+        s.addText(ROUTINE_SOURCE, { x: 0.7, y: H - 0.92, w: W - 2.6, h: 0.3, fontSize: 9, italic: true, color: MUTED, fontFace: FONT });
+        s.addNotes(noteFor("think"));
+      }
+
+      // ---------------- LAUNCH ----------------
+      {
+        const s = newWhite();
+        kicker(s, "LAUNCH");
+        s.addText("Into today's lesson", { x: 0.7, y: 1.05, w: W - 1.4, h: 0.55, fontSize: 23, bold: true, color: P, valign: "top", fontFace: FONT });
+        cap(s, "Curriculum connection", 1.9);
+        s.addText((deck.launch && deck.launch.connection) || "", { x: 0.7, y: 2.2, w: W - 1.4, h: 0.85, fontSize: 14, color: INK, valign: "top", lineSpacingMultiple: 1.1, fontFace: FONT });
+        cap(s, "From the stimulus", 3.15);
+        s.addText((deck.launch && deck.launch.bridge) || "", { x: 0.7, y: 3.45, w: W - 1.4, h: 0.85, fontSize: 14, color: INK, valign: "top", lineSpacingMultiple: 1.1, fontFace: FONT });
+        s.addShape(pptx.ShapeType.rect, { x: 0.7, y: 4.55, w: 2.1, h: 0.045, fill: { color: GOLD } });
+        s.addText((deck.launch && deck.launch.question) || "", { x: 0.7, y: 4.72, w: W - 1.4, h: 1.5, fontSize: 26, bold: true, color: P, valign: "top", fontFace: FONT, fit: "shrink" });
+        s.addNotes(noteFor("launch"));
+      }
+
+      // ---------------- REFLECT (optional) ----------------
+      if (showReflect) {
+        const s = newWhite();
+        kicker(s, "REFLECT");
+        s.addText("Revisit your thinking", { x: 0.7, y: 1.05, w: W - 1.4, h: 0.55, fontSize: 23, bold: true, color: P, valign: "top", fontFace: FONT });
+        const revisit = (deck.reflect && deck.reflect.revisit) || "";
+        if (revisit) s.addText(revisit, { x: 0.7, y: 1.75, w: W - 1.4, h: 0.95, fontSize: 18, color: INK, valign: "top", lineSpacingMultiple: 1.15, fontFace: FONT });
+        let ry = 2.95;
+        const rowH = prompts.length ? Math.min(1.0, (6.35 - ry) / prompts.length) : 0;
+        prompts.forEach((pr, i) => {
+          s.addShape(pptx.ShapeType.ellipse, { x: 0.7, y: ry, w: 0.42, h: 0.42, fill: { color: GOLD } });
+          s.addText(String(i + 1), { x: 0.7, y: ry, w: 0.42, h: 0.42, fontSize: 15, bold: true, color: INK, align: "center", valign: "middle", fontFace: FONT });
+          s.addText(pr, { x: 1.3, y: ry - 0.04, w: W - 2.1, h: rowH, fontSize: 18, color: INK, valign: "top", fontFace: FONT });
+          ry += rowH + 0.18;
+        });
+        s.addNotes(noteFor("reflect"));
+      }
+
+      // Core + custom document properties (surface in File ▸ Info and search).
+      pptx.title = title;
+      pptx.subject = [curriculum, subject].filter(Boolean).join(" ") + (yearLevel ? " Y" + yearLevel : "");
+      pptx.company = "Wesley College";
       pptx.author = "Springboard";
-
-      // Build to a blob, then stamp Title + search keywords as custom doc properties.
+      const tags = [...kw, routine, curriculum].filter(Boolean);
       const blob = await pptx.write({ outputType: "blob" });
-      return await stampDocProps(blob, { Title: lessonTitle }, kw);
+      return await stampDocProps(blob, { Title: title, Subject: pptx.subject, Company: "Wesley College" }, tags);
     } catch (err) {
       setError("PowerPoint export failed: " + (err.message || String(err)));
       return null;
     }
   }
 
-  // Build one band's deck and download it as a .pptx.
+  // Filename: "Springboard – <title> – <subject> Y<year>.pptx" (illegal chars stripped).
+  function deckFileName(deck) {
+    const subject = (classInfo.subject || "").trim();
+    const yearLevel = (classInfo.yearLevel || "").trim();
+    const subjPart = [subject, yearLevel ? "Y" + yearLevel : ""].filter(Boolean).join(" ");
+    const parts = ["Springboard", (deck.title || "").trim(), subjPart].map(s => s.trim()).filter(Boolean);
+    return sanitizeFilename(parts.join(" – ")) + ".pptx";
+  }
+
+  // Build the active deck and download it as a .pptx.
   async function buildAndSaveDeck(bandKey, deck) {
     const finalBlob = await buildDeckBlob(bandKey, deck);
     if (!finalBlob) return;
     const a = document.createElement("a");
     a.href = URL.createObjectURL(finalBlob);
-    a.download = `Tech-Spotlight-${bandFileSlug(bandKey)}.pptx`;
+    a.download = deckFileName(deck);
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   }
 
-  // Export one .pptx per generated band, staggered so browsers don't drop files.
+  // Export the generated deck(s). One class per run means this is normally a single file.
   async function download() {
     if (busyRef.current.exporting) return;
     busyRef.current.exporting = true;
@@ -2507,11 +2268,8 @@ function App() {
               {stimulusStale && <div className="alert info" role="status">You changed the stimulus. Hit <b>Regenerate</b> so the slides match.</div>}
               <div className="toolbar">
                 <button type="button" className="btn ghost" disabled={loading} onClick={generate}><Icon d={I.refresh} size={16} stroke /> Regenerate</button>
-                {EXPORT_READY
-                  ? <button type="button" className="btn primary" disabled={exporting} onClick={download}><Icon d={I.download} size={16} stroke /> {exporting ? "Preparing…" : "Download PowerPoint"}</button>
-                  : <button type="button" className="btn primary" disabled title="Export arrives in the next update"><Icon d={I.download} size={16} stroke /> Download (coming soon)</button>}
+                <button type="button" className="btn primary" disabled={exporting} onClick={download}><Icon d={I.download} size={16} stroke /> {exporting ? "Preparing…" : "Download PowerPoint"}</button>
               </div>
-              {!EXPORT_READY && <div className="hint">Export arrives in the next update — the new 4-slide deck download is being rebuilt.</div>}
 
               <div className="slides">
                 {/* Springboard title + find-me keywords */}
@@ -2548,6 +2306,16 @@ function App() {
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
                   <div className="slide-head"><div className="slide-tag"><span className="n">1</span> <h2 style={{ font: "inherit", margin: 0, display: "inline" }}>Ignite</h2> <span className="aside">· one provocative question</span></div><RegenButton scope="ignite" /></div>
                   <textarea className="editable" rows={2} aria-label="Ignite question" value={spot.ignite.question} placeholder="One provocative question…" onChange={e => patchSlide("ignite", { question: e.target.value })} />
+                  {(media.length > 0 || (mode === "article" && articleImageUrl) || link.trim()) && (
+                    <div className="stim-preview">
+                      <div className="cap" style={{ marginTop: 12 }}>On slide 1 <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· the stimulus students will see</span></div>
+                      {media.length > 0 && <div className="reel-wrap"><MediaCarousel items={media} index={reelIndex} setIndex={setReelIndex} /></div>}
+                      {mode === "article" && articleImageUrl && media.length === 0 && (
+                        <div className="reel-wrap"><div className="reel-frame"><img src={articleImageUrl} alt="Article lead image" /></div></div>
+                      )}
+                      {link.trim() && <div style={{ marginTop: 10 }}><StimLink url={link.trim()} verb={MODE_VERB[mode] || "Open"} /></div>}
+                    </div>
+                  )}
                   <details className="notes-details">
                     <summary>Teacher notes</summary>
                     <textarea className="editable" rows={5} aria-label="Ignite teacher notes" value={spot.notes.ignite} placeholder="FACILITATION: … TIMING: … DIFFERENTIATION: … CURRICULUM LINKS: … EXTENSIONS: …" onChange={e => patchNote("ignite", e.target.value)} />
@@ -2596,12 +2364,13 @@ function App() {
 
                 {/* REFLECT */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="slide-head"><div className="slide-tag"><span className="n">4</span> <h2 style={{ font: "inherit", margin: 0, display: "inline" }}>Reflect</h2> <span className="aside">· revisit thinking at lesson end</span></div><RegenButton scope="reflect" /></div>
+                  <div className="slide-head"><div className="slide-tag"><span className="n">4</span> <h2 style={{ font: "inherit", margin: 0, display: "inline" }}>Reflect</h2> <span className="aside">· revisit thinking at lesson end</span></div></div>
                   <label className="toggle-row">
                     <input type="checkbox" checked={includeReflect} onChange={e => setIncludeReflect(e.target.checked)} />
                     Include REFLECT slide (revisit thinking at lesson end)
                   </label>
                   <div className={"reflect-body" + (includeReflect ? "" : " dimmed")} aria-hidden={!includeReflect}>
+                    {includeReflect && <div style={{ display: "flex", justifyContent: "flex-end" }}><RegenButton scope="reflect" /></div>}
                     <div className="cap" style={{ marginTop: 10 }}>Revisit the ignite question</div>
                     <textarea className="editable" rows={2} aria-label="Revisit the ignite question" value={spot.reflect.revisit} placeholder="…revisiting the opening question" onChange={e => patchSlide("reflect", { revisit: e.target.value })} disabled={!includeReflect} />
                     <div className="cap" style={{ marginTop: 10 }}>Reflection prompts <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· up to 4</span></div>
@@ -2613,11 +2382,11 @@ function App() {
                       </div>
                     ))}
                     {includeReflect && spot.reflect.prompts.length < 4 && <button type="button" className="addbtn" onClick={() => addArr("reflect", "prompts")}>+ Add prompt</button>}
+                    <details className="notes-details">
+                      <summary>Teacher notes</summary>
+                      <textarea className="editable" rows={5} aria-label="Reflect teacher notes" value={spot.notes.reflect} placeholder="FACILITATION: … TIMING: … DIFFERENTIATION: … CURRICULUM LINKS: … EXTENSIONS: …" onChange={e => patchNote("reflect", e.target.value)} disabled={!includeReflect} />
+                    </details>
                   </div>
-                  <details className="notes-details">
-                    <summary>Teacher notes</summary>
-                    <textarea className="editable" rows={5} aria-label="Reflect teacher notes" value={spot.notes.reflect} placeholder="FACILITATION: … TIMING: … DIFFERENTIATION: … CURRICULUM LINKS: … EXTENSIONS: …" onChange={e => patchNote("reflect", e.target.value)} />
-                  </details>
                 </div></div>
               </div>
             </React.Fragment>
