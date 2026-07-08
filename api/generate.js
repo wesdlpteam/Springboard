@@ -12,7 +12,7 @@ export default async function handler(req, res) {
 
   const payload = { model: process.env.OPENAI_MODEL || "gpt-5.4", messages };
   if (response_format) payload.response_format = response_format;
-  if (max_completion_tokens) payload.max_completion_tokens = max_completion_tokens;
+  if (max_completion_tokens !== undefined) payload.max_completion_tokens = max_completion_tokens;
   if (temperature !== undefined) payload.temperature = temperature;
 
   try {
