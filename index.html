@@ -1146,25 +1146,6 @@ function sanitizeFilename(s) {
     .slice(0, 150) || "Springboard";
 }
 
-// Content-advisory categories the model can flag, and how each reads on the
-// teacher's chip vs. the (briefer) advisory-slide theme line.
-const ADVISORY_CATEGORIES = {
-  "sexual":      { chip: "Nudity / mature themes",   theme: "mature themes" },
-  "confronting": { chip: "Violence or distressing",  theme: "confronting themes" },
-  "self-harm":   { chip: "Self-harm",                theme: "self-harm" },
-  "substance":   { chip: "Drugs, alcohol or illegal", theme: "drugs or alcohol" },
-};
-const ADVISORY_ORDER = ["sexual", "confronting", "self-harm", "substance"];
-
-// Brief, student-facing theme line for the advisory slide, built from selected
-// category keys (deduped, in canonical order). Empty selection -> gentle generic.
-function advisoryThemeLine(cats) {
-  const set = Array.isArray(cats) ? cats.filter(c => ADVISORY_CATEGORIES[c]) : [];
-  const ordered = ADVISORY_ORDER.filter(c => set.includes(c));
-  if (!ordered.length) return "a few sensitive topics";
-  return ordered.map(c => ADVISORY_CATEGORIES[c].theme).join(" · ");
-}
-
 const TRANSCRIBE_LIMIT = 4 * 1024 * 1024; // Vercel serverless function request-body limit is ~4.5 MB; stay under it
 
 // Turn a failed backend response into a plain, teacher-facing message. 401 means
@@ -1526,6 +1507,24 @@ function App() {
   const stimKey = mode + "|" + media.length + "|" + (mode === "article" ? articleText.length : 0);
   const stimulusStale = Object.keys(spots).length > 0 && genStimKey.current && genStimKey.current !== stimKey;
 
+  // Fire-and-forget analytics: logs event + context to the backend.
+  // passcode/classInfo in scope; stimulusType derived from mode/media state by callers.
+  function logEvent(event, extra = {}) {
+    try {
+      fetch(API_BASE + "/api/log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-sb-passcode": passcode },
+        body: JSON.stringify({
+          event,
+          curriculum: classInfo.curriculum, subject: classInfo.subject, yearLevel: classInfo.yearLevel,
+          languageMode: "english",
+          ...extra, // stimulusType, routine, boosters, topic
+        }),
+        keepalive: true,
+      }).catch(() => {});
+    } catch (_) {}
+  }
+
   // Keep reelIndex in range whenever the reel shrinks.
   React.useEffect(() => { if (reelIndex > Math.max(0, media.length - 1)) setReelIndex(0); }, [media.length]);
 
@@ -1642,6 +1641,11 @@ function App() {
       setAnalysis(result);
       setSelectedRoutine("");
       setBoostersOn(new Set(result.boosters));
+      // Log the successful analyse event.
+      const hasVideo = media.some(m => m.kind === "video");
+      const hasImage = media.some(m => m.kind === "image");
+      let stimulusType = mode === "article" ? (pdfName ? "pdf" : "article") : (hasVideo && hasImage ? "mixed" : hasVideo ? "video" : hasImage ? "image" : "unknown");
+      logEvent("analyse", { stimulusType });
     } catch (err) {
       setAnalyseError(err.message || String(err));
     } finally {
@@ -1696,6 +1700,11 @@ function App() {
       setIncludeAdvisory(true);             // and, if flagged, the advisory slide
       genStimKey.current = stimKey; // remember the stimulus fingerprint for the stale-deck hint
       setGenProgress(100);
+      // Log the successful generate event.
+      const hasVideo = media.some(m => m.kind === "video");
+      const hasImage = media.some(m => m.kind === "image");
+      let stimulusType = mode === "article" ? (pdfName ? "pdf" : "article") : (hasVideo && hasImage ? "mixed" : hasVideo ? "video" : hasImage ? "image" : "unknown");
+      logEvent("generate", { stimulusType, routine: selectedRoutine, boosters: [...boostersOn].join(","), topic: deck.title });
     } catch (err) {
       setError(err.message || String(err));
       if (err._raw) setRawDump(err._raw);
@@ -1720,6 +1729,8 @@ function App() {
         scope, current: spot,
       });
       setSpot(s => mergeScopedFields(s, scope, parsed));
+      // Log the successful regenerate event.
+      logEvent("regenerate", { routine: spot.think.routine, topic: spot.title });
     } catch (err) {
       setError(err.message || String(err));
       if (err._raw) setRawDump(err._raw);
@@ -2002,6 +2013,8 @@ function App() {
     a.href = URL.createObjectURL(finalBlob);
     a.download = deckFileName(deck);
     document.body.appendChild(a); a.click(); a.remove();
+    // Log the successful download event.
+    logEvent("download", { routine: deck.think.routine, topic: deck.title });
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   }
 
