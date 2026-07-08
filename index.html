@@ -248,6 +248,18 @@
   .advisory-ctl { margin: 10px 0; }
   .advisory-check { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; }
   .advisory-check input { width: 16px; height: 16px; }
+  /* Springboard preview: toggle rows, collapsible teacher notes, numbered prompt lists */
+  .toggle-row { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13.5px; cursor: pointer; }
+  .toggle-row input { width: 16px; height: 16px; flex: 0 0 auto; }
+  .reflect-body.dimmed { opacity: .45; pointer-events: none; }
+  .notes-details { margin-top: 12px; border-top: 1px dashed var(--line); padding-top: 8px; }
+  .notes-details > summary { cursor: pointer; font-weight: 700; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); list-style: none; display: inline-flex; align-items: center; gap: 6px; }
+  .notes-details > summary::before { content: "▸"; font-size: 11px; transition: transform .15s; }
+  .notes-details[open] > summary::before { transform: rotate(90deg); }
+  .notes-details > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  .routine-name-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 6px 0 2px; }
+  .routine-name-row .chip { font-weight: 700; }
+  .rp-num { flex: 0 0 auto; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; font-size: 12px; font-weight: 700; margin-top: 4px; }
   .advisory-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
   .advisory-chip { border: 1px solid var(--line, #E7E1EF); background: transparent; color: inherit;
     border-radius: 999px; padding: 5px 12px; font-size: 13px; cursor: pointer; }
@@ -514,6 +526,10 @@ const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
 const APP_VERSION = "v0.1.0 · 2026-07-08";
+
+// Export still speaks the OLD deck shape; Task 12 rewrites it to the 4-slide deck.
+// Until then the Download button is gated off so the app compiles and runs cleanly.
+const EXPORT_READY = false;
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -1187,33 +1203,26 @@ function normGuiding(arr) {
     : { q: stripMd((it && (it.question || it.q)) || ""), responses: stripMd((it && it.responses) || "") });
 }
 
-// Shape a parsed model deck into the editable spotlight object, pitched per band.
-// Pure (uses only stripMd + ROUTINES, both module-level) so one Generate can build
-// one deck per selected band.
-function shapeDeck(parsed, { band, title }) {
-  const steps = Array.isArray(parsed.steps) && parsed.steps.length
-    ? parsed.steps.map(s => ({ name: stripMd(s.name || "Step"), minutes: Number(s.minutes) || 1, prompt: stripMd(s.prompt || ""), responses: stripMd(s.responses || "") }))
-    : [{ name: "Discuss", minutes: 5, prompt: "", responses: "" }];
+// Shape a parsed model reply into the editable Springboard deck object. Pure (uses
+// only stripMd), validating/defaulting the 4-part IGNITE / THINK / LAUNCH / REFLECT
+// schema that the preview edits and Tasks 12-14 (export) consume. Arrays are trimmed
+// to their limits; missing fields default to empty strings/arrays; think.routine is
+// forced to the teacher's picked routineName so it always matches an exact ROUTINES name.
+function shapeDeck(parsed, { routineName }) {
+  const p = parsed && typeof parsed === "object" ? parsed : {};
+  const str = v => stripMd(v == null ? "" : String(v));
+  const arr = (v, max) => (Array.isArray(v) ? v.map(str).filter(Boolean).slice(0, max) : []);
+  const obj = v => (v && typeof v === "object" ? v : {});
+  const ig = obj(p.ignite), th = obj(p.think), la = obj(p.launch), re = obj(p.reflect), no = obj(p.notes), ad = obj(p.advisory);
   return {
-    hook: stripMd(parsed.hook || ""),
-    title: stripMd(parsed.title || title || "Digital Life Spotlight"),
-    summary: stripMd(parsed.summary || ""),
-    framing: stripMd(parsed.framing || ""),
-    routineName: stripMd(parsed.routineName || routinesForBand(band)[0].name),
-    routineIntro: stripMd(parsed.routineIntro || ""),
-    steps,
-    guidingQuestions: normGuiding(parsed.guidingQuestions),
-    studentAction: stripMd(parsed.studentAction || ""),
-    keywords: Array.isArray(parsed.keywords) ? parsed.keywords.map(k => stripMd(String(k))).map(s => s.trim().toLowerCase()).filter(Boolean).slice(0, 20) : [],
-    learnerProfile: Array.isArray(parsed.learnerProfile) ? parsed.learnerProfile.map(stripMd) : [],
-    contentAdvisory: (() => {
-      const a = parsed.contentAdvisory || {};
-      const cats = Array.isArray(a.categories) ? a.categories.filter(c => ADVISORY_CATEGORIES[c]) : [];
-      return { flag: !!a.flag, categories: cats, note: stripMd(a.note || "") };
-    })(),
-    // teacher-controlled state, seeded from the AI's assessment
-    advisoryShow: !!(parsed.contentAdvisory && parsed.contentAdvisory.flag),
-    advisoryCats: (Array.isArray(parsed.contentAdvisory?.categories) ? parsed.contentAdvisory.categories.filter(c => ADVISORY_CATEGORIES[c]) : []),
+    title: str(p.title),
+    keywords: arr(p.keywords, 6),
+    ignite:  { question: str(ig.question) },
+    think:   { routine: str(routineName) || str(th.routine), steps: arr(th.steps, 4), structure: str(th.structure) },
+    launch:  { connection: str(la.connection), bridge: str(la.bridge), question: str(la.question) },
+    reflect: { revisit: str(re.revisit), prompts: arr(re.prompts, 4) },
+    notes:   { ignite: str(no.ignite), think: str(no.think), launch: str(no.launch), reflect: str(no.reflect) },
+    advisory:{ flag: !!ad.flag, reason: str(ad.reason) },
   };
 }
 
@@ -1275,81 +1284,41 @@ async function transcribeMedia({ passcode, file }) {
 
 /* --------------------------- Backend call --------------------------- */
 
-async function generateSpotlight({ passcode, mode, band, year, theme, title, media = [], sourceText = "", scope = "all", routineChoice = "", current = null }) {
-  const yearStr = year ? ` Specifically pitch to ${year}.` : "";
-  const titleInstruction = title
-    ? `The teacher provided this title: "${title}". Use it (lightly polished if needed).`
-    : `No title was provided — invent a short, inviting title (max ~8 words).`;
+async function generateSpringboard({ passcode, mode, media = [], sourceText = "", classInfo, routineName, boosterIds = [], scope = "all", current = null }) {
+  const routine = ROUTINES.find(r => r.name === routineName) || ROUTINES[0];
+  const boosterLines = BOOSTERS.filter(b => boosterIds.includes(b.id)).map(b => "- " + b.line).join("\n");
+  const outcomeLine = classInfo.outcome.trim()
+    ? `ALIGN the launch slide to this exact outcome/topic, quoting its key phrases: "${classInfo.outcome.trim()}". Do not invent curriculum codes.`
+    : `Write the curriculum connection in plain language for ${classInfo.curriculum} ${classInfo.subject}, year ${classInfo.yearLevel}. Never invent official curriculum codes or identifiers.`;
+  const tone = { younger: "concrete, playful, inquiry-led (ages 5-12)",
+                 middle: "analytical, real-world (ages 12-15)",
+                 senior: "critical, ethical, conceptual (ages 15-18)" }[bandOf(classInfo.yearLevel)];
+  let sys = `You create a 4-part lesson launch ("Springboard") from a teacher's stimulus.
+Audience tone: ${tone}. Slides carry MINIMAL text — every field respects its word limit.
+Thinking routine to scaffold the THINK part: "${routine.name}" — ${routine.gist} (${routine.url}).
+Stickiness requirements:
+${boosterLines || "- none"}
+${outcomeLine}
+Each notes field is a teacher script with EXACTLY these labelled sections, each 1-3 sentences:
+FACILITATION: … TIMING: … DIFFERENTIATION: … CURRICULUM LINKS: … EXTENSIONS: …
+Set advisory.flag true only for sensitive themes (grief, violence, body image, etc.) with a one-line reason.
+Return STRICT JSON with keys: title, keywords, ignite{question}, think{routine, steps, structure}, launch{connection, bridge, question}, reflect{revisit, prompts}, notes{ignite, think, launch, reflect}, advisory{flag, reason}.`;
 
-  const routineList = routinesForBand(band).map(r => `- ${r.name}: ${r.gist}`).join("\n");
-  const chosen = routineChoice ? routinesForBand(band).find(r => r.name === routineChoice) : null;
-
-  // Per-field schema fragments, assembled by scope so a single-slide regenerate
-  // asks the model for only that slide's fields.
-  const summaryField = (mode === "media")
-    ? `"summary": ""`
-    : `"summary": "string — EXACTLY 5 sentences. You have FULL creative licence: make it grab ${band} students instantly and bait discussion. Lead with the most surprising, relatable, or unsettling angle; use vivid concrete detail; speak to their world; end on a provocative note. Make the situation CONCRETE — clearly establish WHAT happened and the specifics students need to follow it; if the article is vague on an important detail, add brief, careful clarifying context so students aren't confused, but NEVER invent quotes, names, numbers, or events. Punchy, not bland, never a dry recap."`;
-  const F = {
-    hook: `"hook": "string — a SHORT, catchy slide title (MAX 6 words) that captures the SINGLE most striking, specific angle of THIS story — the concrete detail a student would stop scrolling for, not a vague topic label or theme word. A real headline, specific to what actually happened here. NOT a full sentence or question. Pitch it to the band. The provocation lives in the discussion steps, so keep this a memorable, curiosity-sparking title."`,
-    title: `"title": "string — the spotlight title"`,
-    summary: summaryField,
-    framing: `"framing": "string — one short line telling students what to do, e.g. '${MODE_FRAMING[mode]}'"`,
-    routineRationale: `"routineRationale": "string — FIRST, before naming the routine: 1-2 sentences analysing THIS specific stimulus — its core tension and the kind of thinking it most rewards (close observation? predicting? taking an ethical stance? stepping into a stakeholder's shoes? testing a claim?) — and which routine from the list below best fits, and why. This is your private reasoning to choose well; it is not shown to students."`,
-    routineName: chosen
-      ? `"routineName": "string — MUST be exactly: ${chosen.name}"`
-      : `"routineName": "string — the EXACT name of the ONE thinking routine from the list below that your rationale concluded is the BEST fit for this stimulus"`,
-    routineIntro: `"routineIntro": "string — one warm sentence introducing the routine to the class"`,
-    steps: `"steps": [\n    { "name": "string — short step label", "minutes": 1, "prompt": "string — a punchy, provocative discussion prompt the teacher poses at this step", "responses": "string — 2 or 3 SHORT examples of what students at this band might actually say in response, so the teacher can anticipate the discussion (e.g. 'Some may say…; others might argue…')" }\n  ]`,
-    guidingQuestions: `"guidingQuestions": [ { "question": "string — a guiding question the teacher can ask, pitched to the band", "responses": "string — 2 or 3 SHORT examples of how students at this band might actually answer it, so the teacher can anticipate the discussion (e.g. 'Some may say…; others might argue…')" } ]  — give 3 to 4 of these objects`,
-    studentAction: `"studentAction": "string — ONE concrete action or genuine shift in thinking the student leaves with, drawn from the REAL heart of THIS story: the actual tension, choice, or consequence in the stimulus, not a generic safety platitude. It must connect directly to what made this stimulus matter and give the student something they could truly do or reconsider today. Plain, specific, memorable, pitched to the band — never preachy or a slogan."`,
-    keywords: `"keywords": ["8 to 15 short lowercase search terms a teacher might type to FIND this lesson later — the core topics, the real-world hook, and named things in the stimulus (apps, activities, e.g. music, gaming, TikTok, deepfakes), plus close synonyms. Concrete over abstract. For search only; never shown to students."]`,
-    learnerProfile: `"learnerProfile": ["1 to 3 IB Learner Profile attributes that fit, e.g. 'Thinker', 'Principled', 'Caring'"]`,
-    contentAdvisory: `"contentAdvisory": { "flag": true or false, "categories": [any of "sexual","confronting","self-harm","substance" that genuinely apply], "note": "string — if flag is true, ONE short, warm, plain-text line naming the sensitive themes, pitched to the band (gentler and simpler for PYP, more direct for Senior); empty string if flag is false" }`,
-  };
-  const SCOPES = {
-    all: ["hook", "title", "summary", "framing", "routineRationale", "routineName", "routineIntro", "steps", "guidingQuestions", "studentAction", "keywords", "learnerProfile", "contentAdvisory"],
-    title: ["hook", "title"],
-    provocation: chosen ? ["routineName", "routineIntro", "steps", "guidingQuestions"] : ["routineRationale", "routineName", "routineIntro", "steps", "guidingQuestions"],
-    takeaway: ["studentAction", "learnerProfile"],
-  };
-  const keys = SCOPES[scope] || SCOPES.all;
-  const includesRoutine = keys.indexOf("routineName") !== -1;
-
-  const routineBlock = includesRoutine
-    ? "\n" + (chosen
-        ? `Use EXACTLY this Harvard Project Zero thinking routine — do not pick another: "${chosen.name}" — ${chosen.gist} Build "routineIntro" and the steps around it as LOOSE INSPIRATION (capture its spirit, but DON'T mechanically echo its exact wording). Write genuinely engaging, provocative discussion prompts that maximise intrigue and debate for the band.`
-        : `Choose the SINGLE MOST EFFECTIVE routine from this Harvard Project Zero list for THIS specific stimulus — do the analysis in "routineRationale" first, then commit to it in "routineName". Different stimuli reward different thinking: an image or close-up rewards observation routines; a clear ethical dilemma rewards stance or stakeholder-viewpoint routines; a surprising claim or statistic rewards prediction or claim-testing routines; an open-ended scenario rewards wondering or connecting routines. Match the routine to where the real intrigue in this stimulus lives. Do NOT fall back on a familiar, all-purpose routine just because it can fit almost anything — Claim, Support, Question and Compass Points in particular are badly over-chosen. Pick Claim, Support, Question ONLY when the stimulus specifically rewards staking and testing an argument, and Compass Points ONLY when it rewards weighing mixed reactions to a dilemma; never as a safe default. If two routines seem to fit, prefer the one that is MORE specific to this stimulus's particular kind of thinking (observation, prediction, stakeholder perspective, reconsidering a belief) over the generic claim/issue routine. Once chosen, use the routine as LOOSE INSPIRATION only — capture its spirit, but DON'T mechanically echo its exact wording. Write genuinely engaging, provocative discussion prompts that maximise intrigue and debate for the band:\n${routineList}`)
-      + `\nRules: this is a FAST 5-minute TALKING activity. Every step must be students DISCUSSING out loud (in pairs, small groups, or whole class) — never silent independent writing or solo work. Keep it to 2–3 short steps, each 1–2 minutes, and the step "minutes" MUST total 5 or less with time to spare. Prioritise quick, punchy prompts that get students talking immediately.`
-    : "";
-
-  let diffNote = "";
-  if (current) {
-    const cur = {};
-    keys.forEach(k => { if (k !== "routineRationale" && current[k] !== undefined) cur[k] = current[k]; });
-    diffNote = `\n\nThis is a REGENERATE. Here is the CURRENT version of these fields — produce a genuinely DIFFERENT alternative (a fresh angle, different wording and emphasis), not a paraphrase of it:\n${JSON.stringify(cur)}`;
+  // Single-slide regenerate: rebuild only the scoped slide + its notes, copying the rest verbatim.
+  if (scope !== "all") {
+    sys += `\nRegenerate ONLY the "${scope}" and "notes.${scope}" fields; copy every other field verbatim from: ${JSON.stringify(current)}`;
   }
 
-  const schema = `Return STRICT JSON only (no markdown, no preamble, no code fences) with EXACTLY this shape:
-{
-  ${keys.map(k => F[k]).join(",\n  ")}
-}
-Write every field in PLAIN TEXT — no markdown, no asterisks, no #, no backticks.${routineBlock}${diffNote}`;
-
-  const systemMsg = "You are an expert IB educator and digital-citizenship coach. You design short, 5-minute 'Digital Life Spotlight' discussion prompts about cyber safety and digital citizenship. Your tone is warm, curious and student-centred, aligned to the IB Learner Profile. You ALWAYS respond with strict JSON only.";
-
-  const textParts = [
-    `Create a 5-minute "Digital Life Spotlight" discussion prompt.`,
-    BAND_GUIDANCE[band] + yearStr,
-    `Pitch the cognitive demand, vocabulary and discussion prompts specifically to THIS band — do not reuse generic wording. PYP: noticing/wondering, concrete. Middle: analyse scenarios and consequences. Senior: ethical/critical reasoning and trade-offs. The "responses" examples must sound like students of this band.`,
-    `Focus theme: ${theme}.`,
-    titleInstruction,
-    `Stimulus mode: ${mode}.`,
-  ];
-  // Only ask for a sensitivity assessment on a full generate (the scoped
-  // regenerates below don't include the contentAdvisory field in their schema).
-  if (keys.indexOf("contentAdvisory") !== -1) {
-    textParts.push(`Also assess this stimulus and the discussion you are creating for content some students may find sensitive — sexual/mature, violence or distressing, self-harm/suicide, or drugs/alcohol/illegal — and report it in "contentAdvisory". Be accurate, not alarmist: flag only what genuinely applies. This drives an optional, teacher-controlled content-advisory slide; it never blocks the lesson.`);
-  }
+  // Field word-limits, kept beside the schema keys so the model honours them.
+  const limits = [
+    `title: <=8 words, stickiness-boosted.`,
+    `keywords: 3-6 short search terms a teacher might type to find this lesson later.`,
+    `ignite.question: ONE provocative question.`,
+    `think.routine MUST be exactly "${routine.name}"; think.steps: <=4 short student prompts; think.structure: how to run it, e.g. "Think-pair-share, 3 min".`,
+    `launch.connection: <=25 words curriculum connection; launch.bridge: <=20 words from the stimulus to today's lesson; launch.question: the lesson launch question.`,
+    `reflect.revisit: <=15 words revisiting the ignite question; reflect.prompts: short sentence stems, e.g. "I used to think…", "Now I think…".`,
+  ].join("\n");
+  const instruction = `Create the Springboard now. Respect every word limit:\n${limits}\nReturn STRICT JSON only — no markdown, no code fences, plain text in every field.`;
 
   const userContent = [];
   const mediaItems = Array.isArray(media) ? media : [];
@@ -1359,21 +1328,19 @@ Write every field in PLAIN TEXT — no markdown, no asterisks, no #, no backtick
     const vids = mediaItems.filter(m => m.kind === "video").length;
     let mt = `The stimulus is a reel of ${mediaItems.length} item(s) shown in order` +
       `${imgs ? ` — ${imgs} image(s)` : ""}${vids ? `${imgs ? " and" : " —"} ${vids} video(s) (still frames attached per clip)` : ""}. ` +
-      `Treat them as ONE provocation in sequence; item 1 is the primary stimulus. Build the whole spotlight from what you genuinely see/read across them, tied to the focus theme.`;
+      `Treat them as ONE stimulus in sequence; item 1 is the primary stimulus. Build the whole Springboard from what you genuinely see/read across them.`;
     const clipText = mediaItems
       .map((m, i) => (m.kind === "video" && m.text && m.text.trim()) ? `Video at position ${i + 1} — ${m.text.trim().slice(0, 4000)}` : "")
       .filter(Boolean);
     if (clipText.length) mt += `\nClip notes:\n${clipText.join("\n")}`;
-    textParts.push(mt);
-    userContent.push({ type: "text", text: textParts.join("\n") + "\n\n" + schema });
+    userContent.push({ type: "text", text: instruction + "\n\n" + mt });
     mediaItems.forEach(m => {
       if (m.kind === "image") userContent.push({ type: "image_url", image_url: { url: m.dataUrl } });
       else (m.frames || []).forEach(fr => userContent.push({ type: "image_url", image_url: { url: fr } }));
     });
   } else {
     const trimmed = (sourceText || "").slice(0, 12000).replace(/"{3,}/g, "“”");
-    textParts.push(`The stimulus is the following article text. Build the spotlight from its real content, tied to the focus theme:\n\n"""\n${trimmed}\n"""`);
-    userContent.push({ type: "text", text: textParts.join("\n") + "\n\n" + schema });
+    userContent.push({ type: "text", text: instruction + `\n\nThe stimulus is the following article text. Build the Springboard from its real content:\n\n"""\n${trimmed}\n"""` });
   }
 
   const resp = await fetch(API_BASE + "/api/generate", {
@@ -1381,7 +1348,7 @@ Write every field in PLAIN TEXT — no markdown, no asterisks, no #, no backtick
     headers: { "Content-Type": "application/json", "x-sb-passcode": passcode },
     body: JSON.stringify({
       messages: [
-        { role: "system", content: systemMsg },
+        { role: "system", content: sys },
         { role: "user", content: userContent },
       ],
       response_format: { type: "json_object" },
@@ -1406,7 +1373,7 @@ Write every field in PLAIN TEXT — no markdown, no asterisks, no #, no backtick
 /* ----------------------- Analyse stimulus (the new step before Generate) -----------------------
    Reads the stimulus and recommends 3 thinking routines (band-filtered from ROUTINES) plus 2-3
    Made-to-Stick boosters, so the teacher picks a routine before Generate runs. Media-parts
-   packaging mirrors generateSpotlight above. */
+   packaging mirrors generateSpringboard above. */
 async function analyseStimulus({ passcode, mode, media = [], sourceText = "", classInfo }) {
   const band = bandOf(classInfo.yearLevel); // "younger" | "middle" | "senior"
   const bandRoutines = ROUTINES.filter(r => r.bands.includes(band));
@@ -1475,25 +1442,19 @@ Routine names MUST be copied exactly from this menu:\n${routineMenu}`;
   return { summary: stripMd(parsed.summary || ""), routines: routines.slice(0, 3), boosters };
 }
 
-/* Merge a scoped regenerate's parsed fields back into the spot, normalising like generate(). */
-function mergeScopedFields(spot, scope, p) {
-  const out = { ...spot };
-  const norm = v => stripMd(v || "");
-  if (scope === "title") {
-    if (p.hook) out.hook = norm(p.hook);
-    if (p.title) out.title = norm(p.title);
-  } else if (scope === "provocation") {
-    if (p.routineName) out.routineName = norm(p.routineName);
-    if (p.routineIntro) out.routineIntro = norm(p.routineIntro);
-    if (Array.isArray(p.steps) && p.steps.length)
-      out.steps = p.steps.map(s => ({ name: stripMd(s.name || "Step"), minutes: Number(s.minutes) || 1, prompt: stripMd(s.prompt || ""), responses: stripMd(s.responses || "") }));
-    if (Array.isArray(p.guidingQuestions) && p.guidingQuestions.length)
-      out.guidingQuestions = normGuiding(p.guidingQuestions);
-  } else if (scope === "takeaway") {
-    if (p.studentAction) out.studentAction = norm(p.studentAction);
-    if (Array.isArray(p.learnerProfile)) out.learnerProfile = p.learnerProfile.map(stripMd);
-  }
-  return out;
+/* Merge a scoped regenerate's parsed reply back into the deck: only the scoped slide
+   (ignite | think | launch | reflect) and its teacher notes are replaced, so edits to the
+   other three slides survive. think.routine stays the teacher's pick. Full-scope callers
+   use shapeDeck directly; a scope of "all" (or an unknown scope) falls back to a full shape. */
+function mergeScopedFields(deck, scope, parsed) {
+  const shaped = shapeDeck(parsed, { routineName: deck.think.routine });
+  const SLICES = ["ignite", "think", "launch", "reflect"];
+  if (!SLICES.includes(scope)) return shaped; // "all" or anything unexpected → full shape
+  return {
+    ...deck,
+    [scope]: shaped[scope],
+    notes: { ...deck.notes, [scope]: shaped.notes[scope] },
+  };
 }
 
 /* ------------------------------ Icons ------------------------------ */
@@ -1568,7 +1529,7 @@ const StyleCover = ({ styleKey, big = false, title = "", bandLabel = "", theme =
     return (
       <span aria-hidden="true" style={{ ...wrap, background: hx(p.titleBg) }}>
         <span style={{ position: "absolute", left: padX, right: padX, top: big ? 14 : 7, height: big ? 2 : 1.5, background: hx(p.accent2) }} />
-        {big && <span style={{ position: "absolute", left: padX, top: 18, fontSize: 7, letterSpacing: 3, color: hx(p.titleFoot), fontWeight: 700 }}>DIGITAL LIFE SPOTLIGHT</span>}
+        {big && <span style={{ position: "absolute", left: padX, top: 18, fontSize: 7, letterSpacing: 3, color: hx(p.titleFoot), fontWeight: 700 }}>SPRINGBOARD</span>}
         {big
           ? <span style={{ position: "absolute", left: padX, right: padX, top: 34, fontFamily: "Arial, sans-serif", fontSize: 18, fontWeight: 700, lineHeight: 1.06, color: hx(p.titleInk) }}>{cs(title)}</span>
           : <React.Fragment>
@@ -1658,14 +1619,23 @@ function App() {
   // classInfo replaces the old multi-band checkboxes + theme presets: one class
   // (curriculum/subject/year/outcome) drives one generator run.
   const [classInfo, setClassInfo] = useState(() => loadClassInfo());
-  const saveClassInfo = (next) => { setClassInfo(next); try { localStorage.setItem(CLASS_STORE, JSON.stringify(next)); } catch (_) {} };
+  const saveClassInfo = (next) => {
+    // Changing year level across a band boundary invalidates the analysis (routines are
+    // band-filtered): clear it so the teacher re-analyses for the new band.
+    if (bandOf(classInfo.yearLevel) !== bandOf(next.yearLevel)) {
+      setAnalysis(null); setSelectedRoutine(""); setBoostersOn(new Set()); setAnalyseError("");
+    }
+    setClassInfo(next);
+    try { localStorage.setItem(CLASS_STORE, JSON.stringify(next)); } catch (_) {}
+  };
   const [design, setDesign] = useState("classic");
 
   // generation
   const [loading, setLoading] = useState(false);
   const [genProgress, setGenProgress] = useState(0); // 0-100, eased estimate while generating
-  const [regenSlide, setRegenSlide] = useState(null);   // which slide is regenerating: "title" | "provocation" | "takeaway"
-  const [routineChoice, setRoutineChoice] = useState(""); // "" = let AI choose; else an exact routine name
+  const [regenSlide, setRegenSlide] = useState(null);   // which slide is regenerating: "ignite" | "think" | "launch" | "reflect"
+  const [includeReflect, setIncludeReflect] = useState(true);  // teacher toggle: keep the REFLECT slide in the deck
+  const [includeAdvisory, setIncludeAdvisory] = useState(true); // teacher toggle: keep the content-advisory slide when flagged
 
   // analyse step (runs before Generate): AI recommendation + the teacher's pick
   const [analysis, setAnalysis] = useState(null);       // { summary, routines: [{name,why}], boosters: [id] } | null
@@ -1833,7 +1803,6 @@ function App() {
       const result = await analyseStimulus({ passcode: passcode.trim(), mode, media, sourceText, classInfo });
       setAnalysis(result);
       setSelectedRoutine("");
-      setRoutineChoice(""); // legacy prompt plumbing — Task 11 rewires this to read selectedRoutine directly
       setBoostersOn(new Set(result.boosters));
     } catch (err) {
       setAnalyseError(err.message || String(err));
@@ -1843,7 +1812,6 @@ function App() {
   }
   function pickRoutine(name) {
     setSelectedRoutine(name);
-    setRoutineChoice(name); // keeps the old ROUTINES[band]-driven generate/regenerate prompt working until Task 11
   }
   function toggleBooster(id) {
     setBoostersOn(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
@@ -1878,15 +1846,16 @@ function App() {
       // Single-class-per-run: one generate() call produces one deck, pitched to the
       // band derived from classInfo.yearLevel (bandOf + BAND_KEY_OF above).
       const genBand = BAND_KEY_OF[bandOf(classInfo.yearLevel)];
-      const { parsed, raw } = await generateSpotlight({
-        passcode: passcode.trim(), mode, band: genBand, year: classInfo.yearLevel, theme,
-        title: title.trim(), media, sourceText,
+      const { parsed, raw } = await generateSpringboard({
+        passcode: passcode.trim(), mode, media, sourceText,
+        classInfo, routineName: selectedRoutine, boosterIds: [...boostersOn], scope: "all",
       });
-      const deck = shapeDeck(parsed, { band: genBand, title });
-      if (!deck.framing) deck.framing = MODE_FRAMING[mode];
+      const deck = shapeDeck(parsed, { routineName: selectedRoutine });
       setRawDump(raw);
       setSpots({ [genBand]: deck });
       setActiveBand(genBand);
+      setIncludeReflect(true);              // fresh deck defaults to including REFLECT
+      setIncludeAdvisory(true);             // and, if flagged, the advisory slide
       genStimKey.current = stimKey; // remember the stimulus fingerprint for the stale-deck hint
       setGenProgress(100);
     } catch (err) {
@@ -1900,17 +1869,17 @@ function App() {
   }
 
   /* ------- regenerate a single slide (targeted, keeps the other slides) ------- */
-  async function regenerateSlide(scope, routineChoiceArg) {
+  async function regenerateSlide(scope) {
     if (!spot || regenSlide || loading) return;
     if (!passcode.trim()) { setError("Enter the school passcode first."); return; }
     setError(""); setRawDump("");
     setRegenSlide(scope);
     try {
       const sourceText = mode === "article" ? articleText : "";
-      const { parsed } = await generateSpotlight({
-        passcode: passcode.trim(), mode, band, year, theme,
-        title: title.trim(), media, sourceText,
-        scope, routineChoice: routineChoiceArg !== undefined ? routineChoiceArg : routineChoice, current: spot,
+      const { parsed } = await generateSpringboard({
+        passcode: passcode.trim(), mode, media, sourceText,
+        classInfo, routineName: spot.think.routine || selectedRoutine, boosterIds: [...boostersOn],
+        scope, current: spot,
       });
       setSpot(s => mergeScopedFields(s, scope, parsed));
     } catch (err) {
@@ -1921,18 +1890,16 @@ function App() {
     }
   }
 
-  function toggleArr(arr, v) { return arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v]; }
-
   /* ------- editing helpers ------- */
+  // patch: top-level fields (title, keywords). patchSlide: a nested slide object
+  // (ignite/think/launch/reflect). patchNote: the teacher note for a slide. arr*: the
+  // list fields (think.steps, reflect.prompts).
   const patch = (obj) => setSpot(s => ({ ...s, ...obj }));
-  const patchStep = (i, obj) => setSpot(s => { const steps = s.steps.slice(); steps[i] = { ...steps[i], ...obj }; return { ...s, steps }; });
-  const addStep = () => setSpot(s => ({ ...s, steps: [...s.steps, { name: "New step", minutes: 1, prompt: "" }] }));
-  const delStep = (i) => setSpot(s => ({ ...s, steps: s.steps.filter((_, j) => j !== i) }));
-  const patchQ = (i, obj) => setSpot(s => { const q = s.guidingQuestions.slice(); q[i] = { ...q[i], ...obj }; return { ...s, guidingQuestions: q }; });
-  const addQ = () => setSpot(s => ({ ...s, guidingQuestions: [...s.guidingQuestions, { q: "", responses: "" }] }));
-  const delQ = (i) => setSpot(s => ({ ...s, guidingQuestions: s.guidingQuestions.filter((_, j) => j !== i) }));
-
-  const totalMins = useMemo(() => spot ? spot.steps.reduce((a, s) => a + (Number(s.minutes) || 0), 0) : 0, [spot]);
+  const patchSlide = (slide, obj) => setSpot(s => ({ ...s, [slide]: { ...s[slide], ...obj } }));
+  const patchNote = (slide, text) => setSpot(s => ({ ...s, notes: { ...s.notes, [slide]: text } }));
+  const patchArr = (slide, key, i, val) => setSpot(s => { const a = s[slide][key].slice(); a[i] = val; return { ...s, [slide]: { ...s[slide], [key]: a } }; });
+  const addArr = (slide, key) => setSpot(s => ({ ...s, [slide]: { ...s[slide], [key]: [...s[slide][key], ""] } }));
+  const delArr = (slide, key, i) => setSpot(s => ({ ...s, [slide]: { ...s[slide], [key]: s[slide][key].filter((_, j) => j !== i) } }));
 
   const ST = STYLES[design] || STYLES.classic;
   const T = ST.palette;
@@ -2292,54 +2259,7 @@ function App() {
   }
 
   /* ------------------------------ render ------------------------------ */
-  const routineBlockJsx = spot ? (
-    <React.Fragment>
-      <div className="cap" style={{ marginTop: 14 }}>Thinking routine <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· {ROUTINE_SOURCE}</span></div>
-      <div className="routine-pick">
-        <select aria-label="Choose the thinking routine" value={routineChoice} disabled={!!regenSlide || loading}
-          onChange={e => { setRoutineChoice(e.target.value); regenerateSlide("provocation", e.target.value); }}>
-          <option value="">✨ Let AI choose the routine</option>
-          {routinesForBand(band).map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
-        </select>
-      </div>
-      <textarea className="editable" rows={1} aria-label="Thinking routine name" style={{ fontWeight: 700, fontSize: 16 }} value={spot.routineName} onChange={e => patch({ routineName: e.target.value })} />
-      <textarea className="editable" rows={1} aria-label="Routine introduction for the class" style={{ fontStyle: "italic", color: "var(--muted)" }} value={spot.routineIntro} onChange={e => patch({ routineIntro: e.target.value })} />
-      {spot.steps.map((st, i) => (
-        <div className="step" key={i}>
-          <div className="mins"><input type="number" min="0" max="5" aria-label={"Step " + (i + 1) + " minutes"} value={st.minutes} onChange={e => patchStep(i, { minutes: Number(e.target.value) })} /><span>min</span></div>
-          <div>
-            <input className="editable name" aria-label={"Step " + (i + 1) + " name"} value={st.name} onChange={e => patchStep(i, { name: e.target.value })} />
-            <textarea className="editable" rows={2} aria-label={"Step " + (i + 1) + " discussion prompt"} value={st.prompt} onChange={e => patchStep(i, { prompt: e.target.value })} />
-            <div className="resp-note">
-              <span className="resp-cap">Likely student responses <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>(speaker notes)</span></span>
-              <textarea className="editable" rows={2} value={st.responses || ""} placeholder="What students might actually say…" onChange={e => patchStep(i, { responses: e.target.value })} />
-            </div>
-          </div>
-          <button type="button" className="iconbtn" aria-label={"Remove step: " + (st.name || (i + 1))} title="Remove step" onClick={() => delStep(i)}><Icon d={I.close} size={14} stroke /></button>
-        </div>
-      ))}
-      <button type="button" className="addbtn" onClick={addStep}>+ Add step</button>
-      <div className={"total" + (totalMins > 5 ? " over" : "")}>Total: {totalMins} min {totalMins > 5 ? "— over 5 minutes!" : "/ 5 min"}</div>
-
-      <div className="cap" style={{ marginTop: 14 }}>Guiding questions <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· speaker notes (not shown on the slide)</span></div>
-      <ul className="ql">
-        {spot.guidingQuestions.map((item, i) => (
-          <li key={i}>
-            <span className="num" style={{ background: hx(T.accent) }}>{i + 1}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <textarea className="editable" rows={1} aria-label={"Guiding question " + (i + 1)} value={item.q} onChange={e => patchQ(i, { q: e.target.value })} />
-              <div className="resp-note">
-                <span className="resp-cap">Possible student responses <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>(speaker notes)</span></span>
-                <textarea className="editable" rows={2} value={item.responses || ""} placeholder="How students might answer…" onChange={e => patchQ(i, { responses: e.target.value })} />
-              </div>
-            </div>
-            <button type="button" className="iconbtn" aria-label={"Remove guiding question " + (i + 1)} title="Remove" onClick={() => delQ(i)}><Icon d={I.close} size={14} stroke /></button>
-          </li>
-        ))}
-      </ul>
-      <button type="button" className="addbtn" onClick={addQ}>+ Add question</button>
-    </React.Fragment>
-  ) : null;
+  const routineUrlFor = spot ? routineUrl(spot.think.routine) : "";
 
   return (
     <React.Fragment>
@@ -2545,16 +2465,16 @@ function App() {
           <button className="btn primary" ref={genBtnRef} disabled={loading || !!regenSlide || !selectedRoutine} aria-busy={loading} onClick={generate}>
             {loading ? <React.Fragment><ProgressRing value={genProgress} /> Generating… {Math.round(genProgress)}%</React.Fragment>
               : spot ? <React.Fragment><Icon d={I.refresh} size={16} stroke /> Regenerate</React.Fragment>
-              : <React.Fragment><Icon d={I.generate} size={16} /> Generate Spotlight</React.Fragment>}
+              : <React.Fragment><Icon d={I.generate} size={16} /> Generate Springboard</React.Fragment>}
           </button>
           {!selectedRoutine && <div className="hint">Analyse the stimulus and pick a thinking routine to enable Generate.</div>}
 
           {/* Screen-reader-only live status: announces the generation lifecycle (the
               visible cue is the button text/spinner; errors are announced via role=alert). */}
           <div className="sr-only" role="status" aria-live="polite">
-            {loading ? "Generating your Spotlight, this may take a moment."
+            {loading ? "Generating your Springboard, this may take a moment."
               : regenSlide ? "Regenerating that section, please wait."
-              : (spot && !error) ? "Your Spotlight is ready below."
+              : (spot && !error) ? "Your Springboard is ready below."
               : ""}
           </div>
 
@@ -2566,7 +2486,7 @@ function App() {
           {!spot && !loading && (
             <div className="panel"><div className="empty">
               <div className="big" aria-hidden="true"><Icon d={I.generate} size={46} /></div>
-              <h2 style={{ margin: "0 0 6px", fontFamily: "var(--font-display)" }}>Your Spotlight preview appears here</h2>
+              <h2 style={{ margin: "0 0 6px", fontFamily: "var(--font-display)" }}>Your Springboard preview appears here</h2>
               <p>Add a stimulus on the left and hit <b>Generate</b>. Every field below will be editable before you download.</p>
             </div></div>
           )}
@@ -2587,132 +2507,117 @@ function App() {
               {stimulusStale && <div className="alert info" role="status">You changed the stimulus. Hit <b>Regenerate</b> so the slides match.</div>}
               <div className="toolbar">
                 <button type="button" className="btn ghost" disabled={loading} onClick={generate}><Icon d={I.refresh} size={16} stroke /> Regenerate</button>
-                <button type="button" className="btn primary" disabled={exporting} onClick={download}><Icon d={I.download} size={16} stroke /> {exporting ? "Preparing…" : "Download PowerPoint"}</button>
+                {EXPORT_READY
+                  ? <button type="button" className="btn primary" disabled={exporting} onClick={download}><Icon d={I.download} size={16} stroke /> {exporting ? "Preparing…" : "Download PowerPoint"}</button>
+                  : <button type="button" className="btn primary" disabled title="Export arrives in the next update"><Icon d={I.download} size={16} stroke /> Download (coming soon)</button>}
               </div>
-
-              {/* Content advisory — AI suggests, teacher confirms; chips drive the slide's theme line */}
-              <div className="advisory-ctl">
-                <label className="advisory-check">
-                  <input type="checkbox" checked={!!spot.advisoryShow}
-                    onChange={e => patch({ advisoryShow: e.target.checked })} />
-                  <span>Add content advisory slide</span>
-                </label>
-                {spot.contentAdvisory && spot.contentAdvisory.flag && spot.contentAdvisory.note && (
-                  <div className="hint">Suggested by AI — {spot.contentAdvisory.note}</div>
-                )}
-                {spot.advisoryShow && (
-                  <div className="advisory-chips" role="group" aria-label="Content themes to warn about">
-                    {ADVISORY_ORDER.map(key => {
-                      const on = (spot.advisoryCats || []).includes(key);
-                      return (
-                        <button key={key} type="button" aria-pressed={on}
-                          className={"advisory-chip" + (on ? " on" : "")}
-                          onClick={() => patch({ advisoryCats: on
-                            ? (spot.advisoryCats || []).filter(c => c !== key)
-                            : [...(spot.advisoryCats || []), key] })}>
-                          {ADVISORY_CATEGORIES[key].chip}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Export-template picker + live themed cover preview */}
-              <div className="design-row">
-                <div className="thumb-slide">
-                  <StyleCover big styleKey={design} title={spot.hook || spot.title} bandLabel={bandLabel} theme={theme} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <label className="cap">Deck style</label>
-                  <div className="hint">{ST.blurb} The Wesley crest sits on every slide — pick a look, then download.</div>
-                  <div className="tpl-picks" role="radiogroup" aria-label="Deck style">
-                    {STYLE_ORDER.map((key) => {
-                      const s = STYLES[key];
-                      return (
-                        <button key={key} type="button" role="radio" aria-checked={design === key} title={s.blurb}
-                          className={"tpl-swatch" + (design === key ? " on" : "")} onClick={() => setDesign(key)}>
-                          <span className="tpl-cover">
-                            <StyleCover styleKey={key} />
-                          </span>
-                          <span className="tpl-name">{s.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
+              {!EXPORT_READY && <div className="hint">Export arrives in the next update — the new 4-slide deck download is being rebuilt.</div>}
 
               <div className="slides">
-                {/* Advisory — shown first in the deck when enabled */}
-                {spot.advisoryShow && (
-                  <div className="slide advisory-slide"><div className="bar" style={barStyle}></div><div className="body">
-                    <div className="slide-head"><div className="slide-tag"><span className="n">!</span> <h2 style={{ font: "inherit", margin: 0, display: "inline" }}>Content warning</h2> <span className="aside">· shown first in the deck</span></div></div>
-                    <div className="advisory-card">
-                      <div className="advisory-warnhead"><span className="advisory-tri">⚠</span> CONTENT WARNING</div>
-                      <div className="advisory-body">
-                        <p className="advisory-line"><b>Heads up</b> — today's spotlight touches on some things that might feel heavy: <b>{advisoryThemeLine(spot.advisoryCats || [])}</b>.</p>
-                        <p className="advisory-reassure">If you'd rather step out for this one, just quietly let your teacher know. That's completely okay.</p>
-                      </div>
-                    </div>
-                  </div></div>
-                )}
-                {/* Slide 1 — Hook */}
+                {/* Springboard title + find-me keywords */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="slide-head"><div className="slide-tag"><span className="n">1</span> <h2 style={{ font: "inherit", margin: 0, display: "inline" }}>Title</h2> <span className="aside">· a short, catchy headline · band &amp; theme shown here</span></div><RegenButton scope="title" /></div>
-                  <textarea className="editable titlebig" rows={1} value={spot.hook} placeholder="A short, catchy title…" onChange={e => patch({ hook: e.target.value })} />
+                  <div className="slide-head"><div className="slide-tag"><span className="n">★</span> <h2 style={{ font: "inherit", margin: 0, display: "inline" }}>Springboard title</h2> <span className="aside">· ≤8 words · band &amp; topic shown here</span></div></div>
+                  <textarea className="editable titlebig" rows={1} aria-label="Springboard title" value={spot.title} placeholder="A short, catchy title…" onChange={e => patch({ title: e.target.value })} />
                   <div className="meta-chips">
                     <span className={"chip band-" + band.toLowerCase()}>{bandLabel}{year ? " · " + year : ""}</span>
-                    <span className="chip gold">{theme}</span>
-                  </div>
-                </div></div>
-
-                {/* Slide 2 — Provocation (stimulus + thinking routine on one slide) */}
-                <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="slide-head"><div className="slide-tag"><span className="n">2</span> <h2 style={{ font: "inherit", margin: 0, display: "inline" }}>Provocation</h2> <span className="aside">· stimulus + thinking routine</span></div><RegenButton scope="provocation" /></div>
-                  <textarea className="editable" rows={1} aria-label="Provocation framing text" value={spot.framing} onChange={e => patch({ framing: e.target.value })} />
-                  {mode !== "media" && (
-                    <React.Fragment>
-                      <div className="cap" style={{ marginTop: 6 }}>5-sentence summary</div>
-                      <textarea className="editable" rows={5} value={spot.summary} placeholder="A 5-sentence summary for students…" onChange={e => patch({ summary: e.target.value })} />
-                    </React.Fragment>
-                  )}
-                  {mode === "media" && media.length >= 2 && (
-                    <div className="reel-wrap">
-                      <MediaCarousel items={media} index={Math.min(reelIndex, media.length - 1)} setIndex={setReelIndex} />
-                    </div>
-                  )}
-                  {mode === "media" && media.length === 1 && (
-                    media[0].kind === "image"
-                      ? <div className="stim-img"><img src={media[0].dataUrl} alt="Stimulus image for this Spotlight" /></div>
-                      : <div className="stim-img"><img src={media[0].poster} alt={"First frame of " + media[0].name} /><span className="vbadge"><Icon d={I.play} size={20} /></span></div>
-                  )}
-                  {mode === "article" && articleImageUrl && (
-                    <div className="stim-img" style={{ position: "relative" }}>
-                      <img src={articleImageUrl} alt="Lead image from the article" />
-                      <button type="button" className="iconbtn" style={{ position: "absolute", top: 6, right: 6 }} aria-label="Remove image" title="Remove image" onClick={() => setArticleImageUrl("")}><Icon d={I.close} size={14} stroke /></button>
-                    </div>
-                  )}
-                  {mode !== "media" && link.trim() && <StimLink url={link.trim()} verb={MODE_VERB[mode]} />}
-                  {mode === "article" && !link.trim() && !articleImageUrl && <div className="hint">Tip: add a link on the left for a clickable link + QR code, or fetch an article to pull in its lead image.</div>}
-
-                  {routineBlockJsx}
-                </div></div>
-
-                {/* Slide 3 — Student key takeaway */}
-                <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="slide-head"><div className="slide-tag"><span className="n">3</span> <h2 style={{ font: "inherit", margin: 0, display: "inline" }}>Student key takeaway</h2></div><RegenButton scope="takeaway" /></div>
-                  <div className="action-box" style={{ background: hx(T.accent2) + "22", borderColor: hx(T.accent2) + "66" }}>
-                    <div className="cap" style={{ color: "var(--accent-2-ink)" }}>One thing to take away</div>
-                    <textarea className="editable" rows={2} aria-label="Student key takeaway" value={spot.studentAction} onChange={e => patch({ studentAction: e.target.value })} />
-                  </div>
-                  <div className="lp-chips">
-                    {spot.learnerProfile.filter(Boolean).map((lp, i) => <span key={i} className="chip">LP · {lp}</span>)}
+                    {theme && <span className="chip gold">{theme}</span>}
                   </div>
                   <div className="cap" style={{ marginTop: 12 }}>Find-me keywords <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· help teachers search this lesson (hidden from students)</span></div>
                   <textarea className="editable" rows={2} aria-label="Search keywords for this lesson"
                     value={(spot.keywords || []).join(", ")}
-                    onChange={e => patch({ keywords: e.target.value.split(",").map(s => s.trim().toLowerCase()).filter(Boolean) })} />
+                    onChange={e => patch({ keywords: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })} />
+                </div></div>
+
+                {/* Content advisory — the model flags, the teacher chooses whether to include */}
+                {spot.advisory.flag && (
+                  <div className="slide advisory-slide"><div className="bar" style={barStyle}></div><div className="body">
+                    <div className="advisory-card">
+                      <div className="advisory-warnhead"><span className="advisory-tri">⚠</span> CONTENT ADVISORY</div>
+                      <div className="advisory-body">
+                        <p className="advisory-line">{spot.advisory.reason || "This stimulus touches on a sensitive theme."}</p>
+                        <label className="toggle-row" style={{ marginTop: 10 }}>
+                          <input type="checkbox" checked={includeAdvisory} onChange={e => setIncludeAdvisory(e.target.checked)} />
+                          Include a content-advisory slide at the start of the deck
+                        </label>
+                      </div>
+                    </div>
+                  </div></div>
+                )}
+
+                {/* IGNITE */}
+                <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
+                  <div className="slide-head"><div className="slide-tag"><span className="n">1</span> <h2 style={{ font: "inherit", margin: 0, display: "inline" }}>Ignite</h2> <span className="aside">· one provocative question</span></div><RegenButton scope="ignite" /></div>
+                  <textarea className="editable" rows={2} aria-label="Ignite question" value={spot.ignite.question} placeholder="One provocative question…" onChange={e => patchSlide("ignite", { question: e.target.value })} />
+                  <details className="notes-details">
+                    <summary>Teacher notes</summary>
+                    <textarea className="editable" rows={5} aria-label="Ignite teacher notes" value={spot.notes.ignite} placeholder="FACILITATION: … TIMING: … DIFFERENTIATION: … CURRICULUM LINKS: … EXTENSIONS: …" onChange={e => patchNote("ignite", e.target.value)} />
+                  </details>
+                </div></div>
+
+                {/* THINK */}
+                <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
+                  <div className="slide-head"><div className="slide-tag"><span className="n">2</span> <h2 style={{ font: "inherit", margin: 0, display: "inline" }}>Think</h2> <span className="aside">· {ROUTINE_SOURCE}</span></div><RegenButton scope="think" /></div>
+                  <div className="routine-name-row">
+                    <span className="chip">{spot.think.routine}</span>
+                    <a className="routine-card-link" href={routineUrlFor} target="_blank" rel="noopener">View routine ↗</a>
+                  </div>
+                  <div className="hint" style={{ marginTop: 4 }}>To use a different routine, re-pick it in Analyse on the left and Regenerate.</div>
+                  <div className="cap" style={{ marginTop: 12 }}>How to run it</div>
+                  <textarea className="editable" rows={1} aria-label="How to run the routine" value={spot.think.structure} placeholder="e.g. Think-pair-share, 3 min" onChange={e => patchSlide("think", { structure: e.target.value })} />
+                  <div className="cap" style={{ marginTop: 12 }}>Student prompts <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· up to 4</span></div>
+                  {spot.think.steps.map((st, i) => (
+                    <div className="step" key={i} style={{ gridTemplateColumns: "28px 1fr auto" }}>
+                      <span className="rp-num" style={{ background: hx(T.accent), color: "#fff" }}>{i + 1}</span>
+                      <textarea className="editable" rows={2} aria-label={"Student prompt " + (i + 1)} value={st} onChange={e => patchArr("think", "steps", i, e.target.value)} />
+                      <button type="button" className="iconbtn" aria-label={"Remove prompt " + (i + 1)} title="Remove" onClick={() => delArr("think", "steps", i)}><Icon d={I.close} size={14} stroke /></button>
+                    </div>
+                  ))}
+                  {spot.think.steps.length < 4 && <button type="button" className="addbtn" onClick={() => addArr("think", "steps")}>+ Add prompt</button>}
+                  <details className="notes-details">
+                    <summary>Teacher notes</summary>
+                    <textarea className="editable" rows={5} aria-label="Think teacher notes" value={spot.notes.think} placeholder="FACILITATION: … TIMING: … DIFFERENTIATION: … CURRICULUM LINKS: … EXTENSIONS: …" onChange={e => patchNote("think", e.target.value)} />
+                  </details>
+                </div></div>
+
+                {/* LAUNCH */}
+                <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
+                  <div className="slide-head"><div className="slide-tag"><span className="n">3</span> <h2 style={{ font: "inherit", margin: 0, display: "inline" }}>Launch</h2> <span className="aside">· into today's lesson</span></div><RegenButton scope="launch" /></div>
+                  <div className="cap">Curriculum connection</div>
+                  <textarea className="editable" rows={2} aria-label="Curriculum connection" value={spot.launch.connection} placeholder="How this links to your outcome…" onChange={e => patchSlide("launch", { connection: e.target.value })} />
+                  <div className="cap" style={{ marginTop: 10 }}>Bridge from the stimulus</div>
+                  <textarea className="editable" rows={2} aria-label="Bridge from the stimulus" value={spot.launch.bridge} placeholder="From the stimulus to today's lesson…" onChange={e => patchSlide("launch", { bridge: e.target.value })} />
+                  <div className="cap" style={{ marginTop: 10 }}>Lesson launch question</div>
+                  <textarea className="editable" rows={2} aria-label="Lesson launch question" value={spot.launch.question} placeholder="The question that opens the lesson…" onChange={e => patchSlide("launch", { question: e.target.value })} />
+                  <details className="notes-details">
+                    <summary>Teacher notes</summary>
+                    <textarea className="editable" rows={5} aria-label="Launch teacher notes" value={spot.notes.launch} placeholder="FACILITATION: … TIMING: … DIFFERENTIATION: … CURRICULUM LINKS: … EXTENSIONS: …" onChange={e => patchNote("launch", e.target.value)} />
+                  </details>
+                </div></div>
+
+                {/* REFLECT */}
+                <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
+                  <div className="slide-head"><div className="slide-tag"><span className="n">4</span> <h2 style={{ font: "inherit", margin: 0, display: "inline" }}>Reflect</h2> <span className="aside">· revisit thinking at lesson end</span></div><RegenButton scope="reflect" /></div>
+                  <label className="toggle-row">
+                    <input type="checkbox" checked={includeReflect} onChange={e => setIncludeReflect(e.target.checked)} />
+                    Include REFLECT slide (revisit thinking at lesson end)
+                  </label>
+                  <div className={"reflect-body" + (includeReflect ? "" : " dimmed")} aria-hidden={!includeReflect}>
+                    <div className="cap" style={{ marginTop: 10 }}>Revisit the ignite question</div>
+                    <textarea className="editable" rows={2} aria-label="Revisit the ignite question" value={spot.reflect.revisit} placeholder="…revisiting the opening question" onChange={e => patchSlide("reflect", { revisit: e.target.value })} disabled={!includeReflect} />
+                    <div className="cap" style={{ marginTop: 10 }}>Reflection prompts <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· up to 4</span></div>
+                    {spot.reflect.prompts.map((pr, i) => (
+                      <div className="step" key={i} style={{ gridTemplateColumns: "28px 1fr auto" }}>
+                        <span className="rp-num" style={{ background: hx(T.accent2), color: "var(--accent-2-ink)" }}>{i + 1}</span>
+                        <textarea className="editable" rows={1} aria-label={"Reflection prompt " + (i + 1)} value={pr} onChange={e => patchArr("reflect", "prompts", i, e.target.value)} disabled={!includeReflect} />
+                        <button type="button" className="iconbtn" aria-label={"Remove reflection prompt " + (i + 1)} title="Remove" onClick={() => delArr("reflect", "prompts", i)} disabled={!includeReflect}><Icon d={I.close} size={14} stroke /></button>
+                      </div>
+                    ))}
+                    {includeReflect && spot.reflect.prompts.length < 4 && <button type="button" className="addbtn" onClick={() => addArr("reflect", "prompts")}>+ Add prompt</button>}
+                  </div>
+                  <details className="notes-details">
+                    <summary>Teacher notes</summary>
+                    <textarea className="editable" rows={5} aria-label="Reflect teacher notes" value={spot.notes.reflect} placeholder="FACILITATION: … TIMING: … DIFFERENTIATION: … CURRICULUM LINKS: … EXTENSIONS: …" onChange={e => patchNote("reflect", e.target.value)} />
+                  </details>
                 </div></div>
               </div>
             </React.Fragment>
