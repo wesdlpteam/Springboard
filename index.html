@@ -2280,7 +2280,7 @@ function App() {
               )}
               {stimulusStale && <div className="alert info" role="status">You changed the stimulus. Hit <b>Regenerate</b> so the slides match.</div>}
               <div className="toolbar">
-                <button type="button" className="btn ghost" disabled={loading} onClick={generate}><Icon d={I.refresh} size={16} stroke /> Regenerate</button>
+                <button type="button" className="btn ghost" disabled={loading || !!regenSlide || !selectedRoutine} onClick={generate}><Icon d={I.refresh} size={16} stroke /> Regenerate</button>
                 <button type="button" className="btn primary" disabled={exporting} onClick={download}><Icon d={I.download} size={16} stroke /> {exporting ? "Preparing…" : "Download PowerPoint"}</button>
               </div>
 

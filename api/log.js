@@ -20,6 +20,7 @@ export default async function handler(req, res) {
               ${clip(b.yearLevel)}, ${clip(b.routine)}, ${clip(b.boosters)}, ${clip(b.languageMode)}, ${clip(b.topic)})`;
     return res.status(200).json({ ok: true });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
   }
 }

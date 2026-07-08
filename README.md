@@ -14,7 +14,8 @@ generalised from a single cyber-safety subject to every subject and curriculum.
 ## Teacher flow
 
 1. **Add a stimulus** — image(s), a short video, a PDF, pasted text, or a web link (the
-   link mode shows a QR code and fetches the page text automatically).
+   link mode turns the link into a QR code, and a **Fetch text** button pulls in the
+   article text).
 2. **Set the class** — curriculum (VCE, IB PYP, IB MYP, IB DP, Australian Curriculum, or
    Custom), subject, year level, and optionally a pasted outcome or topic from the
    teacher's own planning document.

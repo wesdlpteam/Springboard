@@ -60,7 +60,7 @@ In the Vercel project, go to **Settings → Environment Variables** and add:
 |---|---|---|
 | `OPENAI_API_KEY` | your OpenAI secret key | Never commit this. Lives only in Vercel. |
 | `OPENAI_MODEL` | e.g. `gpt-5.4` | Optional — `api/generate.js` falls back to `gpt-5.4` if unset. |
-| `TEACHER_PASSCODE` | a short shared code, e.g. a word teachers will remember | This is not a real password — one code for the whole school. |
+| `TEACHER_PASSCODE` | a strong shared passphrase: 4+ random words or 16+ characters, not a dictionary word or school name, e.g. `emu-lantern-cricket-42` | This passcode is the main lock on the school's OpenAI spending — treat it like a password, and change it each term or if it leaks. |
 | `ADMIN_PASSWORD` | a separate, stronger password | Gates the `/api/stats` analytics dashboard only. |
 | `DATABASE_URL` | (already added automatically in step 2) | Leave as-is. |
 
@@ -92,11 +92,14 @@ minute or two of the push.
 
 ## 5. Set a monthly spending cap on the OpenAI key
 
+> **REQUIRED — do not hand out the passcode until the cap is set.**
+
 At [platform.openai.com](https://platform.openai.com) → **Settings → Limits**, set a
 monthly spending cap on the project/key Springboard uses. This is the real backstop
 against runaway cost if the passcode ever leaks or the app is hit by scripted abuse — the
 passcode and CORS origin allowlist are the first line of defence, but a spending cap is
-cheap insurance on top.
+cheap insurance on top. The deploy is not complete until the cap is confirmed set in the
+OpenAI dashboard.
 
 ## 6. Smoke test
 
