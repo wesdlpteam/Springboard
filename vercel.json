@@ -1,0 +1,1 @@
+{ "functions": { "api/generate.js": { "includeFiles": "api/guides/**" } } }
