@@ -493,7 +493,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.3.3 · 2026-07-09";
+const APP_VERSION = "v0.3.4 · 2026-07-09";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -1286,7 +1286,7 @@ Return STRICT JSON with keys: title, keywords, ignite{question}, think{routine, 
     `ignite.question: ONE provocative question.`,
     `think.routine MUST be exactly "${routine.name}". This routine's real moves are: ${(routine.steps || []).map((s, i) => `${i + 1}) ${s}`).join(" ")}. think.steps: take THOSE actual moves and lightly tailor the wording to THIS stimulus — keep the routine's real moves and their order, do NOT invent different ones; <=4 short student-facing prompts. think.structure: "${routine.structure || "Think-pair-share, 3 min"}".`,
     `launch.connection: <=25 words curriculum connection; launch.bridge: <=20 words from the stimulus to today's lesson; launch.question: the lesson launch question.`,
-    `reflect.revisit: <=15 words revisiting the ignite question; reflect.prompts: short sentence stems, e.g. "I used to think…", "Now I think…".`,
+    `reflect.revisit: <=15 words revisiting the ignite question. For reflect.prompts, CHOOSE the end-of-lesson reflection routine that best fits THIS lesson, and VARY the choice across lessons (do NOT always use the same one). Pick from: (a) I Used to Think… / Now I Think…; (b) Connect–Extend–Challenge — one new connection, one way it extends thinking, one lingering challenge or question; (c) 3-2-1 Bridge — 3 thoughts, 2 questions, 1 analogy; (d) Headlines — a one-line headline capturing today's core idea; (e) Reflect–Connect–Project — reflect on it, connect to prior learning, project forward. Use THAT routine's real prompt stems as reflect.prompts (<=4 short stems).`,
   ].join("\n");
   const instruction = `Create the Springboard now. Respect every word limit:\n${limits}\nReturn STRICT JSON only — no markdown, no code fences, plain text in every field.`;
 
@@ -2367,7 +2367,7 @@ function App() {
               </div>
 
               <div className="slides">
-                {/* Springboard title + find-me keywords */}
+                {/* Springboard title — search keywords are generated automatically into the file's tags/notes; no teacher-facing field */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
                   <div className="slide-head"><div className="slide-tag"><span className="n">★</span> <h2 style={{ font: "inherit", margin: 0, display: "inline" }}>Springboard title</h2> <span className="aside">· ≤8 words · band &amp; topic shown here</span></div></div>
                   <textarea className="editable titlebig" rows={1} aria-label="Springboard title" value={spot.title} placeholder="A short, catchy title…" onChange={e => patch({ title: e.target.value })} />
@@ -2375,10 +2375,6 @@ function App() {
                     <span className={"chip band-" + band.toLowerCase()}>{bandLabel}{year ? " · " + year : ""}</span>
                     {theme && <span className="chip gold">{theme}</span>}
                   </div>
-                  <div className="cap" style={{ marginTop: 12 }}>Find-me keywords <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· help teachers search this lesson (hidden from students)</span></div>
-                  <textarea className="editable" rows={2} aria-label="Search keywords for this lesson"
-                    value={(spot.keywords || []).join(", ")}
-                    onChange={e => patch({ keywords: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })} />
                 </div></div>
 
                 {/* Content advisory — the model flags, the teacher chooses whether to include */}
