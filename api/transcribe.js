@@ -1,4 +1,4 @@
-import { applyCors, requireTeacher } from "./_lib.js";
+import { applyCors, requireTeacher, rateLimit } from "./_lib.js";
 
 export const config = { api: { bodyParser: false } };
 
@@ -12,6 +12,7 @@ export default async function handler(req, res) {
   if (applyCors(req, res)) return;
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   if (!requireTeacher(req, res)) return;
+  if (!rateLimit(req, res, { max: 20, windowMs: 60000, name: "transcribe" })) return;
 
   try {
     const raw = await readRaw(req);

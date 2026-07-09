@@ -1,4 +1,4 @@
-import { applyCors, requireTeacher } from "./_lib.js";
+import { applyCors, requireTeacher, rateLimit } from "./_lib.js";
 import { readFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -59,6 +59,7 @@ export default async function handler(req, res) {
   if (applyCors(req, res)) return;
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   if (!requireTeacher(req, res)) return;
+  if (!rateLimit(req, res, { max: 20, windowMs: 60000, name: "generate" })) return;
 
   const { messages, response_format, max_completion_tokens, temperature, studyGuide, stickiness } = req.body || {};
   if (!Array.isArray(messages) || messages.length === 0) {

@@ -45,3 +45,35 @@ export function requireAdmin(req, res) {
   }
   return true;
 }
+
+// Per-warm-instance in-memory throttle. Resets on cold start, so it's best-effort only --
+// the OpenAI spend cap is the hard cost backstop. Clock is injectable so tests can drive it.
+let _now = () => Date.now();
+const _hits = new Map(); // "name|ip" -> [timestamps]
+
+function clientIp(req) {
+  const xff = req.headers["x-forwarded-for"];
+  if (xff) return String(xff).split(",")[0].trim();
+  if (req.headers["x-real-ip"]) return String(req.headers["x-real-ip"]).trim();
+  return "unknown";
+}
+
+export function rateLimit(req, res, { max, windowMs, name }) {
+  const now = _now();
+  const key = name + "|" + clientIp(req);
+  const fresh = (_hits.get(key) || []).filter((t) => now - t < windowMs);
+  if (fresh.length >= max) {
+    res.status(429);
+    res.setHeader("Retry-After", Math.ceil(windowMs / 1000));
+    res.json({ error: "Too many requests, slow down." });
+    _hits.set(key, fresh);
+    return false;
+  }
+  fresh.push(now);
+  _hits.set(key, fresh);
+  return true;
+}
+
+// test seams
+export function __setNowForTests(fn) { _now = fn || (() => Date.now()); }
+export function __resetRateLimit() { _hits.clear(); }
