@@ -517,7 +517,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.3.9 · 2026-07-09";
+const APP_VERSION = "v0.3.10 · 2026-07-09";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2043,6 +2043,8 @@ function App() {
         const body = ((deck.notes && deck.notes[key]) || "").trim();
         let out = NOTE_HEAD[key] + (body ? "\n\n" + body : "");
         if (key === "ignite" && kw.length) out += "\n\nKeywords: " + kw.join(", ");
+        // Curriculum connection is teacher-only — it rides in the LAUNCH speaker notes, never the projected slide.
+        if (key === "launch") { const conn = ((deck.launch && deck.launch.connection) || "").trim(); if (conn) out += "\n\nCurriculum connection: " + conn; }
         return out;
       };
 
@@ -2179,12 +2181,11 @@ function App() {
         const s = newWhite();
         kicker(s, "LAUNCH");
         s.addText("Into today's lesson", { x: 0.7, y: 1.05, w: W - 1.4, h: 0.55, fontSize: 26, bold: true, color: P, valign: "top", fontFace: FONT });
-        cap(s, "Curriculum connection", 1.9);
-        s.addText((deck.launch && deck.launch.connection) || "", { x: 0.7, y: 2.2, w: W - 1.4, h: 0.85, fontSize: 14, color: INK, valign: "top", lineSpacingMultiple: 1.1, fontFace: FONT });
-        cap(s, "From the stimulus", 3.15);
-        s.addText((deck.launch && deck.launch.bridge) || "", { x: 0.7, y: 3.45, w: W - 1.4, h: 0.85, fontSize: 14, color: INK, valign: "top", lineSpacingMultiple: 1.1, fontFace: FONT });
-        s.addShape(pptx.ShapeType.rect, { x: 0.7, y: 4.55, w: 2.1, h: 0.045, fill: { color: GOLD } });
-        s.addText((deck.launch && deck.launch.question) || "", { x: 0.7, y: 4.72, w: W - 1.4, h: 1.5, fontSize: 28, bold: true, color: P, valign: "top", fontFace: FONT, fit: "shrink" });
+        // Curriculum connection dropped from the projected slide (teacher-only, now in the notes); bridge + question reflow up.
+        cap(s, "From the stimulus", 1.9);
+        s.addText((deck.launch && deck.launch.bridge) || "", { x: 0.7, y: 2.2, w: W - 1.4, h: 0.9, fontSize: 14, color: INK, valign: "top", lineSpacingMultiple: 1.1, fontFace: FONT });
+        s.addShape(pptx.ShapeType.rect, { x: 0.7, y: 3.6, w: 2.1, h: 0.045, fill: { color: GOLD } });
+        s.addText((deck.launch && deck.launch.question) || "", { x: 0.7, y: 3.8, w: W - 1.4, h: 1.8, fontSize: 28, bold: true, color: P, valign: "top", fontFace: FONT, fit: "shrink" });
         s.addNotes(noteFor("launch"));
       }
 
@@ -2580,14 +2581,15 @@ function App() {
                 {/* LAUNCH */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
                   <div className="slide-head"><div className="slide-tag"><span className="n">3</span> <h2 style={{ font: "inherit", margin: 0, display: "inline" }}>Launch</h2> <span className="aside">· into today's lesson</span></div>{regenButton("launch")}</div>
-                  <div className="cap">Curriculum connection</div>
-                  <textarea className="editable" rows={2} aria-label="Curriculum connection" value={spot.launch.connection} placeholder="How this links to your outcome…" onChange={e => patchSlide("launch", { connection: e.target.value })} />
-                  <div className="cap" style={{ marginTop: 10 }}>Bridge from the stimulus</div>
+                  <div className="cap">Bridge from the stimulus</div>
                   <textarea className="editable" rows={2} aria-label="Bridge from the stimulus" value={spot.launch.bridge} placeholder="From the stimulus to today's lesson…" onChange={e => patchSlide("launch", { bridge: e.target.value })} />
                   <div className="cap" style={{ marginTop: 10 }}>Lesson launch question</div>
                   <textarea className="editable" rows={2} aria-label="Lesson launch question" value={spot.launch.question} placeholder="The question that opens the lesson…" onChange={e => patchSlide("launch", { question: e.target.value })} />
                   <details className="notes-details">
-                    <summary>Teacher notes</summary>
+                    <summary>Teacher notes · not shown to students</summary>
+                    <div className="cap">Curriculum connection</div>
+                    <textarea className="editable" rows={2} aria-label="Curriculum connection" value={spot.launch.connection} placeholder="How this links to your outcome…" onChange={e => patchSlide("launch", { connection: e.target.value })} />
+                    <div className="cap" style={{ marginTop: 10 }}>Notes</div>
                     <textarea className="editable" rows={5} aria-label="Launch teacher notes" value={spot.notes.launch} placeholder="FACILITATION: … TIMING: … DIFFERENTIATION: … CURRICULUM LINKS: … EXTENSIONS: …" onChange={e => patchNote("launch", e.target.value)} />
                   </details>
                 </div></div>
