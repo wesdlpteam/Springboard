@@ -24,6 +24,34 @@ test("rejects missing messages", async () => {
   assert.equal(res.statusCode, 400);
 });
 
+test("clamps client-controlled cost params (max_completion_tokens, temperature)", async () => {
+  const origFetch = globalThis.fetch;
+  let sent = null;
+  globalThis.fetch = async (url, opts) => {
+    sent = JSON.parse(opts.body);
+    return { json: async () => ({ ok: true }) };
+  };
+  try {
+    const { req, res } = mockReqRes({
+      headers: { "x-sb-passcode": "test-pass" },
+      body: { messages: [{ role: "user", content: "hi" }], max_completion_tokens: 100000, temperature: 9 },
+    });
+    await handler(req, res);
+    assert.equal(res.statusCode, 200);
+    assert.equal(sent.max_completion_tokens, 8000); // clamped down from 100000
+    assert.equal(sent.temperature, 2);              // clamped into [0,2]
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
+test("rejects an over-long messages array", async () => {
+  const many = Array.from({ length: 21 }, () => ({ role: "user", content: "x" }));
+  const { req, res } = mockReqRes({ headers: { "x-sb-passcode": "test-pass" }, body: { messages: many } });
+  await handler(req, res);
+  assert.equal(res.statusCode, 400);
+});
+
 test("forwards to OpenAI with server-side model and returns raw JSON", async () => {
   const origFetch = globalThis.fetch;
   let sent = null;

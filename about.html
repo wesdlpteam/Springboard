@@ -8,6 +8,7 @@
   :root{
     --purple:#4F2759; --purple-deep:#3A1C42; --purple-soft:#F4EFF6;
     --gold:#B08D3F; --gold-soft:#F7F1E4;
+    --gold-text:#7a5c26; /* darker gold for small text on white — brand gold is only ~3.1:1 (fails AA) */
     --ink:#241a29; --muted:#6c6472; --line:#e7e1ea; --bg:#faf8fb; --white:#fff;
   }
   *{box-sizing:border-box}
@@ -28,7 +29,7 @@
   .back:hover{ background:rgba(255,255,255,.12); }
 
   h2{ font-size:22px; margin:44px 0 6px; letter-spacing:-.3px; color:var(--purple); }
-  h2 .num{ color:var(--gold); font-variant-numeric:tabular-nums; margin-right:8px; }
+  h2 .num{ color:var(--gold-text); font-variant-numeric:tabular-nums; margin-right:8px; }
   h3{ font-size:16px; margin:20px 0 4px; }
   p{ margin:10px 0; }
   .lede{ font-size:17px; color:#2c2331; }
@@ -36,7 +37,7 @@
 
   .cards{ display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin-top:16px; }
   .card{ background:var(--white); border:1px solid var(--line); border-radius:14px; padding:16px 18px; }
-  .card .tag{ display:inline-block; font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--gold); }
+  .card .tag{ display:inline-block; font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--gold-text); }
   .card h3{ margin:4px 0 4px; color:var(--purple); font-size:15px; }
   .card p{ margin:0; font-size:14.5px; color:#413a48; }
 

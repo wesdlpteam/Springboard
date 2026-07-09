@@ -32,9 +32,11 @@
   @font-face { font-family: "Graphik"; font-weight: 600 800; font-style: italic; font-display: swap; src: url("fonts/Graphik-SemiboldItalic.woff2") format("woff2"); }
 
   /* Secondary brand typeface — Avenir Black, for large DISPLAY headlines only (Wesley hierarchy:
-     Graphik primary, Avenir Black secondary, Arial tertiary). Self-hosted from ./fonts/; drop in
-     Avenir-Black.woff2. If absent, display headings fall back to Graphik, then Arial. */
-  @font-face { font-family: "Avenir Black"; font-weight: 400 900; font-style: normal; font-display: swap; src: url("fonts/Avenir-Black.woff2") format("woff2"); }
+     Graphik primary, Avenir Black secondary, Arial tertiary). Self-hosted from ./fonts/.
+     DISABLED until the font file is added: the woff2 was never shipped, so an enabled @font-face
+     just 404s on every load. --font-display already falls back to Graphik then Arial, so display
+     headings look identical. To enable: drop fonts/Avenir-Black.woff2 in and uncomment below. */
+  /* @font-face { font-family: "Avenir Black"; font-weight: 400 900; font-style: normal; font-display: swap; src: url("fonts/Avenir-Black.woff2") format("woff2"); } */
 
   :root {
     /* Neutrals */
@@ -101,7 +103,8 @@
   }
   header.app .logo svg { width: 22px; height: 22px; }
   header.app h1 { font-size: 19px; margin: 0; }
-  header.app .admin-link { margin-left: auto; align-self: center; font-size: 12px; font-weight: 600; color: #4F2759; text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; white-space: nowrap; transition: background .15s; }
+  header.app .admin-link { align-self: center; font-size: 12px; font-weight: 600; color: #4F2759; text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; white-space: nowrap; transition: background .15s; }
+  header.app .admin-link:first-of-type { margin-left: auto; } /* push nav group right; keep both tabs together */
   header.app .admin-link:hover, header.app .admin-link:focus-visible { background: rgba(79,39,89,.07); }
   header.app .appver { margin-left: 10px; align-self: center; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; letter-spacing: .02em; }
   header.app p { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
@@ -184,7 +187,9 @@
   .btn.ghost:disabled { opacity: .5; cursor: not-allowed; }
   .btn:focus-visible, .iconbtn:focus-visible, .addbtn:focus-visible,
   .modes button:focus-visible, .filebox:focus-visible {
-    outline: none; box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow);
+    /* Solid high-contrast ring (accent ~11.9:1 on light) — the old --accent-soft glow was ~1.3:1,
+       failing WCAG 2.4.11 Focus Appearance. Matches the .notes-details summary treatment. */
+    outline: 2px solid var(--accent); outline-offset: 2px; box-shadow: var(--shadow);
   }
 
   .alert { padding: 11px 13px; border-radius: 10px; font-size: 13px; margin-top: 12px; line-height: 1.45; }
@@ -209,7 +214,7 @@
   .slide-head .slide-tag { margin-bottom: 0; }
   .regen { margin-left: auto; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); background: #fff; color: var(--accent); border-radius: 999px; padding: 4px 11px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; transition: .15s; white-space: nowrap; }
   .regen:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
-  .regen:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+  .regen:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .regen:disabled { opacity: .5; cursor: not-allowed; }
   .routine-pick { margin: 6px 0 8px; }
   .routine-pick select { width: auto; min-width: 240px; max-width: 100%; }
@@ -303,7 +308,7 @@
   .theme-edit-toggle { background: none; border: 0; color: var(--accent); font: inherit; font-size: 12px; cursor: pointer; padding: 2px 4px; }
   .theme-edit-toggle:hover { text-decoration: underline; }
   .pick-wrap { display: inline-flex; align-items: center; }
-  .pick-wrap .pick-x { margin-left: -4px; border: 0; background: transparent; color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer; padding: 0 5px; border-radius: 999px; }
+  .pick-wrap .pick-x { margin-left: -4px; border: 0; background: transparent; color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer; min-width: 24px; min-height: 24px; padding: 0 5px; border-radius: 999px; } /* min 24x24 hit area (WCAG 2.5.8) */
   .pick-wrap .pick-x:hover { color: var(--bad-ink); background: var(--bad-bg); }
   .theme-add { display: inline-flex; align-items: center; gap: 4px; }
   .theme-add input { font: inherit; font-size: 12px; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--accent); }
@@ -334,15 +339,17 @@
 
   .reel-wrap { max-width: 420px; margin: 8px auto 0; }
   .reel { position: relative; outline: none; }
-  .reel:focus-visible { box-shadow: 0 0 0 3px var(--accent-soft); border-radius: 12px; }
+  .reel:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 12px; }
   .reel-frame { position: relative; aspect-ratio: 4 / 3; background: var(--wash); border-radius: 10px; overflow: hidden; display: grid; place-items: center; box-shadow: var(--shadow); }
   .reel-frame img, .reel-frame video { max-width: 100%; max-height: 100%; object-fit: contain; }
   .reel-arrow { position: absolute; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; border-radius: 999px; border: none; background: rgba(0,0,0,.5); color: #fff; font-size: 20px; line-height: 1; cursor: pointer; display: grid; place-items: center; }
   .reel-arrow.left { left: 8px; } .reel-arrow.right { right: 8px; }
-  .reel-arrow:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
-  .reel-dots { display: flex; justify-content: center; gap: 6px; margin-top: 8px; }
-  .reel-dots .dot { width: 8px; height: 8px; border-radius: 999px; border: none; background: #b9afce; cursor: pointer; padding: 0; }
-  .reel-dots .dot.on { background: var(--accent); }
+  .reel-arrow:focus-visible { outline: 2px solid #fff; outline-offset: 2px; } /* white ring: arrows sit on dark imagery */
+  .reel-dots { display: flex; justify-content: center; gap: 2px; margin-top: 8px; }
+  /* 24x24 invisible hit area (WCAG 2.5.8); the 8px visible dot is drawn via ::before */
+  .reel-dots .dot { width: 24px; height: 24px; border: none; background: transparent; cursor: pointer; padding: 0; display: grid; place-items: center; border-radius: 999px; }
+  .reel-dots .dot::before { content: ""; width: 8px; height: 8px; border-radius: 999px; background: #b9afce; }
+  .reel-dots .dot.on::before { background: var(--accent); }
   @media (prefers-reduced-motion: reduce) { .reel * { transition: none !important; } }
 
   .resp-note { margin-top: 6px; padding: 7px 10px; background: var(--wash); border-radius: 10px; }
@@ -493,7 +500,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.3.5 · 2026-07-09";
+const APP_VERSION = "v0.3.6 · 2026-07-09";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -1510,6 +1517,7 @@ function MediaCarousel({ items, index, setIndex }) {
       {n > 1 && <div className="reel-dots">
         {items.map((m, i) => <button key={m.id} type="button" className={"dot" + (i === index ? " on" : "")} aria-label={"Go to " + (m.kind === "video" ? "video " : "image ") + (i + 1)} aria-current={i === index ? "true" : "false"} onClick={() => setIndex(i)} />)}
       </div>}
+      {n > 1 && <div className="sr-only" aria-live="polite">{`Stimulus ${index + 1} of ${n}`}</div>}
     </div>
   );
 }
@@ -1534,6 +1542,12 @@ function App() {
   // (curriculum/subject/year/outcome) drives one generator run.
   const [classInfo, setClassInfo] = useState(() => loadClassInfo());
   const saveClassInfo = (next) => {
+    // VCE-senior Subject is a fixed <select>. If we just flipped into VCE-senior mode carrying
+    // a free-typed subject that matches no VCE study, blank it so the placeholder shows and the
+    // teacher must pick (otherwise vceStudyGuide silently finds nothing and skips injection).
+    if (isVceSenior(next) && next.subject && !VCE_SUBJECTS.some(s => s.name === next.subject.trim())) {
+      next = { ...next, subject: "" };
+    }
     // Changing year level across a band boundary invalidates the analysis (routines are
     // band-filtered): clear it so the teacher re-analyses for the new band.
     if (bandOf(classInfo.yearLevel) !== bandOf(next.yearLevel)) {
@@ -1565,7 +1579,8 @@ function App() {
   const busyRef = useRef({ exporting: false }); // synchronous re-entrancy guard (beats same-tick double-clicks before React re-renders)
 
   // media reel
-  const [extractingVideo, setExtractingVideo] = useState(false); // any video frame-extraction in flight
+  const [extractCount, setExtractCount] = useState(0); // count of video extractions in flight (batch/overlap-safe)
+  const extractingVideo = extractCount > 0; // spinner shows while any extraction runs
   const [mediaNote, setMediaNote] = useState(""); // soft inline status under the dropzone
 
   const mediaInput = useRef(null);
@@ -1595,7 +1610,10 @@ function App() {
 
   // Stale-deck hint: fingerprint the stimulus so we can nudge "Regenerate" if it changed
   // after the last successful generate.
-  const stimKey = mode + "|" + media.length + "|" + (mode === "article" ? articleText.length : 0);
+  // class settings (curriculum/subject/year) drive the band + chip label, so fold them in:
+  // a post-generate class edit now trips the same "regenerate" banner as a stimulus change.
+  const stimKey = mode + "|" + media.length + "|" + (mode === "article" ? articleText.length : 0)
+    + "|" + classInfo.curriculum + "|" + classInfo.subject + "|" + classInfo.yearLevel;
   const stimulusStale = Object.keys(spots).length > 0 && genStimKey.current && genStimKey.current !== stimKey;
 
   // Fire-and-forget analytics: logs event + context to the backend.
@@ -1644,7 +1662,7 @@ function App() {
         try { const dataUrl = await readFileAsDataURL(f); const aspect = await imageAspect(dataUrl); setMedia(m => m.length >= MAX_MEDIA ? m : [...m, { id: newId(), kind: "image", dataUrl, name: f.name, aspect }]); }
         catch (_) { setError("Could not read image: " + f.name); }
       } else if (f.type.startsWith("video/")) {
-        setExtractingVideo(true);
+        setExtractCount(c => c + 1);
         try {
           let dataUrl = "";
           if (f.size <= VIDEO_EMBED_MAX_BYTES) { try { dataUrl = await readFileAsDataURL(f); } catch (_) {} }
@@ -1663,7 +1681,7 @@ function App() {
             }
           })();
         } catch (_) { setError("Could not read video: " + f.name); }
-        finally { setExtractingVideo(false); }
+        finally { setExtractCount(c => c - 1); }
       }
     }
   }
@@ -1679,11 +1697,19 @@ function App() {
     });
   }
 
+  const pdfSeqRef = React.useRef(0);
   async function onPdf(e) {
-    const f = e.target.files?.[0]; if (!f) return;
+    const f = e.target.files?.[0]; e.target.value = ""; if (!f) return; // reset so re-picking the same file re-fires
+    const seq = ++pdfSeqRef.current; // any later pick supersedes this one so a slow parse can't clobber a newer PDF
     setPdfName(f.name + " (extracting…)");
-    try { const t = await extractPdfText(f); setArticleText(t); setPdfName(f.name + ` (${t.length.toLocaleString()} chars)`); }
-    catch (err) { setError("Could not extract text from that PDF: " + err.message); setPdfName(""); }
+    try {
+      const t = await extractPdfText(f);
+      if (seq !== pdfSeqRef.current) return;
+      setArticleText(t); setPdfName(f.name + ` (${t.length.toLocaleString()} chars)`);
+    } catch (err) {
+      if (seq !== pdfSeqRef.current) return;
+      setError("Could not extract text from that PDF: " + err.message); setPdfName("");
+    }
   }
   // Pull readable article text from a public link via the r.jina.ai reader
   // (it allows browser/CORS requests). Hard paywalls may still fail.
@@ -1845,7 +1871,10 @@ function App() {
   // Single Wesley-light palette for the preview accents (purple bar/number chips, gold tie).
   const T = { accent: WESLEY.purple, accent2: WESLEY.gold };
   const barStyle = { background: hx(T.accent) };
-  const RegenButton = ({ scope }) => (
+  // Inline render helper (called, not a <Component/>): keeps it out of the render as a fresh
+  // component TYPE each pass, which would remount all four "New options" buttons on every keystroke
+  // and drop keyboard focus. Called as {regenButton("ignite")}.
+  const regenButton = (scope) => (
     <button type="button" className="regen" title="Generate a different version of this slide"
       disabled={!!regenSlide || loading}
       aria-busy={regenSlide === scope} aria-label="Regenerate this slide for different options"
@@ -2382,9 +2411,9 @@ function App() {
           {spot && (
             <React.Fragment>
               {Object.keys(spots).length > 1 && (
-                <div className="band-tabs" role="tablist" aria-label="Band decks">
+                <div className="band-tabs" role="group" aria-label="Band decks">
                   {BAND_ORDER.filter(b => spots[b]).map(b => (
-                    <button key={b} role="tab" aria-selected={activeBand === b}
+                    <button key={b} type="button" aria-pressed={activeBand === b}
                       className={"band-tab" + (activeBand === b ? " on" : "")}
                       onClick={() => setActiveBand(b)}>
                       <span className={"band-dot band-" + b.toLowerCase()}></span>{bandLabelOf(b)}
@@ -2413,7 +2442,7 @@ function App() {
                 {spot.advisory.flag && (
                   <div className="slide advisory-slide"><div className="bar" style={barStyle}></div><div className="body">
                     <div className="advisory-card">
-                      <div className="advisory-warnhead"><span className="advisory-tri">⚠</span> CONTENT ADVISORY</div>
+                      <div className="advisory-warnhead"><span className="advisory-tri" aria-hidden="true">⚠</span> CONTENT ADVISORY</div>
                       <div className="advisory-body">
                         <p className="advisory-line">{spot.advisory.reason || "This stimulus touches on a sensitive theme."}</p>
                         <label className="toggle-row" style={{ marginTop: 10 }}>
@@ -2427,7 +2456,7 @@ function App() {
 
                 {/* IGNITE */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="slide-head"><div className="slide-tag"><span className="n">1</span> <h2 style={{ font: "inherit", margin: 0, display: "inline" }}>Ignite</h2> <span className="aside">· one provocative question</span></div><RegenButton scope="ignite" /></div>
+                  <div className="slide-head"><div className="slide-tag"><span className="n">1</span> <h2 style={{ font: "inherit", margin: 0, display: "inline" }}>Ignite</h2> <span className="aside">· one provocative question</span></div>{regenButton("ignite")}</div>
                   <textarea className="editable" rows={2} aria-label="Ignite question" value={spot.ignite.question} placeholder="One provocative question…" onChange={e => patchSlide("ignite", { question: e.target.value })} />
                   {(media.length > 0 || (mode === "article" && articleImageUrl) || link.trim()) && (
                     <div className="stim-preview">
@@ -2447,7 +2476,7 @@ function App() {
 
                 {/* THINK */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="slide-head"><div className="slide-tag"><span className="n">2</span> <h2 style={{ font: "inherit", margin: 0, display: "inline" }}>Think</h2> <span className="aside">· {ROUTINE_SOURCE}</span></div><RegenButton scope="think" /></div>
+                  <div className="slide-head"><div className="slide-tag"><span className="n">2</span> <h2 style={{ font: "inherit", margin: 0, display: "inline" }}>Think</h2> <span className="aside">· {ROUTINE_SOURCE}</span></div>{regenButton("think")}</div>
                   <div className="routine-name-row">
                     <span className="chip">{spot.think.routine}</span>
                     <a className="routine-card-link" href={routineUrlFor} target="_blank" rel="noopener">View routine ↗</a>
@@ -2472,7 +2501,7 @@ function App() {
 
                 {/* LAUNCH */}
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
-                  <div className="slide-head"><div className="slide-tag"><span className="n">3</span> <h2 style={{ font: "inherit", margin: 0, display: "inline" }}>Launch</h2> <span className="aside">· into today's lesson</span></div><RegenButton scope="launch" /></div>
+                  <div className="slide-head"><div className="slide-tag"><span className="n">3</span> <h2 style={{ font: "inherit", margin: 0, display: "inline" }}>Launch</h2> <span className="aside">· into today's lesson</span></div>{regenButton("launch")}</div>
                   <div className="cap">Curriculum connection</div>
                   <textarea className="editable" rows={2} aria-label="Curriculum connection" value={spot.launch.connection} placeholder="How this links to your outcome…" onChange={e => patchSlide("launch", { connection: e.target.value })} />
                   <div className="cap" style={{ marginTop: 10 }}>Bridge from the stimulus</div>
@@ -2503,7 +2532,7 @@ function App() {
                             {REFLECT_ROUTINES.map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
                           </select>
                         </div>
-                        <RegenButton scope="reflect" />
+                        {regenButton("reflect")}
                       </div>
                     )}
                     <div className="cap" style={{ marginTop: 10 }}>Revisit the ignite question</div>
@@ -2511,7 +2540,7 @@ function App() {
                     <div className="cap" style={{ marginTop: 10 }}>Reflection prompts <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· up to 4</span></div>
                     {spot.reflect.prompts.map((pr, i) => (
                       <div className="step" key={i} style={{ gridTemplateColumns: "28px 1fr auto" }}>
-                        <span className="rp-num" style={{ background: hx(T.accent2), color: "var(--accent-2-ink)" }}>{i + 1}</span>
+                        <span className="rp-num" style={{ background: "var(--gold-soft)", color: "var(--accent-2-ink)" }}>{i + 1}</span>
                         <textarea className="editable" rows={1} aria-label={"Reflection prompt " + (i + 1)} value={pr} onChange={e => patchArr("reflect", "prompts", i, e.target.value)} disabled={!includeReflect} />
                         <button type="button" className="iconbtn" aria-label={"Remove reflection prompt " + (i + 1)} title="Remove" onClick={() => delArr("reflect", "prompts", i)} disabled={!includeReflect}><Icon d={I.close} size={14} stroke /></button>
                       </div>
@@ -2537,7 +2566,7 @@ function StimLink({ url, verb }) {
   const qr = makeQrDataUrl(url);
   return (
     <div className="stim-link">
-      {qr && <img className="qr" src={qr} alt="QR code" />}
+      {qr && <img className="qr" src={qr} alt={"QR code for " + url} />}
       <div><div style={{ marginBottom: 4 }}>{verb} here:</div><a href={url} target="_blank" rel="noreferrer">{url}</a></div>
     </div>
   );

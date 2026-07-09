@@ -64,11 +64,26 @@ export default async function handler(req, res) {
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: "No messages provided" });
   }
+  // Endpoint runs in open mode (no passcode) with an OpenAI spend cap as the only backstop, and
+  // CORS never blocks a no-Origin (curl) caller. So clamp every client-controlled cost knob to
+  // bound per-request blast radius. The app only ever sends 2-4 messages (vision images ride as
+  // content-parts inside one user message), so 20 is generous headroom, not a real limit.
+  if (messages.length > 20) {
+    return res.status(400).json({ error: "Too many messages" });
+  }
 
   const payload = { model: process.env.OPENAI_MODEL || "gpt-5.4", messages: injectStickiness(injectStudyGuide(messages, studyGuide), stickiness) };
   if (response_format) payload.response_format = response_format;
-  if (max_completion_tokens !== undefined) payload.max_completion_tokens = max_completion_tokens;
-  if (temperature !== undefined) payload.temperature = temperature;
+  // 8000 = 2x the app's largest legit request (4000 tokens); anything bigger is abuse. Non-numeric
+  // input is dropped rather than forwarded. Temperature is coerced into OpenAI's valid [0,2] range.
+  if (max_completion_tokens !== undefined) {
+    const n = Number(max_completion_tokens);
+    if (Number.isFinite(n)) payload.max_completion_tokens = Math.min(Math.max(Math.trunc(n), 1), 8000);
+  }
+  if (temperature !== undefined) {
+    const t = Number(temperature);
+    if (Number.isFinite(t)) payload.temperature = Math.min(Math.max(t, 0), 2);
+  }
 
   try {
     const r = await fetch("https://api.openai.com/v1/chat/completions", {

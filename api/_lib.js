@@ -8,9 +8,13 @@ const ALLOWED_ORIGINS = [
 ];
 
 export function safeEqual(a, b) {
-  const A = Buffer.from(String(a ?? ""));
-  const B = Buffer.from(String(b ?? ""));
-  if (A.length !== B.length || A.length === 0) return false;
+  const rawA = String(a ?? "");
+  const rawB = String(b ?? "");
+  // empty always fails closed -- check BEFORE hash so unset env var never matches
+  if (rawA.length === 0 || rawB.length === 0) return false;
+  // hash both to fixed 32-byte len first -- raw length diff never reaches compare, no timing leak
+  const A = crypto.createHash("sha256").update(rawA).digest();
+  const B = crypto.createHash("sha256").update(rawB).digest();
   return crypto.timingSafeEqual(A, B);
 }
 
