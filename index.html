@@ -493,7 +493,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.3.2 · 2026-07-09";
+const APP_VERSION = "v0.3.3 · 2026-07-09";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2130,6 +2130,7 @@ function App() {
           <h1>Springboard</h1>
           <p>Launch student thinking — stimulus to slides in two minutes.</p>
         </div>
+        <a className="admin-link" href="about.html" target="_blank" rel="noopener" title="How Springboard works — its purpose and the teaching design behind it">How it works</a>
         <a className="admin-link" href="stats.html" target="_blank" rel="noopener" title="Admin analytics — password protected">Admin analytics</a>
         <span className="appver" title="App version — check this matches after a refresh">{APP_VERSION}</span>
       </header>

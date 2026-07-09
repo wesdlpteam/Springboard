@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Springboard — How it works</title>
+<style>
+  :root{
+    --purple:#4F2759; --purple-deep:#3A1C42; --purple-soft:#F4EFF6;
+    --gold:#B08D3F; --gold-soft:#F7F1E4;
+    --ink:#241a29; --muted:#6c6472; --line:#e7e1ea; --bg:#faf8fb; --white:#fff;
+  }
+  *{box-sizing:border-box}
+  html{ -webkit-text-size-adjust:100%; }
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  .wrap{ max-width:860px; margin:0 auto; padding:0 22px 72px; }
+  a{ color:var(--purple); }
+
+  header.hero{ background:linear-gradient(135deg,var(--purple),var(--purple-deep)); color:#fff; }
+  header.hero .wrap{ padding-top:40px; padding-bottom:40px; }
+  .eyebrow{ font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:#e4d3ae; font-weight:700; margin:0 0 10px; }
+  header.hero h1{ font-size:34px; line-height:1.1; margin:0 0 12px; letter-spacing:-.5px; }
+  header.hero p{ font-size:17px; margin:0; max-width:60ch; color:#efe7f2; }
+  .back{ display:inline-block; margin-top:22px; font-size:14px; font-weight:600; color:#fff; text-decoration:none; border:1px solid rgba(255,255,255,.4); border-radius:999px; padding:7px 15px; }
+  .back:hover{ background:rgba(255,255,255,.12); }
+
+  h2{ font-size:22px; margin:44px 0 6px; letter-spacing:-.3px; color:var(--purple); }
+  h2 .num{ color:var(--gold); font-variant-numeric:tabular-nums; margin-right:8px; }
+  h3{ font-size:16px; margin:20px 0 4px; }
+  p{ margin:10px 0; }
+  .lede{ font-size:17px; color:#2c2331; }
+  .rule{ height:3px; width:60px; background:var(--gold); border:0; border-radius:2px; margin:8px 0 0; }
+
+  .cards{ display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin-top:16px; }
+  .card{ background:var(--white); border:1px solid var(--line); border-radius:14px; padding:16px 18px; }
+  .card .tag{ display:inline-block; font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--gold); }
+  .card h3{ margin:4px 0 4px; color:var(--purple); font-size:15px; }
+  .card p{ margin:0; font-size:14.5px; color:#413a48; }
+
+  ol.steps{ counter-reset:s; list-style:none; padding:0; margin:16px 0 0; }
+  ol.steps li{ position:relative; padding:10px 0 10px 44px; border-top:1px solid var(--line); }
+  ol.steps li:first-child{ border-top:0; }
+  ol.steps li::before{ counter-increment:s; content:counter(s); position:absolute; left:0; top:9px; width:28px; height:28px; border-radius:50%; background:var(--purple); color:#fff; font-weight:700; font-size:14px; display:flex; align-items:center; justify-content:center; }
+
+  .panel{ background:var(--purple-soft); border:1px solid #e4d9ea; border-radius:14px; padding:18px 20px; margin-top:16px; }
+  .panel h3{ margin-top:0; color:var(--purple); }
+  ul.tight{ margin:8px 0 0; padding-left:18px; }
+  ul.tight li{ margin:6px 0; }
+  .succes{ margin:12px 0 0; padding:0; list-style:none; }
+  .succes li{ padding:8px 0; border-top:1px dashed #dccfe3; }
+  .succes li:first-child{ border-top:0; }
+  .succes b{ color:var(--purple); }
+
+  .note{ display:flex; gap:12px; align-items:flex-start; background:var(--gold-soft); border:1px solid #e8dcc0; border-radius:14px; padding:16px 18px; margin-top:16px; }
+  .note .ic{ font-size:20px; line-height:1.2; }
+  .note p{ margin:0; font-size:14.5px; }
+  .note strong{ color:#6b551f; }
+
+  footer{ margin-top:52px; padding-top:20px; border-top:1px solid var(--line); color:var(--muted); font-size:13px; }
+  footer .brand{ font-weight:700; color:var(--purple); }
+
+  @media (max-width:640px){
+    header.hero h1{ font-size:27px; }
+    .cards{ grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+  <header class="hero">
+    <div class="wrap">
+      <p class="eyebrow">Wesley College · Digital Learning &amp; Practice</p>
+      <h1>Springboard — how it works</h1>
+      <p>Turn any stimulus — an image, a short video, or an article — into a ready-to-run, five-minute lesson launch for any subject and year level, exported as an editable Wesley PowerPoint.</p>
+      <a class="back" href="index.html">&larr; Back to Springboard</a>
+    </div>
+  </header>
+
+  <main class="wrap">
+
+    <h2><span class="num">·</span>What it's for</h2>
+    <hr class="rule" />
+    <p class="lede">Springboard removes the prep friction from starting a lesson well. You bring a spark — a picture, a clip, a news article — and in about two minutes you walk away with four editable slides that get students thinking hard from the very first minute. It works across the whole school, from Prep to VCE, and every deck comes out in the Wesley brand.</p>
+
+    <h2><span class="num">·</span>The four slides</h2>
+    <hr class="rule" />
+    <div class="cards">
+      <div class="card"><span class="tag">Slide 1</span><h3>Ignite</h3><p>A bold provocation built from your stimulus — a big question and the image itself — to hook attention in the first minute.</p></div>
+      <div class="card"><span class="tag">Slide 2</span><h3>Think</h3><p>A real Harvard thinking routine, with clear steps, to scaffold how students reason about the stimulus.</p></div>
+      <div class="card"><span class="tag">Slide 3</span><h3>Launch</h3><p>The bridge into today's actual lesson and its curriculum focus, so the thinking connects to what you're teaching.</p></div>
+      <div class="card"><span class="tag">Slide 4</span><h3>Reflect</h3><p>A short revisit at the end of the lesson, using "I used to think… now I think…" style prompts (optional).</p></div>
+    </div>
+    <p style="margin-top:12px;color:var(--muted);font-size:14.5px;">Every field is editable in the live preview, any single slide can be regenerated on its own, and teacher notes (facilitation, timing, differentiation, curriculum links, extensions) travel in the PowerPoint's Notes pane.</p>
+
+    <h2><span class="num">·</span>How to use it</h2>
+    <hr class="rule" />
+    <ol class="steps">
+      <li><strong>Set the class.</strong> Choose the curriculum, subject and year level. (For VCE Year 11 or 12, the Subject box becomes a dropdown of the 50 VCE studies — see below.)</li>
+      <li><strong>Add a stimulus.</strong> Drop in one or more images or short videos, or paste / upload an article (or a link, which becomes a QR code).</li>
+      <li><strong>Analyse.</strong> The tool reads the stimulus and suggests a thinking routine that fits it and the age group. Pick one (or browse all of them).</li>
+      <li><strong>Generate.</strong> You get the four slides. Edit any wording, regenerate a single slide, or add a gentle content-advisory slide if a theme is sensitive.</li>
+      <li><strong>Download.</strong> Save the editable Wesley PowerPoint and drop it straight into your lesson.</li>
+    </ol>
+
+    <h2><span class="num">·</span>The thinking behind the lessons</h2>
+    <hr class="rule" />
+    <p>Springboard doesn't just paraphrase your stimulus. Behind the scenes it writes every lesson against a small set of well-evidenced teaching ideas, so the output is designed to teach, not just to fill slides.</p>
+
+    <div class="panel">
+      <h3>Made to Stick (Chip &amp; Dan Heath)</h3>
+      <p>Every deck is written to make ideas <em>stick</em>, using the book's six principles (SUCCESs). This runs automatically — there's no switch for you to set.</p>
+      <ul class="succes">
+        <li><b>Simple</b> — lead with one core idea, said in a clear, memorable line.</li>
+        <li><b>Unexpected</b> — open a genuine curiosity gap that students need to close, not a gimmick.</li>
+        <li><b>Concrete</b> — specific, sensory, real-world language they can picture.</li>
+        <li><b>Credible</b> — a vivid, checkable detail or a human-scale number they can trust.</li>
+        <li><b>Emotional</b> — a reason to care, focused on one person or one real stake.</li>
+        <li><b>Story</b> — the launch is shaped as a small story so students feel moved to act.</li>
+      </ul>
+    </div>
+
+    <div class="panel">
+      <h3>Harvard Project Zero Thinking Routines</h3>
+      <p>The "Think" slide is scaffolded by a genuine Visible Thinking routine from Harvard's Project Zero toolbox — the same routines used to make student thinking visible in classrooms worldwide. All of them are built in, and the tool tailors the routine's real moves to your specific stimulus rather than inventing its own.</p>
+    </div>
+
+    <div class="panel">
+      <h3>VCE study designs (Year 11 &amp; 12)</h3>
+      <p>When you set the class to VCE and Year 11 or 12 and choose your study, Springboard quietly loads a condensed version of that subject's official VCAA study design and feeds it to the lesson writer — so the "Launch" slide connects to the real Areas of Study and outcomes (Units 1&ndash;2 for Year 11, Units 3&ndash;4 for Year 12).</p>
+    </div>
+
+    <div class="panel">
+      <h3>Pitched to the year level</h3>
+      <p>The language and depth adapt to the band — concrete and inquiry-led for younger students, analytical and real-world for the middle years, and critical, ethical and conceptual for senior students.</p>
+    </div>
+
+    <h2><span class="num">·</span>How the AI part works (and your privacy)</h2>
+    <hr class="rule" />
+    <p>Lessons are written by an AI model. The key that runs it lives on a secure Wesley backend, not in the app and not on your device — so you never enter a key, and nothing is stored on your computer. Your stimulus text or image is sent to the model only to generate the lesson.</p>
+    <div class="note">
+      <span class="ic">✎</span>
+      <p><strong>You are always in charge.</strong> AI-generated content should be read before class. Every slide is editable, sensitive themes can trigger an optional heads-up slide for students, and nothing is final until you download it.</p>
+    </div>
+
+    <footer>
+      <p><span class="brand">Springboard</span> is a Wesley College Digital Learning &amp; Practice tool. Built to make a good teaching habit — a strong, thoughtful start to a lesson — fast enough to actually keep.</p>
+    </footer>
+
+  </main>
+</body>
+</html>
