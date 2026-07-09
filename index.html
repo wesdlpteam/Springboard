@@ -508,6 +508,85 @@ function bandOf(yearLevel) {
 // so the rest of the generation/export machinery doesn't need to change.
 const BAND_KEY_OF = { younger: "PYP", middle: "Middle", senior: "Senior" };
 
+// The 50 VCE study designs with condensed curriculum cards under api/guides/. `key` is the
+// card's filename stem (also the backend allowlist key); `name` is the human display AND what
+// gets stored as classInfo.subject; `area` groups the Subject dropdown's <optgroup>s.
+const VCE_SUBJECTS = [
+  // --- The Arts ---
+  { key: "dance", name: "Dance", area: "The Arts" },
+  { key: "drama", name: "Drama", area: "The Arts" },
+  { key: "music", name: "Music", area: "The Arts" },
+  { key: "theatre-studies", name: "Theatre Studies", area: "The Arts" },
+  { key: "art-creative-practice", name: "Art Creative Practice", area: "The Arts" },
+  { key: "art-making-and-exhibiting", name: "Art Making and Exhibiting", area: "The Arts" },
+  { key: "media", name: "Media", area: "The Arts" },
+  { key: "visual-communication-design", name: "Visual Communication Design", area: "The Arts" },
+  // --- English ---
+  { key: "english-and-english-as-an-additional-language", name: "English and EAL", area: "English" },
+  { key: "english-language", name: "English Language", area: "English" },
+  { key: "literature", name: "Literature", area: "English" },
+  { key: "foundation-english", name: "Foundation English", area: "English" },
+  { key: "bridging-english-as-an-additional-language", name: "Bridging EAL", area: "English" },
+  // --- Mathematics ---
+  { key: "foundation-mathematics", name: "Foundation Mathematics", area: "Mathematics" },
+  { key: "general-mathematics", name: "General Mathematics", area: "Mathematics" },
+  { key: "mathematical-methods", name: "Mathematical Methods", area: "Mathematics" },
+  { key: "specialist-mathematics", name: "Specialist Mathematics", area: "Mathematics" },
+  // --- Science ---
+  { key: "biology", name: "Biology", area: "Science" },
+  { key: "chemistry", name: "Chemistry", area: "Science" },
+  { key: "environmental-science", name: "Environmental Science", area: "Science" },
+  { key: "physics", name: "Physics", area: "Science" },
+  { key: "psychology", name: "Psychology", area: "Science" },
+  // --- Humanities ---
+  { key: "accounting", name: "Accounting", area: "Humanities" },
+  { key: "business-management", name: "Business Management", area: "Humanities" },
+  { key: "economics", name: "Economics", area: "Humanities" },
+  { key: "industry-and-enterprise", name: "Industry and Enterprise", area: "Humanities" },
+  { key: "legal-studies", name: "Legal Studies", area: "Humanities" },
+  { key: "classical-studies", name: "Classical Studies", area: "Humanities" },
+  { key: "geography", name: "Geography", area: "Humanities" },
+  { key: "history", name: "History", area: "Humanities" },
+  { key: "philosophy", name: "Philosophy", area: "Humanities" },
+  { key: "politics", name: "Politics", area: "Humanities" },
+  { key: "religion-and-society", name: "Religion and Society", area: "Humanities" },
+  { key: "sociology", name: "Sociology", area: "Humanities" },
+  { key: "texts-and-traditions", name: "Texts and Traditions", area: "Humanities" },
+  // --- Health & PE ---
+  { key: "health-and-human-development", name: "Health and Human Development", area: "Health & PE" },
+  { key: "outdoor-and-environmental-studies", name: "Outdoor and Environmental Studies", area: "Health & PE" },
+  { key: "physical-education", name: "Physical Education", area: "Health & PE" },
+  // --- Technologies ---
+  { key: "agricultural-and-horticultural-studies", name: "Agricultural and Horticultural Studies", area: "Technologies" },
+  { key: "food-studies", name: "Food Studies", area: "Technologies" },
+  { key: "product-design-and-technologies", name: "Product Design and Technologies", area: "Technologies" },
+  { key: "systems-engineering", name: "Systems Engineering", area: "Technologies" },
+  { key: "algorithmics-hess", name: "Algorithmics (HESS)", area: "Technologies" },
+  { key: "applied-computing", name: "Applied Computing", area: "Technologies" },
+  // --- VCE VM ---
+  { key: "vce-vm-literacy", name: "VCE VM Literacy", area: "VCE VM" },
+  { key: "vce-vm-numeracy", name: "VCE VM Numeracy", area: "VCE VM" },
+  { key: "vce-vm-work-related-skills", name: "VCE VM Work Related Skills", area: "VCE VM" },
+  { key: "vce-vm-personal-development-skills", name: "VCE VM Personal Development Skills", area: "VCE VM" },
+  // --- Cross-disciplinary ---
+  { key: "extended-investigation", name: "Extended Investigation", area: "Cross-disciplinary" },
+  { key: "structured-workplace-learning-recognition-for-vet", name: "Structured Workplace Learning (VET)", area: "Cross-disciplinary" },
+];
+const VCE_AREAS = [...new Set(VCE_SUBJECTS.map(s => s.area))];
+// True when the class is VCE and Year 11 or 12 (picker + injection apply).
+function isVceSenior(ci) {
+  const n = parseInt(String(ci.yearLevel).replace(/\D/g, ""), 10);
+  return ci.curriculum === "VCE" && (n === 11 || n === 12);
+}
+// Backend selector: null unless VCE Y11/12 with a recognised subject name.
+function vceStudyGuide(ci) {
+  if (!isVceSenior(ci)) return null;
+  const hit = VCE_SUBJECTS.find(s => s.name === (ci.subject || "").trim());
+  if (!hit) return null;
+  const n = parseInt(String(ci.yearLevel).replace(/\D/g, ""), 10);
+  return { key: hit.key, units: n === 11 ? "1-2" : "3-4" };
+}
+
 // One curriculum + subject + year level + outcome describes the single class this
 // generator run is for (replaces the old multi-band checkboxes — one run, one class).
 const CURRICULA = ["VCE", "IB PYP", "IB MYP", "IB DP", "Australian Curriculum", "Custom"];
@@ -852,16 +931,17 @@ const ROUTINES = [
 ];
 const ROUTINE_SOURCE = "Harvard Project Zero Thinking Routines · pz.harvard.edu/thinking-routines";
 
-// Made to Stick "stickiness" boosters the Analyse step can recommend alongside a
-// routine — short authoring nudges the teacher can toggle on/off before Generate.
-const BOOSTERS = [
-  { id: "curiosityGapTitle", label: "Curiosity-gap title", line: "Write the title so it opens a curiosity gap — pose what we don't yet know (Made to Stick: Unexpected)." },
-  { id: "concreteQuestion",  label: "Concrete question",   line: "Make the provocative question concrete and sensory — people, actions, things, not abstractions (Concrete)." },
-  { id: "leadWithStory",     label: "Lead with the story", line: "Frame the stimulus as a story with a protagonist and stakes (Stories)." },
-  { id: "unexpectedFact",    label: "Unexpected fact",     line: "Surface the most schema-breaking fact in the stimulus early (Unexpected)." },
-  { id: "humanScaleStat",    label: "Human-scale numbers", line: "Re-express any statistic at human scale (Credible)." },
-  { id: "emotionalHook",     label: "Emotional hook",      line: "Connect to something students already care about — identity or self-interest (Emotional)." },
-];
+// Made to Stick (Chip & Dan Heath) — SUCCESs frame, applied as standing guidance to EVERY
+// deck. No teacher toggle: stickiness is always on. Injected into the generate system prompt.
+const STICKINESS_GUIDANCE = [
+  "Make the ideas stick (Made to Stick / SUCCESs) — apply all of these automatically:",
+  "- SIMPLE: one core idea per slide, said in plain words; cut everything that isn't the core.",
+  "- UNEXPECTED: open the title/ignite with a curiosity gap or a surprise that breaks a pattern.",
+  "- CONCRETE: use concrete, sensory, real-world language and examples, never abstract jargon.",
+  "- CREDIBLE: include a vivid, checkable detail or telling statistic the class can trust.",
+  "- EMOTIONAL: give students a reason to care — a person, stake or consequence, not a category.",
+  "- STORY: shape the launch as a small narrative or scenario they can step into.",
+].join("\n");
 
 const MODE_VERB = { media: "Look", image: "Look", article: "Read", video: "Watch" };
 
@@ -1180,20 +1260,21 @@ async function transcribeMedia({ passcode, file }) {
 
 /* --------------------------- Backend call --------------------------- */
 
-async function generateSpringboard({ passcode, mode, media = [], sourceText = "", classInfo, routineName, boosterIds = [], scope = "all", current = null }) {
+async function generateSpringboard({ passcode, mode, media = [], sourceText = "", classInfo, routineName, scope = "all", current = null }) {
   const routine = ROUTINES.find(r => r.name === routineName) || ROUTINES[0];
-  const boosterLines = BOOSTERS.filter(b => boosterIds.includes(b.id)).map(b => "- " + b.line).join("\n");
-  const outcomeLine = classInfo.outcome.trim()
-    ? `ALIGN the launch slide to this exact outcome/topic, quoting its key phrases: "${classInfo.outcome.trim()}". Do not invent curriculum codes.`
-    : `Write the curriculum connection in plain language for ${classInfo.curriculum} ${classInfo.subject}, year ${classInfo.yearLevel}. Never invent official curriculum codes or identifiers.`;
+  const hasGuide = !!vceStudyGuide(classInfo);
+  const outcomeLine = hasGuide
+    ? `A VCE study-design extract for ${classInfo.subject} is provided below. ALIGN the launch slide's curriculum connection to THAT extract (its areas of study and outcomes)${classInfo.outcome.trim() ? `, narrowed to this outcome/topic: "${classInfo.outcome.trim()}"` : ""}. Quote real phrases from the extract; never invent codes.`
+    : classInfo.outcome.trim()
+      ? `ALIGN the launch slide to this exact outcome/topic, quoting its key phrases: "${classInfo.outcome.trim()}". Do not invent curriculum codes.`
+      : `Write the curriculum connection in plain language for ${classInfo.curriculum} ${classInfo.subject}, year ${classInfo.yearLevel}. Never invent official curriculum codes or identifiers.`;
   const tone = { younger: "concrete, playful, inquiry-led (ages 5-12)",
                  middle: "analytical, real-world (ages 12-15)",
                  senior: "critical, ethical, conceptual (ages 15-18)" }[bandOf(classInfo.yearLevel)];
   let sys = `You create a 4-part lesson launch ("Springboard") from a teacher's stimulus.
 Audience tone: ${tone}. Slides carry MINIMAL text — every field respects its word limit.
 Thinking routine to scaffold the THINK part: "${routine.name}" — ${routine.gist} (${routine.url}).
-Stickiness requirements:
-${boosterLines || "- none"}
+${STICKINESS_GUIDANCE}
 ${outcomeLine}
 Each notes field is a teacher script with EXACTLY these labelled sections, each 1-3 sentences:
 FACILITATION: … TIMING: … DIFFERENTIATION: … CURRICULUM LINKS: … EXTENSIONS: …
@@ -1239,6 +1320,7 @@ Return STRICT JSON with keys: title, keywords, ignite{question}, think{routine, 
     userContent.push({ type: "text", text: instruction + `\n\nThe stimulus is the following article text. Build the Springboard from its real content:\n\n"""\n${trimmed}\n"""` });
   }
 
+  const studyGuide = vceStudyGuide(classInfo);
   const resp = await fetch(API_BASE + "/api/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-sb-passcode": passcode },
@@ -1249,6 +1331,7 @@ Return STRICT JSON with keys: title, keywords, ignite{question}, think{routine, 
       ],
       response_format: { type: "json_object" },
       max_completion_tokens: 4000,
+      ...(studyGuide ? { studyGuide } : {}),
     }),
   });
 
@@ -1267,30 +1350,29 @@ Return STRICT JSON with keys: title, keywords, ignite{question}, think{routine, 
 }
 
 /* ----------------------- Analyse stimulus (the new step before Generate) -----------------------
-   Reads the stimulus and recommends 3 thinking routines (band-filtered from ROUTINES) plus 2-3
-   Made-to-Stick boosters, so the teacher picks a routine before Generate runs. Media-parts
-   packaging mirrors generateSpringboard above. */
+   Reads the stimulus and recommends 3 thinking routines (band-filtered from ROUTINES), so the
+   teacher picks a routine before Generate runs. Media-parts packaging mirrors generateSpringboard
+   above. */
 async function analyseStimulus({ passcode, mode, media = [], sourceText = "", classInfo }) {
   const band = bandOf(classInfo.yearLevel); // "younger" | "middle" | "senior"
   const bandRoutines = ROUTINES.filter(r => r.bands.includes(band));
   const routineMenu = bandRoutines.map(r => `- ${r.name}: ${r.gist}`).join("\n");
   const sys = `You help a ${classInfo.curriculum} teacher of ${classInfo.subject}, year ${classInfo.yearLevel}, launch student thinking from a stimulus.
 Return STRICT JSON only: {"summary": string (<=40 words, what the stimulus shows),
-"routines": [{"name": string, "why": string (<=20 words, why it fits THIS stimulus and age group)} x3],
-"boosters": [2-3 ids from: ${BOOSTERS.map(b => b.id).join(", ")}]}
+"routines": [{"name": string, "why": string (<=20 words, why it fits THIS stimulus and age group)} x3]}
 Routine names MUST be copied exactly from this menu:\n${routineMenu}`;
 
   const userContent = [];
   const mediaItems = Array.isArray(media) ? media : [];
   if (mode === "media" && mediaItems.length) {
-    userContent.push({ type: "text", text: "Analyse this stimulus and recommend routines + boosters per the system instructions." });
+    userContent.push({ type: "text", text: "Analyse this stimulus and recommend routines per the system instructions." });
     mediaItems.forEach(m => {
       if (m.kind === "image") userContent.push({ type: "image_url", image_url: { url: m.dataUrl } });
       else (m.frames || []).forEach(fr => userContent.push({ type: "image_url", image_url: { url: fr } }));
     });
   } else {
     const trimmed = (sourceText || "").slice(0, 12000).replace(/"{3,}/g, "“”");
-    userContent.push({ type: "text", text: `Analyse this article text and recommend routines + boosters per the system instructions:\n\n"""\n${trimmed}\n"""` });
+    userContent.push({ type: "text", text: `Analyse this article text and recommend routines per the system instructions:\n\n"""\n${trimmed}\n"""` });
   }
 
   const resp = await fetch(API_BASE + "/api/generate", {
@@ -1331,11 +1413,7 @@ Routine names MUST be copied exactly from this menu:\n${routineMenu}`;
     if (!seen.has(r.name)) { seen.add(r.name); routines.push({ name: r.name, why: r.gist }); }
   }
 
-  const boosterIds = new Set(BOOSTERS.map(b => b.id));
-  const boosters = [...new Set((Array.isArray(parsed.boosters) ? parsed.boosters : []).map(String).filter(id => boosterIds.has(id)))].slice(0, 3);
-  if (!boosters.length) boosters.push(BOOSTERS[0].id, BOOSTERS[1].id);
-
-  return { summary: stripMd(parsed.summary || ""), routines: routines.slice(0, 3), boosters };
+  return { summary: stripMd(parsed.summary || ""), routines: routines.slice(0, 3) };
 }
 
 /* Merge a scoped regenerate's parsed reply back into the deck: only the scoped slide
@@ -1444,7 +1522,7 @@ function App() {
     // Changing year level across a band boundary invalidates the analysis (routines are
     // band-filtered): clear it so the teacher re-analyses for the new band.
     if (bandOf(classInfo.yearLevel) !== bandOf(next.yearLevel)) {
-      setAnalysis(null); setSelectedRoutine(""); setBoostersOn(new Set()); setAnalyseError("");
+      setAnalysis(null); setSelectedRoutine(""); setAnalyseError("");
     }
     setClassInfo(next);
     try { localStorage.setItem(CLASS_STORE, JSON.stringify(next)); } catch (_) {}
@@ -1458,11 +1536,10 @@ function App() {
   const [includeAdvisory, setIncludeAdvisory] = useState(true); // teacher toggle: keep the content-advisory slide when flagged
 
   // analyse step (runs before Generate): AI recommendation + the teacher's pick
-  const [analysis, setAnalysis] = useState(null);       // { summary, routines: [{name,why}], boosters: [id] } | null
+  const [analysis, setAnalysis] = useState(null);       // { summary, routines: [{name,why}] } | null
   const [analysing, setAnalysing] = useState(false);
   const [analyseError, setAnalyseError] = useState("");
   const [selectedRoutine, setSelectedRoutine] = useState(""); // "" until the teacher picks a card
-  const [boostersOn, setBoostersOn] = useState(() => new Set()); // Set of BOOSTERS ids currently toggled on
 
   const [fetchingArticle, setFetchingArticle] = useState(false);
   const [error, setError] = useState("");
@@ -1516,7 +1593,7 @@ function App() {
           event,
           curriculum: classInfo.curriculum, subject: classInfo.subject, yearLevel: classInfo.yearLevel,
           languageMode: "english",
-          ...extra, // stimulusType, routine, boosters, topic
+          ...extra, // stimulusType, routine, topic
         }),
         keepalive: true,
       }).catch(() => {});
@@ -1624,7 +1701,7 @@ function App() {
     return hasStimulus && !!classInfo.subject.trim() && !!classInfo.yearLevel.trim();
   }
 
-  /* ------- analyse (recommend routines + boosters, before Generate) ------- */
+  /* ------- analyse (recommend routines, before Generate) ------- */
   async function runAnalyse() {
     if (analysing) return;
     setAnalyseError("");
@@ -1635,7 +1712,6 @@ function App() {
       const result = await analyseStimulus({ passcode: passcode.trim(), mode, media, sourceText, classInfo });
       setAnalysis(result);
       setSelectedRoutine("");
-      setBoostersOn(new Set(result.boosters));
       // Log the successful analyse event.
       const hasVideo = media.some(m => m.kind === "video");
       const hasImage = media.some(m => m.kind === "image");
@@ -1649,9 +1725,6 @@ function App() {
   }
   function pickRoutine(name) {
     setSelectedRoutine(name);
-  }
-  function toggleBooster(id) {
-    setBoostersOn(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   }
   const analyseBandRoutines = useMemo(() => {
     const tag = bandOf(classInfo.yearLevel);
@@ -1684,7 +1757,7 @@ function App() {
       const genBand = BAND_KEY_OF[bandOf(classInfo.yearLevel)];
       const { parsed, raw } = await generateSpringboard({
         passcode: passcode.trim(), mode, media, sourceText,
-        classInfo, routineName: selectedRoutine, boosterIds: [...boostersOn], scope: "all",
+        classInfo, routineName: selectedRoutine, scope: "all",
       });
       const deck = shapeDeck(parsed, { routineName: selectedRoutine });
       setRawDump(raw);
@@ -1698,7 +1771,7 @@ function App() {
       const hasVideo = media.some(m => m.kind === "video");
       const hasImage = media.some(m => m.kind === "image");
       let stimulusType = mode === "article" ? (pdfName ? "pdf" : "article") : (hasVideo && hasImage ? "mixed" : hasVideo ? "video" : hasImage ? "image" : "unknown");
-      logEvent("generate", { stimulusType, routine: selectedRoutine, boosters: [...boostersOn].join(","), topic: deck.title });
+      logEvent("generate", { stimulusType, routine: selectedRoutine, topic: deck.title });
     } catch (err) {
       setError(err.message || String(err));
       if (err._raw) setRawDump(err._raw);
@@ -1718,7 +1791,7 @@ function App() {
       const sourceText = mode === "article" ? articleText : "";
       const { parsed } = await generateSpringboard({
         passcode: passcode.trim(), mode, media, sourceText,
-        classInfo, routineName: spot.think.routine || selectedRoutine, boosterIds: [...boostersOn],
+        classInfo, routineName: spot.think.routine || selectedRoutine,
         scope, current: spot,
       });
       setSpot(s => mergeScopedFields(s, scope, parsed));
@@ -1803,6 +1876,10 @@ function App() {
       const pageNo = (s, onDark) => s.addText(sNum + " / " + total, { x: W - 1.5, y: H - 0.5, w: 0.95, h: 0.3, fontSize: 9, color: onDark ? SUB : MUTED, align: "right", fontFace: FONT });
       const kicker = (s, txt, color) => s.addText(String(txt || "").toUpperCase(), { x: 0.7, y: 0.62, w: W - 2.3, h: 0.4, fontSize: 13, bold: true, color: color || P, charSpacing: 2, fontFace: FONT });
       const cap = (s, txt, y) => s.addText(String(txt || "").toUpperCase(), { x: 0.7, y, w: W - 1.4, h: 0.3, fontSize: 11, bold: true, color: GOLD_INK, charSpacing: 1.5, fontFace: FONT });
+      // Title-case a string (used to tame ALL-CAPS/lowercase model titles for the cover).
+      const tCase = (t) => String(t || "").replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+      const eyebrow = (s, txt, x, y, color) => s.addText(String(txt || "").toUpperCase(),
+        { x, y, w: W - 2 * x, h: 0.3, fontSize: 11, bold: true, color: color || GOLD_LT, charSpacing: 3, fontFace: FONT });
       // Letterbox a media box's contents within [bx,by,bw,bh] at the media's own aspect ratio.
       const contain = (bx, by, bw, bh, ar) => {
         ar = (ar && isFinite(ar) && ar > 0) ? ar : bw / bh;
@@ -1907,19 +1984,14 @@ function App() {
         const s = pptx.addSlide();
         s.background = { color: P };
         goldCrest(s, 1.55);
-        s.addText("IGNITE", { x: 0.7, y: 0.58, w: 6, h: 0.4, fontSize: 14, bold: true, color: GOLD_LT, charSpacing: 3, fontFace: FONT });
-        s.addText(title, { x: 0.7, y: 1.05, w: W - 2.5, h: 1.25, fontSize: 33, bold: true, color: WHITE, valign: "top", fontFace: FONT, fit: "shrink" });
-        if (metaLine) s.addText(metaLine, { x: 0.7, y: 2.32, w: W - 1.4, h: 0.32, fontSize: 12, color: SUB, fontFace: FONT });
-
-        const drew = await drawStimulus(s, 0.7, 2.85, W - 1.4, 2.55);
-
-        s.addShape(pptx.ShapeType.rect, { x: 0.7, y: 5.55, w: 2.1, h: 0.045, fill: { color: GOLD } });
-        if (drew) {
-          s.addText(igniteQ, { x: 0.7, y: 5.72, w: W - 1.4, h: 1.15, fontSize: 24, bold: true, color: GOLD, valign: "top", fontFace: FONT, fit: "shrink" });
-        } else {
-          // No stimulus: the provocative question owns the whole stage.
-          s.addText(igniteQ, { x: 0.7, y: 3.05, w: W - 1.4, h: 2.35, fontSize: 40, bold: true, color: GOLD, valign: "middle", fontFace: FONT, fit: "shrink" });
-        }
+        eyebrow(s, "SPRINGBOARD", 0.7, 0.55, GOLD_LT);
+        s.addText(tCase(title), { x: 0.7, y: 0.95, w: W - 2.5, h: 1.4, fontSize: 44, bold: true, color: WHITE, valign: "top", fontFace: FONT, charSpacing: -0.5, fit: "shrink" });
+        if (metaLine) s.addText(metaLine, { x: 0.7, y: 2.42, w: W - 1.4, h: 0.32, fontSize: 12.5, color: SUB, charSpacing: 0.5, fontFace: FONT });
+        const drew = await drawStimulus(s, 0.7, 2.95, W - 1.4, 2.45);
+        s.addShape(pptx.ShapeType.rect, { x: 0.7, y: drew ? 5.55 : 3.0, w: 2.4, h: 0.05, fill: { color: GOLD } });
+        s.addText(igniteQ, drew
+          ? { x: 0.7, y: 5.72, w: W - 1.4, h: 1.15, fontSize: 25, bold: true, color: GOLD, valign: "top", fontFace: FONT, fit: "shrink" }
+          : { x: 0.7, y: 3.2, w: W - 1.4, h: 2.2, fontSize: 42, bold: true, color: GOLD, valign: "middle", fontFace: FONT, fit: "shrink" });
         pageNo(s, true);
         s.addNotes(noteFor("ignite"));
       }
@@ -1928,7 +2000,7 @@ function App() {
       {
         const s = newWhite();
         kicker(s, "THINK");
-        s.addText(routine || "Thinking routine", { x: 0.7, y: 1.05, w: W - 1.4, h: 0.75, fontSize: 30, bold: true, color: P, valign: "top", fontFace: FONT, fit: "shrink" });
+        s.addText(routine || "Thinking routine", { x: 0.7, y: 1.05, w: W - 1.4, h: 0.75, fontSize: 32, bold: true, color: P, valign: "top", fontFace: FONT, fit: "shrink" });
         if (structure) s.addText([{ text: "How to run it:  ", options: { bold: true, color: INK } }, { text: structure, options: { color: INK } }],
           { x: 0.7, y: 1.9, w: W - 1.4, h: 0.5, fontSize: 14, valign: "top", fontFace: FONT });
         let sy = 2.65;
@@ -1947,13 +2019,13 @@ function App() {
       {
         const s = newWhite();
         kicker(s, "LAUNCH");
-        s.addText("Into today's lesson", { x: 0.7, y: 1.05, w: W - 1.4, h: 0.55, fontSize: 23, bold: true, color: P, valign: "top", fontFace: FONT });
+        s.addText("Into today's lesson", { x: 0.7, y: 1.05, w: W - 1.4, h: 0.55, fontSize: 26, bold: true, color: P, valign: "top", fontFace: FONT });
         cap(s, "Curriculum connection", 1.9);
         s.addText((deck.launch && deck.launch.connection) || "", { x: 0.7, y: 2.2, w: W - 1.4, h: 0.85, fontSize: 14, color: INK, valign: "top", lineSpacingMultiple: 1.1, fontFace: FONT });
         cap(s, "From the stimulus", 3.15);
         s.addText((deck.launch && deck.launch.bridge) || "", { x: 0.7, y: 3.45, w: W - 1.4, h: 0.85, fontSize: 14, color: INK, valign: "top", lineSpacingMultiple: 1.1, fontFace: FONT });
         s.addShape(pptx.ShapeType.rect, { x: 0.7, y: 4.55, w: 2.1, h: 0.045, fill: { color: GOLD } });
-        s.addText((deck.launch && deck.launch.question) || "", { x: 0.7, y: 4.72, w: W - 1.4, h: 1.5, fontSize: 26, bold: true, color: P, valign: "top", fontFace: FONT, fit: "shrink" });
+        s.addText((deck.launch && deck.launch.question) || "", { x: 0.7, y: 4.72, w: W - 1.4, h: 1.5, fontSize: 28, bold: true, color: P, valign: "top", fontFace: FONT, fit: "shrink" });
         s.addNotes(noteFor("launch"));
       }
 
@@ -1961,7 +2033,7 @@ function App() {
       if (showReflect) {
         const s = newWhite();
         kicker(s, "REFLECT");
-        s.addText("Revisit your thinking", { x: 0.7, y: 1.05, w: W - 1.4, h: 0.55, fontSize: 23, bold: true, color: P, valign: "top", fontFace: FONT });
+        s.addText("Revisit your thinking", { x: 0.7, y: 1.05, w: W - 1.4, h: 0.55, fontSize: 26, bold: true, color: P, valign: "top", fontFace: FONT });
         const revisit = (deck.reflect && deck.reflect.revisit) || "";
         if (revisit) s.addText(revisit, { x: 0.7, y: 1.75, w: W - 1.4, h: 0.95, fontSize: 18, color: INK, valign: "top", lineSpacingMultiple: 1.15, fontFace: FONT });
         let ry = 2.95;
@@ -1969,7 +2041,7 @@ function App() {
         prompts.forEach((pr, i) => {
           s.addShape(pptx.ShapeType.ellipse, { x: 0.7, y: ry, w: 0.42, h: 0.42, fill: { color: GOLD } });
           s.addText(String(i + 1), { x: 0.7, y: ry, w: 0.42, h: 0.42, fontSize: 15, bold: true, color: INK, align: "center", valign: "middle", fontFace: FONT });
-          s.addText(pr, { x: 1.3, y: ry - 0.04, w: W - 2.1, h: rowH, fontSize: 18, color: INK, valign: "top", fontFace: FONT });
+          s.addText(pr, { x: 1.3, y: ry - 0.04, w: W - 2.1, h: rowH, fontSize: 19, color: INK, valign: "top", fontFace: FONT });
           ry += rowH + 0.18;
         });
         s.addNotes(noteFor("reflect"));
@@ -2145,8 +2217,20 @@ function App() {
             </div>
             <div className="field-row">
               <label htmlFor="f-subj">Subject</label>
-              <input id="f-subj" type="text" placeholder="e.g. Science, English, Humanities"
-                     value={classInfo.subject} onChange={e => saveClassInfo({ ...classInfo, subject: e.target.value })} />
+              {isVceSenior(classInfo)
+                ? <select id="f-subj" value={classInfo.subject}
+                          onChange={e => saveClassInfo({ ...classInfo, subject: e.target.value })}>
+                    <option value="">Choose your VCE study…</option>
+                    {VCE_AREAS.map(area => (
+                      <optgroup label={area} key={area}>
+                        {VCE_SUBJECTS.filter(s => s.area === area).map(s => (
+                          <option key={s.key} value={s.name}>{s.name}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                : <input id="f-subj" type="text" placeholder="e.g. Science, English, Humanities"
+                         value={classInfo.subject} onChange={e => saveClassInfo({ ...classInfo, subject: e.target.value })} />}
             </div>
             <div className="field-row">
               <label htmlFor="f-year">Year level</label>
@@ -2169,7 +2253,7 @@ function App() {
                 ? <React.Fragment><span className="spinner sm dark"></span> Analysing…</React.Fragment>
                 : <React.Fragment><Icon d={I.generate} size={16} stroke /> Analyse stimulus</React.Fragment>}
             </button>
-            <div className="hint">Reads your stimulus and suggests a thinking routine + stickiness boosters before you generate.</div>
+            <div className="hint">Reads your stimulus and suggests a thinking routine before you generate.</div>
 
             {analyseError && <div className="alert bad" role="alert">{analyseError}</div>}
 
@@ -2206,16 +2290,6 @@ function App() {
                     </div>
                   ))}
                 </details>
-
-                <div className="cap" style={{ marginTop: 12 }}>Make it stick</div>
-                <div className="advisory-chips" role="group" aria-label="Stickiness boosters">
-                  {BOOSTERS.map(b => (
-                    <button key={b.id} type="button" className={"advisory-chip" + (boostersOn.has(b.id) ? " on" : "")}
-                      aria-pressed={boostersOn.has(b.id)} title={b.line} onClick={() => toggleBooster(b.id)}>
-                      {b.label}
-                    </button>
-                  ))}
-                </div>
               </React.Fragment>
             )}
           </div>
