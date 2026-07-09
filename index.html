@@ -101,7 +101,9 @@
   }
   header.app .logo svg { width: 22px; height: 22px; }
   header.app h1 { font-size: 19px; margin: 0; }
-  header.app .appver { margin-left: auto; align-self: center; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; letter-spacing: .02em; }
+  header.app .admin-link { margin-left: auto; align-self: center; font-size: 12px; font-weight: 600; color: #4F2759; text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; white-space: nowrap; transition: background .15s; }
+  header.app .admin-link:hover, header.app .admin-link:focus-visible { background: rgba(79,39,89,.07); }
+  header.app .appver { margin-left: 10px; align-self: center; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; letter-spacing: .02em; }
   header.app p { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
 
   .layout {
@@ -491,7 +493,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.3.1 · 2026-07-09";
+const APP_VERSION = "v0.3.2 · 2026-07-09";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -1910,18 +1912,20 @@ function App() {
       // IGNITE stimulus — reuses the fork's image / video-embed / QR+link media paths. Draws into
       // [x,y,w,h] on the purple slide; returns true if anything visual was drawn (so a text-only
       // deck can hand the whole stage to the question instead).
-      async function drawStimulus(s, x, y, w, h) {
+      // opts.posterOnly: draw a video's poster image instead of embedding it (for a second,
+      // lighter appearance on THINK). opts.noLink: skip the QR + link row (use the full box).
+      async function drawStimulus(s, x, y, w, h, opts = {}) {
         const items = (mode === "media" && Array.isArray(media)) ? media.filter(m => m && (m.dataUrl || m.poster)) : [];
         const url = (link || "").trim();
         let drew = false;
-        const mediaH = url ? h - 0.7 : h; // reserve a QR + link row when there's a link
+        const mediaH = (url && !opts.noLink) ? h - 0.7 : h; // reserve a QR + link row when there's a link
 
         if (items.length === 1) {
           const it = items[0];
           const box = contain(x, y, w, Math.max(0.5, mediaH), it.aspect || (it.kind === "video" ? 16 / 9 : w / mediaH));
           if (it.kind === "image") { s.addImage({ data: it.dataUrl, x: box.x, y: box.y, w: box.w, h: box.h }); drew = true; }
           else { // video: embed small clips (play in desktop PowerPoint); otherwise its poster frame
-            const embed = !!it.dataUrl && it.sizeBytes <= VIDEO_EMBED_MAX_BYTES;
+            const embed = !opts.posterOnly && !!it.dataUrl && it.sizeBytes <= VIDEO_EMBED_MAX_BYTES;
             if (embed) { s.addMedia({ type: "video", data: it.dataUrl, cover: it.poster || undefined, x: box.x, y: box.y, w: box.w, h: box.h }); drew = true; }
             else if (it.poster) { s.addImage({ data: it.poster, x: box.x, y: box.y, w: box.w, h: box.h }); drew = true; }
           }
@@ -2006,16 +2010,28 @@ function App() {
       {
         const s = newWhite();
         kicker(s, "THINK");
-        s.addText(routine || "Thinking routine", { x: 0.7, y: 1.05, w: W - 1.4, h: 0.75, fontSize: 32, bold: true, color: P, valign: "top", fontFace: FONT, fit: "shrink" });
+        // Keep an IMAGE/video provocation visible while students run the routine: show it again as
+        // a right-hand panel and narrow the routine column. For an article (no image) the routine
+        // spreads to fill the whole slide instead of leaving empty space — no panel.
+        const hasImageStim = mode === "media" && Array.isArray(media) && media.some(m => m && (m.dataUrl || m.poster));
+        const tImgX = 7.4, tColRight = tImgX - 0.4;
+        const colW = hasImageStim ? (tColRight - 0.7) : (W - 1.4);
+        const stepW = hasImageStim ? (tColRight - 1.32) : (W - 2.1);
+        s.addText(routine || "Thinking routine", { x: 0.7, y: 1.05, w: colW, h: 0.75, fontSize: 32, bold: true, color: P, valign: "top", fontFace: FONT, fit: "shrink" });
         if (structure) s.addText([{ text: "How to run it:  ", options: { bold: true, color: INK } }, { text: structure, options: { color: INK } }],
-          { x: 0.7, y: 1.9, w: W - 1.4, h: 0.5, fontSize: 14, valign: "top", fontFace: FONT });
-        let sy = 2.65;
-        const rowH = steps.length ? Math.min(0.95, (6.35 - sy) / steps.length) : 0;
+          { x: 0.7, y: 1.9, w: colW, h: 0.5, fontSize: 14, valign: "top", fontFace: FONT });
+        if (hasImageStim) await drawStimulus(s, tImgX, 1.05, W - 0.6 - tImgX, 5.1, { posterOnly: true, noLink: true });
+        let sy = hasImageStim ? 2.65 : 2.55;
+        const gap = hasImageStim ? 0.14 : 0.2;
+        const bottomLimit = hasImageStim ? 6.35 : 6.45;
+        const rowH = steps.length ? Math.max(0.5, (bottomLimit - sy - gap * (steps.length - 1)) / steps.length) : 0;
+        const stepFont = hasImageStim ? 16 : 20;
         steps.forEach((st, i) => {
-          s.addShape(pptx.ShapeType.ellipse, { x: 0.7, y: sy, w: 0.42, h: 0.42, fill: { color: P } });
-          s.addText(String(i + 1), { x: 0.7, y: sy, w: 0.42, h: 0.42, fontSize: 15, bold: true, color: WHITE, align: "center", valign: "middle", fontFace: FONT });
-          s.addText(st, { x: 1.3, y: sy - 0.04, w: W - 2.1, h: rowH, fontSize: 16, color: INK, valign: "top", fontFace: FONT });
-          sy += rowH + 0.14;
+          const cy = sy + Math.max(0, (rowH - 0.44) / 2); // vertically centre the number in its row
+          s.addShape(pptx.ShapeType.ellipse, { x: 0.7, y: cy, w: 0.44, h: 0.44, fill: { color: P } });
+          s.addText(String(i + 1), { x: 0.7, y: cy, w: 0.44, h: 0.44, fontSize: 15, bold: true, color: WHITE, align: "center", valign: "middle", fontFace: FONT });
+          s.addText(st, { x: 1.32, y: sy, w: stepW, h: rowH, fontSize: stepFont, color: INK, valign: "middle", fontFace: FONT });
+          sy += rowH + gap;
         });
         s.addText(ROUTINE_SOURCE, { x: 0.7, y: H - 0.92, w: W - 2.6, h: 0.3, fontSize: 9, italic: true, color: MUTED, fontFace: FONT });
         s.addNotes(noteFor("think"));
@@ -2114,6 +2130,7 @@ function App() {
           <h1>Springboard</h1>
           <p>Launch student thinking — stimulus to slides in two minutes.</p>
         </div>
+        <a className="admin-link" href="stats.html" target="_blank" rel="noopener" title="Admin analytics — password protected">Admin analytics</a>
         <span className="appver" title="App version — check this matches after a refresh">{APP_VERSION}</span>
       </header>
 
