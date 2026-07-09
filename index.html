@@ -493,7 +493,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.3.4 · 2026-07-09";
+const APP_VERSION = "v0.3.5 · 2026-07-09";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -1252,9 +1252,23 @@ async function transcribeMedia({ passcode, file }) {
   return { text, truncated };
 }
 
+// End-of-lesson reflection routines a teacher can pin from the REFLECT card dropdown
+// ("" = let the model vary the choice each lesson, the default). Each carries the
+// routine's real Harvard PZ prompt stems, injected into the generate prompt so
+// reflect.prompts stay true to the routine while adapting to the stimulus.
+const REFLECT_ROUTINES = [
+  { name: "I Used to Think… / Now I Think…", stems: "I used to think… ; Now I think… ; (say what changed your thinking and why)" },
+  { name: "Connect–Extend–Challenge", stems: "one new connection to what you already knew ; one way today extended or pushed your thinking ; one challenge or question still puzzling you" },
+  { name: "3-2-1 Bridge", stems: "3 thoughts you now have ; 2 questions still on your mind ; 1 analogy for today's core idea" },
+  { name: "Headlines", stems: "a one-line headline that captures the core idea of today's learning" },
+  { name: "Reflect–Connect–Project", stems: "reflect on what stood out and why it matters ; connect it to earlier learning ; project forward to how you'll use it next time" },
+  { name: "Compass Points", stems: "Excited — what excites you about today's idea? ; Worrisome — what worries or puzzles you? ; Need to know — what do you still need to find out? ; Stance/Step — your current stance or next step" },
+  { name: "Color, Symbol, Image", stems: "Color — a colour for today's core idea, and why ; Symbol — a symbol for it, and why ; Image — an image for it, and why" },
+];
+
 /* --------------------------- Backend call --------------------------- */
 
-async function generateSpringboard({ passcode, mode, media = [], sourceText = "", classInfo, routineName, scope = "all", current = null }) {
+async function generateSpringboard({ passcode, mode, media = [], sourceText = "", classInfo, routineName, reflectRoutine = "", scope = "all", current = null }) {
   const routine = ROUTINES.find(r => r.name === routineName) || ROUTINES[0];
   const hasGuide = !!vceStudyGuide(classInfo);
   const outcomeLine = hasGuide
@@ -1277,6 +1291,13 @@ Return STRICT JSON with keys: title, keywords, ignite{question}, think{routine, 
   // Single-slide regenerate: rebuild only the scoped slide + its notes, copying the rest verbatim.
   if (scope !== "all") {
     sys += `\nRegenerate ONLY the "${scope}" and "notes.${scope}" fields; copy every other field verbatim from: ${JSON.stringify(current)}`;
+  }
+
+  // Teacher pinned a specific end-of-lesson reflection routine from the REFLECT dropdown:
+  // override the "vary the choice" instruction below and lock reflect.prompts to it.
+  const pinnedReflect = REFLECT_ROUTINES.find(r => r.name === reflectRoutine);
+  if (pinnedReflect) {
+    sys += `\nFor the REFLECT part, the teacher has CHOSEN the "${pinnedReflect.name}" reflection routine — use exactly that one (ignore any instruction to vary or pick a different reflection routine). Its real prompt stems are: ${pinnedReflect.stems}. Set reflect.prompts to THOSE stems, lightly tailored to this lesson (<=4 short stems), keeping the routine's real moves and their order.`;
   }
 
   // Field word-limits, kept beside the schema keys so the model honours them.
@@ -1534,6 +1555,7 @@ function App() {
   const [analysing, setAnalysing] = useState(false);
   const [analyseError, setAnalyseError] = useState("");
   const [selectedRoutine, setSelectedRoutine] = useState(""); // "" until the teacher picks a card
+  const [reflectRoutine, setReflectRoutine] = useState("");   // "" = let the model vary the end-of-lesson reflection routine; else a pinned REFLECT_ROUTINES name
 
   const [fetchingArticle, setFetchingArticle] = useState(false);
   const [error, setError] = useState("");
@@ -1751,7 +1773,7 @@ function App() {
       const genBand = BAND_KEY_OF[bandOf(classInfo.yearLevel)];
       const { parsed, raw } = await generateSpringboard({
         passcode: passcode.trim(), mode, media, sourceText,
-        classInfo, routineName: selectedRoutine, scope: "all",
+        classInfo, routineName: selectedRoutine, reflectRoutine, scope: "all",
       });
       const deck = shapeDeck(parsed, { routineName: selectedRoutine });
       setRawDump(raw);
@@ -1777,15 +1799,18 @@ function App() {
   }
 
   /* ------- regenerate a single slide (targeted, keeps the other slides) ------- */
-  async function regenerateSlide(scope) {
+  async function regenerateSlide(scope, reflectRoutineArg) {
     if (!spot || regenSlide || loading) return;
     setError(""); setRawDump("");
     setRegenSlide(scope);
     try {
       const sourceText = mode === "article" ? articleText : "";
+      // Reflect regen honours an explicitly-passed routine (the dropdown fires before
+      // state settles); everything else uses the current pinned reflectRoutine.
+      const rr = reflectRoutineArg !== undefined ? reflectRoutineArg : reflectRoutine;
       const { parsed } = await generateSpringboard({
         passcode: passcode.trim(), mode, media, sourceText,
-        classInfo, routineName: spot.think.routine || selectedRoutine,
+        classInfo, routineName: spot.think.routine || selectedRoutine, reflectRoutine: rr,
         scope, current: spot,
       });
       setSpot(s => mergeScopedFields(s, scope, parsed));
@@ -1797,6 +1822,13 @@ function App() {
     } finally {
       setRegenSlide(null);
     }
+  }
+
+  // Teacher chose an end-of-lesson reflection routine from the REFLECT dropdown: pin it,
+  // then re-tailor just the reflect prompts to this lesson (one scoped AI call). "" = Auto.
+  async function pickReflectRoutine(name) {
+    setReflectRoutine(name);
+    await regenerateSlide("reflect", name);
   }
 
   /* ------- editing helpers ------- */
@@ -2461,7 +2493,19 @@ function App() {
                     Include REFLECT slide (revisit thinking at lesson end)
                   </label>
                   <div className={"reflect-body" + (includeReflect ? "" : " dimmed")} aria-hidden={!includeReflect}>
-                    {includeReflect && <div style={{ display: "flex", justifyContent: "flex-end" }}><RegenButton scope="reflect" /></div>}
+                    {includeReflect && (
+                      <div style={{ display: "flex", alignItems: "flex-end", gap: 12, justifyContent: "space-between", flexWrap: "wrap" }}>
+                        <div className="routine-pick" style={{ margin: 0 }}>
+                          <label htmlFor="reflect-routine" className="cap" style={{ display: "block", marginBottom: 4 }}>Reflection routine</label>
+                          <select id="reflect-routine" value={reflectRoutine} disabled={!!regenSlide || loading}
+                            onChange={e => pickReflectRoutine(e.target.value)}>
+                            <option value="">Auto — vary each lesson</option>
+                            {REFLECT_ROUTINES.map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
+                          </select>
+                        </div>
+                        <RegenButton scope="reflect" />
+                      </div>
+                    )}
                     <div className="cap" style={{ marginTop: 10 }}>Revisit the ignite question</div>
                     <textarea className="editable" rows={2} aria-label="Revisit the ignite question" value={spot.reflect.revisit} placeholder="…revisiting the opening question" onChange={e => patchSlide("reflect", { revisit: e.target.value })} disabled={!includeReflect} />
                     <div className="cap" style={{ marginTop: 10 }}>Reflection prompts <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· up to 4</span></div>
