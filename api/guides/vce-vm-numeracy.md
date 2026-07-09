@@ -1,0 +1,15 @@
+# VCE Vocational Major: Numeracy (VCE study design)
+
+Scope: students develop practical mathematics for personal, civic, financial, health, vocational and recreational life, built around three recurring outcomes (numeracy contexts, a problem-solving cycle, and a mathematical toolkit) applied across eight areas of study rather than the usual outcome-per-area-of-study model.
+
+## Units 1-2 (Year 11)
+- **Outcome 1 — Numeracy in context:** select, interpret and use mathematical key knowledge/skills from the unit's areas of study, embedded in familiar, routine and some less-familiar contexts, across three of six numeracies (personal, civic, financial, health, vocational, recreational) per unit — all six must be covered across Units 1-2. Areas of study (four per unit, all eight covered across Units 1-2): Number, Shape, Quantity and measures, Relationships (Unit 1); Dimension and direction, Data, Uncertainty, Systematics (Unit 2).
+- **Outcome 2 — Problem-solving cycle:** select, interpret and use the four-stage mathematical problem-solving cycle — identify the mathematics, act on and use the mathematics, evaluate and reflect, communicate and report — using informal and formal mathematical processes and conventions across the chosen numeracies. Key skills: interpret embedded mathematical information, select and use appropriate tools/technologies to solve tasks, check reasonableness of results, communicate outcomes in written, oral and symbolic form.
+- **Outcome 3 — Mathematical toolkit:** select and use, effectively and accurately, appropriate mathematical tools and applications (analogue and digital/technological) from a developing toolkit relevant to the areas of study and chosen numeracies.
+
+## Units 3-4 (Year 12)
+- **Outcome 1 — Numeracy in context:** use, justify and formulate mathematical key knowledge/skills embedded in familiar and unfamiliar, routine and some specialised contexts, again across three of six numeracies per unit (all six covered across Units 3-4). Areas of study (four per unit, all eight covered across Units 3-4, same eight titles as Units 1-2): Number, Shape, Quantity and measures, Relationships; Dimension and direction, Data, Uncertainty, Systematics.
+- **Outcome 2 — Problem-solving cycle:** apply, analyse and evaluate the four-stage problem-solving cycle in an applied-learning context relevant to the areas of study and chosen numeracies, extending to more unfamiliar and specialised contexts than Units 1-2.
+- **Outcome 3 — Mathematical toolkit:** select, use and apply tools from an extensive mathematical toolkit to a wide range of contexts, effectively and accurately, at a more independent and specialised level than Units 1-2.
+
+Cross-study skills: schools/teachers choose which numeracies and areas of study to combine, driven by student and community/vocational needs; the same three-outcome structure (context, problem-solving cycle, toolkit) and eight areas of study recur across all four units, with expectations escalating from familiar/routine (Units 1-2) to unfamiliar/specialised (Units 3-4).

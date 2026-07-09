@@ -1,0 +1,17 @@
+# Classical Studies (VCE study design)
+
+Scope: how ancient Greek and Roman myth, culture and works express ideas and beliefs, and how they connect to archaeology, socio-historical context and later culture.
+
+## Units 1-2 (Year 11)
+- **Area of Study 1 — Gods, heroes and the legacy of myth:** students explain the functions and forms of myths and their influence on later works. Key knowledge: key Greek/Roman gods and their functions, characteristics of the hero (Heracles, Achilles, Odysseus, Aeneas), hero narratives (quest, war, foundation myths), how myths were communicated (oral tradition, epic poetry, art), classical influences on modern works.
+- **Area of Study 2 — Myths and archaeological practice:** students explain how archaeology has informed understanding of myth and identify ethical issues. Key knowledge: history of archaeological investigation (e.g. Schliemann, Evans), context of a site, archaeological evidence corresponding to or departing from myth, artefact use and purpose, ethics and ownership debates.
+- **Unit 2, Area of Study 1 — Myths, ideas and beliefs in classical culture:** students analyse the representation and place of myth in classical culture. Key knowledge: myths in daily life (sanctuary sites, festivals, rituals), socio-historical context of works, features and techniques of works expressing myth, ideas and beliefs conveyed.
+- **Unit 2, Area of Study 2 — Expressing classical cultures:** students analyse how works present key ideas of ancient Greece and/or Rome. Key knowledge: authors/artists, purpose and audience, artistic/literary form features, socio-historical context, key ideas (fate, justice, gender roles), techniques of expression, classical influences on later works.
+
+## Units 3-4 (Year 12)
+- **Area of Study 1 — The epic tradition:** students analyse ideas and techniques in a prescribed work of Greek or Roman epic poetry (Homer's Iliad or Virgil's Aeneid) and its socio-historical context. Key knowledge: genre features, plot and characters, the poem's socio-historical context, key ideas (heroism, honour, war, fate), poetic techniques (similes, epithets, direct speech).
+- **Area of Study 2 — Material culture:** students analyse a prescribed Greek or Roman material work (building, sculpture or pictorial art) and its context. Key knowledge: construction methods and original function, socio-historical context (artist, purpose, audience), ideas/themes expressed, compositional and expressive techniques, relationship of parts to the whole work.
+- **Area of Study 1 — Classical concerns:** students analyse and evaluate a key concern of classical culture (classical identities, power and authority, or war and warfare) across a range of short written and material works. Key knowledge: features and authorship of prescribed works, socio-historical context, key ideas expressed, similarities/differences between works.
+- **Area of Study 2 — Classical comparisons:** students compare and evaluate two prescribed written classical works. Key knowledge: genre and narrative features of both works, their socio-historical contexts, relationship to the classical concern studied in Area of Study 1, key ideas and techniques, reasons for similarities and differences (genre, authorial intent, context).
+
+Cross-study skills: close analysis of prescribed works with evidence-based argument, and connecting works to their socio-historical context, run through every unit; Units 3-4 prescribed works are drawn from the annual VCE Classical Works list.

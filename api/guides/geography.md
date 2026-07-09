@@ -1,0 +1,17 @@
+# Geography (VCE study design)
+
+Scope: how natural hazards, tourism, land change and human population dynamics play out across places, using fieldwork and geospatial data to analyse causes, impacts and responses.
+
+## Units 1-2 (Year 11)
+- **Area of Study 1 — Characteristics of hazards:** students analyse the nature of hazards and hazard-event impacts at a range of scales. Key knowledge: classification of hazards (geological, hydro-meteorological, biological, technological), physical causes, location/scale/frequency/magnitude, human factors affecting risk, environmental/social/cultural impacts, geospatial technologies.
+- **Area of Study 2 — Response to hazards and disasters:** students analyse and evaluate responses to selected hazards and disasters. Key knowledge: factors influencing responses, types of responses (prediction, mitigation, recovery), responses by national/global organisations, issues and challenges arising from responses. Fieldwork report required (~1500-2000 words).
+- **Unit 2, Area of Study 1 — Characteristics of tourism:** students analyse the nature of tourism at a range of scales. Key knowledge: location and distribution of tourism types, characteristics of domestic/international/ethical tourism, factors affecting tourism (infrastructure, policy, marketing), geospatial technologies used by the industry.
+- **Unit 2, Area of Study 2 — Impact of tourism: issues and challenges:** students analyse tourism impacts and evaluate management strategies. Key knowledge: environmental/economic/social/cultural impacts, sustainability, issues including climate change, planning and management strategies, ethical tourism. Fieldwork report required.
+
+## Units 3-4 (Year 12)
+- **Area of Study 1 — Land cover change:** students analyse processes changing land cover (melting glaciers/ice sheets and deforestation) and evaluate impacts and responses. Key knowledge: global land cover distribution present and past, natural characteristics of glaciers/forests, causes and interconnections of change, impacts at two selected locations, local/national and global responses and their effectiveness.
+- **Area of Study 2 — Land use change:** students analyse land use change in a selected local area via fieldwork and evaluate its impacts. Key knowledge: location and characteristics of the area, processes and reasons for change, positive/negative impacts on environment/economy/society, use of geospatial technologies.
+- **Area of Study 1 — Population dynamics:** students analyse and discuss global population dynamics. Key knowledge: global population distribution, birth/death/fertility/life expectancy rates, population growth since the 1700s, population structures, the Demographic Transition Model, Malthusian theory, causes and types of population movement.
+- **Area of Study 2 — Population issues and challenges:** students analyse significant population trends (a growing population in one country, an ageing population in another) and evaluate response strategies. Key knowledge: nature and location of issues/challenges in each country, regional context, interconnections with population dynamics, government/non-government strategies and their effectiveness, role of geospatial technologies.
+
+Cross-study skills: collecting, interpreting and analysing primary/secondary data (including maps, GIS and geospatial technologies), and fieldwork investigation with a structured fieldwork report, run through every unit.

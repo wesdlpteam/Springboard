@@ -1,0 +1,18 @@
+# History (VCE study design)
+
+Scope: how historians use sources as evidence to explain change, continuity, cause, consequence and significance, studied through empires, modern world events, ancient societies, Australian history or revolutions (schools choose a pathway at each level).
+
+## Units 1-2 (Year 11)
+Schools choose one of three pathways for Units 1-2.
+- **Empires (two empires studied, one per unit) — Area of Study 1, The rise of empires:** students explain an empire's features and analyse its rise and expansion. Key knowledge: physical/economic/social foundations, causes of expansion, significant individuals, ideas and technologies that enabled growth. **Area of Study 2, Encounters, challenge and change:** students analyse challenges the empire faced and evaluate the consequences of its encounters, including on Indigenous peoples. Key knowledge: colonial governance, economic exchange, differing perspectives, decline and legacies.
+- **Modern History — Unit 1, Change and conflict:** Area of Study 1 (Ideology and conflict) covers events, ideologies and individuals from the late 19th century through to the causes of World War Two. Area of Study 2 (Social and cultural change) covers social/cultural change and its relationship to political and economic conditions of the same period.
+- **Modern History — Unit 2, The changing world order:** Area of Study 1 (Causes, course and consequences of the Cold War) covers 1945-1991 ideological conflict. Area of Study 2 (Challenge and change) covers decolonisation, terrorism, regional conflicts and social/political movements in the second half of the 20th century and early 21st century.
+- **Ancient History — Unit 1 (Ancient Mesopotamia) and Unit 2 (Ancient Egypt or Early China):** each unit's Area of Study 1 covers the features of the civilisation, and Area of Study 2 covers continuity, change and the use/representation of power over a defined period.
+
+## Units 3-4 (Year 12)
+Schools choose one of three pathways for Units 3-4 (same pathway across both units); each has two areas of study repeated across Unit 3 and Unit 4 with different timeframes/topics.
+- **Ancient History (two societies from Egypt, Greece, Rome) — Area of Study 1, Living in an ancient society:** students analyse social, political and economic features and how they developed and changed. **Area of Study 2, People in power, societies in crisis:** students evaluate the significance of a crisis (e.g. the Amarna Period, the Peloponnesian War, the fall of the Roman Republic) and the role of key individuals.
+- **Australian History (two investigations from: From custodianship to the Anthropocene; Creating a nation; Power and resistance; War and upheaval) — Area of Study 1, Foundations:** students analyse the foundations of continuity and change in Australia up to the relevant era. **Area of Study 2, Transformations:** students analyse post-World War Two changes and evaluate the extent of continuity and change in Australian society.
+- **Revolutions (two revolutions from: American, French, Russian, Chinese) — Area of Study 1, Causes of revolution:** students analyse the long-term causes and short-term triggers of revolution, including events, ideologies, individuals and popular movements. **Area of Study 2, Consequences of revolution:** students analyse the consequences of revolution and evaluate the extent of continuity and change in the post-revolutionary society.
+
+Cross-study skills: asking historical questions, analysing and evaluating sources as evidence, identifying differing perspectives and historical interpretations, and constructing evidence-based historical arguments run through every unit and pathway.

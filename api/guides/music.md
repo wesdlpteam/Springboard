@@ -1,0 +1,18 @@
+# Music (VCE study design)
+
+Scope: Music develops musicianship through performing, creating (composing/arranging/improvising) and analysing/responding to music, building towards one of four Units 3-4 pathways matched to a student's main interest.
+
+## Units 1-2 (Year 11)
+- **Area of Study 1 — Performing:** Students rehearse and present planned performances (solo and/or ensemble) with technical control, expression and stylistic understanding. Key knowledge: how selected works are organised (elements, concepts, compositional devices); effective practice strategies. Key skills: demonstrate technical control and expression, plan and reflect on approaches to improving performance.
+- **Area of Study 2 — Creating:** Students build a folio of short creative responses (composing/arranging/improvising) that reflect studied approaches to music organisation. Key knowledge: how composers combine elements/concepts/devices; ways of developing, recording and documenting music ideas. Key skills: manipulate music elements to create a work, document the creative process using appropriate terminology.
+- **Area of Study 3 — Analysing and responding:** Students identify how music is organised in given examples and respond to unfamiliar excerpts. Key knowledge: characteristics of music elements/concepts/devices, common music-language concepts (scales, chords, rhythm), notation methods. Key skills: describe treatment of elements in selected works, identify/recreate/document music-language concepts by ear.
+- Unit 1 ("Organisation of music") and Unit 2 ("Effect in music") repeat this same three-area Performing / Creating / Analysing-and-responding structure, with Unit 2 shifting focus to how music is used to create an intended effect.
+
+## Units 3-4 (Year 12)
+Units 3-4 offer four parallel pathways (a school/student selects one sequence), each built around Performing/Creating and Analysing outcomes, plus a Unit 4 aural/written examination on key knowledge and key skills:
+- **Music Inquiry:** combines performing, composing/arranging and investigating music. Students perform and create short works showing the influence of a selected style/creator (Unit 3), analyse how one work has influenced another and propose an Area of Investigation, then pursue an independent, increasingly self-directed project in Unit 4 (folio with performance and composition/arrangement recordings, assessed by an Externally-assessed Task).
+- **Music Contemporary Performance:** for performers whose practice includes embellishment/improvisation and a personal voice; students prepare and refine a live performance program (any instrument/style, e.g. rock, pop, jazz, EDM) including an ensemble work, a post-1990 Australian work and a personally reimagined existing work, submitted with a Performer's Statement of Intent.
+- **Music Repertoire Performance:** for performers grounded in notated repertoire; students prepare a recital program (up to 20 minutes) as soloist and/or ensemble member, informed by historical performance practice and interpretative traditions, including a post-1990 Australian work and a work from the VCAA Prescribed List.
+- **Music Composition:** students explore the organisation of sound through critical listening, analysis and composition (notated and/or digital); Unit 3 studies two works (one a post-1990 Australian composition) and develops a folio brief, extended into a folio of original composition(s) in Unit 4, with an aural/visual analysis of their own creative work.
+
+Cross-study skills: aural analysis and identification of music elements/concepts/compositional devices, use of correct music terminology, and reflective documentation of the creative or performance-preparation process are common across all units and pathways.

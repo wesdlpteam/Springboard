@@ -1,0 +1,18 @@
+# Accounting (VCE study design)
+
+Scope: how a sole proprietor records, reports, budgets and makes decisions using financial and non-financial accounting information, moving from a simple service business to a double-entry trading business.
+
+## Units 1-2 (Year 11)
+- **Area of Study 1 — The role of accounting:** students describe the resources needed to establish a business and judge its success. Key knowledge: reasons for and alternatives to establishing a business, sources of finance, ownership structures, accounting elements (assets, liabilities, equity, revenue, expenses), price-setting methods, ethical considerations. Key skills: correct terminology, researching, distinguishing current/non-current items, judging success from reports.
+- **Area of Study 2 — Recording financial data and reporting for a service business:** students record and report for a sole-proprietor service business using accrual accounting. Key knowledge: accounting assumptions/qualitative characteristics, source documents, special journals, the twofold effect on the accounting equation, cash vs profit, classified reports (Cash Flow Statement, Income Statement, Balance Sheet). Key skills: recording manually and via ICT, applying internal controls, preparing reports and graphs.
+- **Unit 2, Area of Study 1 — Accounting for and managing inventory:** students record and report inventory using FIFO and Identified Cost. Key knowledge: inventory cards, historical/budgeted reports, inventory management strategies, ethical considerations.
+- **Unit 2, Area of Study 2 — Accounts receivable and accounts payable:** students record credit transactions and analyse turnover indicators. Key knowledge: credit sales/purchases, returns, bad debts, settlement discounts, management strategies.
+- **Unit 2, Area of Study 3 — Non-current assets:** students record and report depreciation. Key knowledge: asset valuation, straight-line and reducing-balance depreciation, asset registers.
+
+## Units 3-4 (Year 12)
+- **Area of Study 1 — Recording and analysing financial data:** students use the double-entry system with General Journal, General Ledger and inventory cards. Key knowledge: accounting elements and the accounting equation, GST Clearing account, FIFO/Identified Cost inventory valuation, product vs period cost, allowance for doubtful debts, financial indicators (inventory/payable/receivable turnover), strategies to improve management of inventory, receivables and payables.
+- **Area of Study 2 — Preparing and interpreting accounting reports:** students complete end-of-period processes and interpret reports. Key knowledge: closing entries, Profit and Loss Summary, classified Income Statement/Balance Sheet/Cash Flow Statement, the distinction between cash and profit, financial and non-financial indicators, strategies to improve performance.
+- **Area of Study 1 — Extension of recording and reporting:** students record balance day adjustments and depreciation. Key knowledge: purchase/disposal of non-current assets, straight-line vs reducing-balance depreciation, prepaid/accrued expenses and revenue, unearned revenue, adjusted Trial Balance, effects on accounting reports.
+- **Area of Study 2 — Budgeting and decision-making:** students prepare and analyse budgeted reports. Key knowledge: Budgeted Cash Flow Statement, Budgeted Income Statement, Budgeted Balance Sheet, variance reports and trends, using historical and budgeted reports to develop strategies to improve business performance.
+
+Cross-study skills: correct accounting terminology, applying qualitative characteristics and accounting assumptions, manual and ICT-based (spreadsheet) recording and reporting, and discussing the ethical implications of accounting decisions recur across all four units.
