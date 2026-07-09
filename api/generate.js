@@ -36,13 +36,14 @@ export function injectStudyGuide(messages, studyGuide) {
 // message only when the client marks a request as a generation (`stickiness: true`); the
 // analyse call omits the flag, so it is not polluted.
 const STICKINESS_GUIDANCE = [
-  "Make the ideas stick (Made to Stick / SUCCESs) — apply all of these automatically:",
-  "- SIMPLE: one core idea per slide, said in plain words; cut everything that isn't the core.",
-  "- UNEXPECTED: open the title/ignite with a curiosity gap or a surprise that breaks a pattern.",
-  "- CONCRETE: use concrete, sensory, real-world language and examples, never abstract jargon.",
-  "- CREDIBLE: include a vivid, checkable detail or telling statistic the class can trust.",
-  "- EMOTIONAL: give students a reason to care — a person, stake or consequence, not a category.",
-  "- STORY: shape the launch as a small narrative or scenario they can step into.",
+  "Make the lesson STICK — apply the Made to Stick (Chip & Dan Heath) SUCCESs principles to every deck:",
+  "- SIMPLE: find the ONE core idea and lead with it; say it as a compact, proverb-like line — not a watered-down one. Cut anything that isn't the core.",
+  "- UNEXPECTED: break the student's 'guessing machine' with a surprise, or open a curiosity gap — pose a question they now NEED answered. The twist should make sense in hindsight, never a random gimmick.",
+  "- CONCRETE: use specific people doing specific things, sensory detail and real examples — never abstract jargon. Give the idea 'hooks' onto what students already know.",
+  "- CREDIBLE: back a claim with a vivid, checkable detail or a human-scale number (not a raw statistic), or let students test it themselves ('see for yourself').",
+  "- EMOTIONAL: make them CARE by focusing on one person or one real stake, not a faceless mass; tap their identity and what matters to them, not shallow rewards.",
+  "- STORY: frame the launch as a small story — a Challenge (overcome the odds), Connection (bridge people), or Creativity (a clever breakthrough) plot — so students mentally rehearse it and feel moved to act.",
+  "Beat the Curse of Knowledge: never assume students already know what you know; build from the concrete up.",
 ].join("\n");
 
 export function injectStickiness(messages, on) {
