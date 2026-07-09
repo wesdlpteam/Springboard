@@ -109,6 +109,20 @@
   header.app .admin-link { align-self: center; font-size: 12px; font-weight: 600; color: #4F2759; text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; white-space: nowrap; transition: background .15s; }
   header.app .admin-link:first-of-type { margin-left: auto; } /* push nav group right; keep both tabs together */
   header.app .admin-link:hover, header.app .admin-link:focus-visible { background: rgba(79,39,89,.07); }
+  /* Admin analytics = quiet icon-only button; must not compete with the "How it works" pill. */
+  header.app .admin-icon { align-self: center; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border: 1px solid transparent; border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; transition: background .15s, color .15s; }
+  header.app .admin-icon:hover, header.app .admin-icon:focus-visible { background: rgba(79,39,89,.07); color: var(--accent); }
+
+  /* Admin password popup */
+  .modal-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 20px; background: rgba(43,37,54,.45); }
+  .modal { width: 100%; max-width: 380px; padding: 20px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 20px 60px rgba(60,40,90,.28); }
+  .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+  .modal-head h2 { margin: 0; font-size: 16px; }
+  .modal-sub { margin: 0 0 14px; font-size: 13px; color: var(--muted); }
+  .modal input[type=password] { margin-bottom: 12px; }
+  .modal-err { margin: 0 0 12px; padding: 8px 10px; font-size: 12.5px; color: var(--bad-ink); background: var(--bad-bg); border: 1px solid var(--bad); border-radius: 10px; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+  .modal-actions .btn { width: auto; }
   header.app .appver { margin-left: 10px; align-self: center; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; letter-spacing: .02em; }
   header.app p { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
 
@@ -503,7 +517,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.3.8 · 2026-07-09";
+const APP_VERSION = "v0.3.9 · 2026-07-09";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -1479,6 +1493,8 @@ const I = {
   download: "M12 3v11m0 0l4-4m-4 4l-4-4M5 19h14",
   close: "M6 6l12 12M18 6L6 18",
   play: "M8 5v14l11-7z",
+  // small bar-chart glyph — quiet admin-analytics affordance (stroke-rendered)
+  chart: "M4 20h16 M8 20v-6 M12 20v-11 M16 20v-4",
 };
 
 // Determinate circular progress ring (white, for use on the primary button).
@@ -1527,9 +1543,66 @@ function MediaCarousel({ items, index, setIndex }) {
 
 const KEY_STORE = "sb_passcode";
 
+// Admin-analytics password popup. Validates the password against the server before
+// leaving Springboard, so a wrong password keeps the teacher on this page instead of
+// bouncing to the stats gate. On success it stashes the password for stats.html (same
+// sessionStorage key that page auto-loads from) and navigates there in the same tab.
+function AdminGate({ onClose }) {
+  const [pw, setPw] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const inputRef = useRef(null);
+
+  React.useEffect(() => { if (inputRef.current) inputRef.current.focus(); }, []);
+  React.useEffect(() => {
+    function onKey(e) { if (e.key === "Escape") onClose(); }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  async function submit(e) {
+    e.preventDefault();
+    const p = pw.trim();
+    if (!p) { setErr("Enter the admin password."); return; }
+    setErr(""); setBusy(true);
+    try {
+      const res = await fetch(API_BASE + "/api/stats", { method: "POST", headers: { "x-sb-admin": p } });
+      if (res.status === 401) { setErr("Wrong password."); setBusy(false); return; }
+      if (!res.ok) { setErr("Couldn't reach the server. Try again."); setBusy(false); return; }
+      try { sessionStorage.setItem("sb_admin", p); } catch (_) {}
+      window.location.href = "stats.html";
+    } catch (_) {
+      setErr("Couldn't reach the server. Try again."); setBusy(false);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="adminGateTitle">
+        <div className="modal-head">
+          <h2 id="adminGateTitle">Admin analytics</h2>
+          <button type="button" className="iconbtn" aria-label="Close" onClick={onClose}><Icon d={I.close} size={14} stroke /></button>
+        </div>
+        <p className="modal-sub">Enter the admin password to view usage analytics.</p>
+        <form onSubmit={submit}>
+          <input ref={inputRef} type="password" autoComplete="current-password" value={pw}
+            onChange={e => setPw(e.target.value)} placeholder="Admin password" aria-label="Admin password"
+            aria-invalid={err ? "true" : undefined} />
+          {err ? <p className="modal-err" role="alert">{err}</p> : null}
+          <div className="modal-actions">
+            <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn primary" disabled={busy}>{busy ? "Checking…" : "Open analytics"}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   // config — passcode persists in this browser's localStorage (per user request)
   const [passcode, setPasscode] = useState(() => { try { return localStorage.getItem(KEY_STORE) || ""; } catch (_) { return ""; } });
+  const [adminOpen, setAdminOpen] = useState(false); // admin-analytics password popup
 
   // inputs
   const [mode, setMode] = useState("media");
@@ -2195,9 +2268,11 @@ function App() {
           <p>Launch student thinking — stimulus to slides in two minutes.</p>
         </div>
         <a className="admin-link" href="about.html" target="_blank" rel="noopener" title="How Springboard works — its purpose and the teaching design behind it">How it works</a>
-        <a className="admin-link" href="stats.html" target="_blank" rel="noopener" title="Admin analytics — password protected">Admin analytics</a>
+        <button type="button" className="admin-icon" onClick={() => setAdminOpen(true)} aria-label="Admin analytics" title="Admin analytics — password protected"><Icon d={I.chart} size={16} stroke /></button>
         <span className="appver" title="App version — check this matches after a refresh">{APP_VERSION}</span>
       </header>
+
+      {adminOpen && <AdminGate onClose={() => setAdminOpen(false)} />}
 
       <main className="layout">
         {/* ----------------- INPUT PANEL ----------------- */}
