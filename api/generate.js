@@ -31,17 +31,40 @@ export function injectStudyGuide(messages, studyGuide) {
   return out;
 }
 
+// Made to Stick (Chip & Dan Heath) — the SUCCESs frame. Owned server-side so every generated
+// lesson follows the philosophy with no teacher control surface. Appended to the last system
+// message only when the client marks a request as a generation (`stickiness: true`); the
+// analyse call omits the flag, so it is not polluted.
+const STICKINESS_GUIDANCE = [
+  "Make the ideas stick (Made to Stick / SUCCESs) — apply all of these automatically:",
+  "- SIMPLE: one core idea per slide, said in plain words; cut everything that isn't the core.",
+  "- UNEXPECTED: open the title/ignite with a curiosity gap or a surprise that breaks a pattern.",
+  "- CONCRETE: use concrete, sensory, real-world language and examples, never abstract jargon.",
+  "- CREDIBLE: include a vivid, checkable detail or telling statistic the class can trust.",
+  "- EMOTIONAL: give students a reason to care — a person, stake or consequence, not a category.",
+  "- STORY: shape the launch as a small narrative or scenario they can step into.",
+].join("\n");
+
+export function injectStickiness(messages, on) {
+  if (!on) return messages;
+  const out = messages.slice();
+  const i = out.map(m => m.role).lastIndexOf("system");
+  const idx = i >= 0 ? i : 0;
+  out[idx] = { ...out[idx], content: out[idx].content + "\n\n" + STICKINESS_GUIDANCE };
+  return out;
+}
+
 export default async function handler(req, res) {
   if (applyCors(req, res)) return;
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   if (!requireTeacher(req, res)) return;
 
-  const { messages, response_format, max_completion_tokens, temperature, studyGuide } = req.body || {};
+  const { messages, response_format, max_completion_tokens, temperature, studyGuide, stickiness } = req.body || {};
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: "No messages provided" });
   }
 
-  const payload = { model: process.env.OPENAI_MODEL || "gpt-5.4", messages: injectStudyGuide(messages, studyGuide) };
+  const payload = { model: process.env.OPENAI_MODEL || "gpt-5.4", messages: injectStickiness(injectStudyGuide(messages, studyGuide), stickiness) };
   if (response_format) payload.response_format = response_format;
   if (max_completion_tokens !== undefined) payload.max_completion_tokens = max_completion_tokens;
   if (temperature !== undefined) payload.temperature = temperature;
