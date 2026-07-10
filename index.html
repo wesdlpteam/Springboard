@@ -527,7 +527,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.4.0 · 2026-07-10";
+const APP_VERSION = "v0.4.1 · 2026-07-10";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2573,25 +2573,34 @@ function App() {
                   </button>
                   {(!classInfo.subject.trim() || !classInfo.yearLevel.trim())
                     ? <div className="hint">Fill in year level and subject first. Adding a stimulus makes suggestions sharper.</div>
-                    : <div className="hint">Suggests where your lesson could connect to the curriculum — pick one, then edit it freely.</div>}
+                    : <div className="hint">Suggests where your lesson could connect to the curriculum — tick one or more, then edit freely.</div>}
                   {suggestError && <div className="alert bad" role="alert">{suggestError}</div>}
                   {suggests && (
                     <div className="routine-cards">
-                      {suggests.map(s => (
-                        <div className={"routine-card" + (classInfo.outcome === s.outcome ? " on" : "")} key={s.outcome}>
-                          <label className="routine-card-pick">
-                            <input type="radio" name="outcomeCard" value={s.outcome}
-                              checked={classInfo.outcome === s.outcome} onChange={() => saveClassInfo({ ...classInfo, outcome: s.outcome })} />
-                            <span>{s.outcome}</span>
-                          </label>
-                          <p className="routine-card-why">{s.why}</p>
-                        </div>
-                      ))}
+                      {/* Multi-select: each ticked suggestion becomes one line of the outcome;
+                          membership is line-based so unticking removes exactly that line. */}
+                      {suggests.map(s => {
+                        const lines = classInfo.outcome.split("\n").map(l => l.trim()).filter(Boolean);
+                        const picked = lines.includes(s.outcome);
+                        const toggle = () => {
+                          const next = picked ? lines.filter(l => l !== s.outcome) : [...lines, s.outcome];
+                          saveClassInfo({ ...classInfo, outcome: next.join("\n") });
+                        };
+                        return (
+                          <div className={"routine-card" + (picked ? " on" : "")} key={s.outcome}>
+                            <label className="routine-card-pick">
+                              <input type="checkbox" checked={picked} onChange={toggle} />
+                              <span>{s.outcome}</span>
+                            </label>
+                            <p className="routine-card-why">{s.why}</p>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                   {classInfo.outcome.trim() !== "" && (
                     <React.Fragment>
-                      <div className="hint" style={{ marginTop: 8 }}>Chosen outcome (edit freely):</div>
+                      <div className="hint" style={{ marginTop: 8 }}>Chosen outcomes (edit freely):</div>
                       <textarea id="f-outcome" rows={2} aria-label="Chosen outcome"
                                 value={classInfo.outcome} onChange={e => saveClassInfo({ ...classInfo, outcome: e.target.value })} />
                     </React.Fragment>
