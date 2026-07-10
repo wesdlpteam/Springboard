@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import handler from "../api/generate.js";
+import handler, { injectStudyGuide, sliceAcLevel } from "../api/generate.js";
 import { mockReqRes } from "./_helpers.js";
 
 process.env.TEACHER_PASSCODE = "test-pass";
@@ -50,6 +50,46 @@ test("rejects an over-long messages array", async () => {
   const { req, res } = mockReqRes({ headers: { "x-sb-passcode": "test-pass" }, body: { messages: many } });
   await handler(req, res);
   assert.equal(res.statusCode, 400);
+});
+
+test("injects the matching AC year-level slice only", () => {
+  const base = [{ role: "system", content: "SYS" }, { role: "user", content: "U" }];
+  const out = injectStudyGuide(base, { key: "ac-mathematics", level: "4" });
+  assert.ok(out[0].content.includes("AUSTRALIAN CURRICULUM v9 EXTRACT"));
+  assert.ok(out[0].content.includes("## Year 4"));
+  assert.ok(out[0].content.includes("AC9M4N01")); // real code from the sliced year
+  assert.ok(!out[0].content.includes("## Year 5")); // neighbouring years stay out
+  assert.equal(out[1].content, "U");
+});
+
+test("AC slice maps Prep to Foundation Year and years to bands", () => {
+  const base = [{ role: "system", content: "SYS" }];
+  const prep = injectStudyGuide(base, { key: "ac-english", level: "Prep" });
+  assert.ok(prep[0].content.includes("## Foundation Year"));
+  const banded = injectStudyGuide(base, { key: "ac-dance", level: "3" });
+  assert.ok(banded[0].content.includes("## Years 3 and 4")); // Arts levels are banded
+});
+
+test("AC slice skips injection when the subject has no card for that year", () => {
+  const base = [{ role: "system", content: "SYS" }];
+  assert.deepEqual(injectStudyGuide(base, { key: "ac-history", level: "4" }), base);  // History is 7-10
+  assert.deepEqual(injectStudyGuide(base, { key: "ac-hass-f-6", level: "8" }), base); // HASS F-6 stops at 6
+  assert.deepEqual(injectStudyGuide(base, { key: "ac-mathematics", level: "11" }), base); // beyond F-10
+});
+
+test("sliceAcLevel keeps the guide header on the slice", () => {
+  const text = "# T\n\nScope: s\n\n## Foundation Year\n\nfoo\n\n## Year 1\n\nbar\n";
+  const sliced = sliceAcLevel(text, "1");
+  assert.ok(sliced.startsWith("# T"));
+  assert.ok(sliced.includes("bar") && !sliced.includes("foo"));
+  assert.equal(sliceAcLevel(text, "nonsense"), null);
+});
+
+test("VCE unit slicing still works alongside AC guides", () => {
+  const base = [{ role: "system", content: "SYS" }];
+  const out = injectStudyGuide(base, { key: "biology", units: "1-2" });
+  assert.ok(out[0].content.includes("VCE STUDY-DESIGN EXTRACT"));
+  assert.ok(/Units 1[–-]2/.test(out[0].content));
 });
 
 test("forwards to OpenAI with server-side model and returns raw JSON", async () => {

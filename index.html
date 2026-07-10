@@ -517,7 +517,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.3.10 · 2026-07-09";
+const APP_VERSION = "v0.3.11 · 2026-07-10";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -611,6 +611,53 @@ function vceStudyGuide(ci) {
   if (!hit) return null;
   const n = parseInt(String(ci.yearLevel).replace(/\D/g, ""), 10);
   return { key: hit.key, units: n === 11 ? "1-2" : "3-4" };
+}
+
+// The 16 Australian Curriculum v9 (F-10) subjects with year-level cards under api/guides/ac-*.
+// Same contract as VCE_SUBJECTS: `key` = filename stem + backend allowlist key, `name` = display
+// AND classInfo.subject, `area` groups the dropdown. `years` = [min,max] year span (0 = Prep/
+// Foundation) so the dropdown only offers subjects that exist at the class's year level.
+const AC_SUBJECTS = [
+  { key: "ac-english", name: "English", area: "English", years: [0, 10] },
+  { key: "ac-mathematics", name: "Mathematics", area: "Mathematics", years: [0, 10] },
+  { key: "ac-science", name: "Science", area: "Science", years: [0, 10] },
+  { key: "ac-hass-f-6", name: "HASS (F–6)", area: "Humanities and Social Sciences", years: [0, 6] },
+  { key: "ac-history", name: "History (7–10)", area: "Humanities and Social Sciences", years: [7, 10] },
+  { key: "ac-geography", name: "Geography (7–10)", area: "Humanities and Social Sciences", years: [7, 10] },
+  { key: "ac-civics-and-citizenship", name: "Civics and Citizenship (7–10)", area: "Humanities and Social Sciences", years: [7, 10] },
+  { key: "ac-economics-and-business", name: "Economics and Business (7–10)", area: "Humanities and Social Sciences", years: [7, 10] },
+  { key: "ac-health-and-physical-education", name: "Health and Physical Education", area: "Health & PE", years: [0, 10] },
+  { key: "ac-dance", name: "Dance", area: "The Arts", years: [0, 10] },
+  { key: "ac-drama", name: "Drama", area: "The Arts", years: [0, 10] },
+  { key: "ac-media-arts", name: "Media Arts", area: "The Arts", years: [0, 10] },
+  { key: "ac-music", name: "Music", area: "The Arts", years: [0, 10] },
+  { key: "ac-visual-arts", name: "Visual Arts", area: "The Arts", years: [0, 10] },
+  { key: "ac-design-and-technologies", name: "Design and Technologies", area: "Technologies", years: [0, 10] },
+  { key: "ac-digital-technologies", name: "Digital Technologies", area: "Technologies", years: [0, 10] },
+];
+const AC_AREAS = [...new Set(AC_SUBJECTS.map(s => s.area))];
+// Year level as an AC number: Prep/Foundation/F/K -> 0, "Year 4"/"4" -> 4; NaN if unparseable.
+function acYearNum(yearLevel) {
+  const s = String(yearLevel || "").trim();
+  if (/prep|foundation|^[fk]$/i.test(s)) return 0;
+  return parseInt(s.replace(/\D/g, ""), 10);
+}
+// True when the class is Australian Curriculum and Prep-Year 10 (picker + injection apply).
+function isAcF10(ci) {
+  const n = acYearNum(ci.yearLevel);
+  return ci.curriculum === "Australian Curriculum" && !Number.isNaN(n) && n <= 10;
+}
+// AC subjects available at this class's year level (all of them while year is blank/unparsed).
+function acSubjectsFor(yearLevel) {
+  const n = acYearNum(yearLevel);
+  if (Number.isNaN(n) || n > 10) return AC_SUBJECTS;
+  return AC_SUBJECTS.filter(s => n >= s.years[0] && n <= s.years[1]);
+}
+// Backend selector: null unless AC Prep-Y10 with a recognised subject name.
+function acStudyGuide(ci) {
+  if (!isAcF10(ci)) return null;
+  const hit = AC_SUBJECTS.find(s => s.name === (ci.subject || "").trim());
+  return hit ? { key: hit.key, level: String(ci.yearLevel) } : null;
 }
 
 // One curriculum + subject + year level + outcome describes the single class this
@@ -1294,9 +1341,12 @@ const REFLECT_ROUTINES = [
 
 async function generateSpringboard({ passcode, mode, media = [], sourceText = "", classInfo, routineName, reflectRoutine = "", scope = "all", current = null }) {
   const routine = ROUTINES.find(r => r.name === routineName) || ROUTINES[0];
-  const hasGuide = !!vceStudyGuide(classInfo);
-  const outcomeLine = hasGuide
+  const vceGuide = vceStudyGuide(classInfo);
+  const acGuide = acStudyGuide(classInfo);
+  const outcomeLine = vceGuide
     ? `A VCE study-design extract for ${classInfo.subject} is provided below. ALIGN the launch slide's curriculum connection to THAT extract (its areas of study and outcomes)${classInfo.outcome.trim() ? `, narrowed to this outcome/topic: "${classInfo.outcome.trim()}"` : ""}. Quote real phrases from the extract; never invent codes.`
+    : acGuide
+    ? `An Australian Curriculum (v9) extract for ${classInfo.subject}, ${classInfo.yearLevel}, is provided below. ALIGN the launch slide's curriculum connection to THAT extract (its achievement standard and content descriptions)${classInfo.outcome.trim() ? `, narrowed to this outcome/topic: "${classInfo.outcome.trim()}"` : ""}. Quote real AC9 codes and phrases from the extract; never invent codes.`
     : classInfo.outcome.trim()
       ? `ALIGN the launch slide to this exact outcome/topic, quoting its key phrases: "${classInfo.outcome.trim()}". Do not invent curriculum codes.`
       : `Write the curriculum connection in plain language for ${classInfo.curriculum} ${classInfo.subject}, year ${classInfo.yearLevel}. Never invent official curriculum codes or identifiers.`;
@@ -1358,7 +1408,7 @@ Return STRICT JSON with keys: title, keywords, ignite{question}, think{routine, 
     userContent.push({ type: "text", text: instruction + `\n\nThe stimulus is the following article text. Build the Springboard from its real content:\n\n"""\n${trimmed}\n"""` });
   }
 
-  const studyGuide = vceStudyGuide(classInfo);
+  const studyGuide = vceGuide || acGuide;
   const resp = await fetch(API_BASE + "/api/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-sb-passcode": passcode },
@@ -1618,10 +1668,15 @@ function App() {
   // (curriculum/subject/year/outcome) drives one generator run.
   const [classInfo, setClassInfo] = useState(() => loadClassInfo());
   const saveClassInfo = (next) => {
-    // VCE-senior Subject is a fixed <select>. If we just flipped into VCE-senior mode carrying
-    // a free-typed subject that matches no VCE study, blank it so the placeholder shows and the
-    // teacher must pick (otherwise vceStudyGuide silently finds nothing and skips injection).
+    // VCE-senior / AC-F10 Subject is a fixed <select>. If we just flipped into either mode
+    // carrying a free-typed subject that matches no listed study, blank it so the placeholder
+    // shows and the teacher must pick (otherwise the guide lookup silently finds nothing and
+    // skips injection). AC also blanks a subject that exists but not at this year level
+    // (e.g. History (7–10) after the year drops to 4).
     if (isVceSenior(next) && next.subject && !VCE_SUBJECTS.some(s => s.name === next.subject.trim())) {
+      next = { ...next, subject: "" };
+    }
+    if (isAcF10(next) && next.subject && !acSubjectsFor(next.yearLevel).some(s => s.name === next.subject.trim())) {
       next = { ...next, subject: "" };
     }
     // Changing year level across a band boundary invalidates the analysis (routines are
@@ -2392,6 +2447,19 @@ function App() {
                         ))}
                       </optgroup>
                     ))}
+                  </select>
+                : isAcF10(classInfo)
+                ? <select id="f-subj" value={classInfo.subject}
+                          onChange={e => saveClassInfo({ ...classInfo, subject: e.target.value })}>
+                    <option value="">Choose your subject…</option>
+                    {AC_AREAS.map(area => {
+                      const subs = acSubjectsFor(classInfo.yearLevel).filter(s => s.area === area);
+                      return subs.length ? (
+                        <optgroup label={area} key={area}>
+                          {subs.map(s => <option key={s.key} value={s.name}>{s.name}</option>)}
+                        </optgroup>
+                      ) : null;
+                    })}
                   </select>
                 : <input id="f-subj" type="text" placeholder="e.g. Science, English, Humanities"
                          value={classInfo.subject} onChange={e => saveClassInfo({ ...classInfo, subject: e.target.value })} />}
