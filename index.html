@@ -664,18 +664,11 @@ function acStudyGuide(ci) {
 // generator run is for (replaces the old multi-band checkboxes — one run, one class).
 const CURRICULA = ["VCE", "IB PYP", "IB MYP", "IB DP", "Australian Curriculum", "Custom"];
 const CLASS_STORE = "sb_class";
+// Class settings deliberately DON'T persist (fresh lesson every visit — per Nathan,
+// 2026-07-10). loadClassInfo clears any pre-v0.4.0 stored value so old browsers reset too.
 function loadClassInfo() {
-  const fallback = { curriculum: "IB MYP", subject: "", yearLevel: "", outcome: "" };
-  try {
-    const raw = JSON.parse(localStorage.getItem(CLASS_STORE) || "null");
-    if (!raw || typeof raw !== "object") return fallback;
-    return {
-      curriculum: typeof raw.curriculum === "string" && raw.curriculum ? raw.curriculum : fallback.curriculum,
-      subject: typeof raw.subject === "string" ? raw.subject : fallback.subject,
-      yearLevel: typeof raw.yearLevel === "string" ? raw.yearLevel : fallback.yearLevel,
-      outcome: typeof raw.outcome === "string" ? raw.outcome : fallback.outcome,
-    };
-  } catch (_) { return fallback; }
+  try { localStorage.removeItem(CLASS_STORE); } catch (_) {}
+  return { curriculum: "IB MYP", subject: "", yearLevel: "", outcome: "" };
 }
 
 // A "combined" deck serves several bands at once (one deck, shared language). It is
@@ -1685,7 +1678,6 @@ function App() {
       setAnalysis(null); setSelectedRoutine(""); setAnalyseError("");
     }
     setClassInfo(next);
-    try { localStorage.setItem(CLASS_STORE, JSON.stringify(next)); } catch (_) {}
   };
 
   // generation
