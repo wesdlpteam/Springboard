@@ -527,7 +527,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.4.1 · 2026-07-10";
+const APP_VERSION = "v0.4.2 · 2026-07-10";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -1801,6 +1801,17 @@ function App() {
   // Preview earns its column only once Generate is clicked (loading) or a deck exists;
   // before that the builder takes the full width (.layout.pre).
   const previewOpen = loading || Object.keys(spots).length > 0;
+
+  // The Generate button sits at the bottom of the full-width form, so the teacher is
+  // scrolled down when the preview column appears — jump back to the top so they see it.
+  const prevPreviewOpen = useRef(false);
+  React.useEffect(() => {
+    if (previewOpen && !prevPreviewOpen.current) {
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+    }
+    prevPreviewOpen.current = previewOpen;
+  }, [previewOpen]);
 
   // Stale-deck hint: fingerprint the stimulus so we can nudge "Regenerate" if it changed
   // after the last successful generate.
