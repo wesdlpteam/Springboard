@@ -245,6 +245,9 @@
   .routine-card-why { margin: 6px 0 4px; font-size: 12.5px; color: var(--muted); line-height: 1.4; }
   .routine-card-link { font-size: 12px; font-weight: 600; color: var(--accent); }
   .routine-card-link:hover { text-decoration: underline; }
+  /* Small variant of the mode toggle, for the outcome source (paste / AI suggest). */
+  .modes.sm { margin-top: 2px; }
+  .modes.sm button { padding: 7px 6px; font-size: 12.5px; }
   .routine-browse { margin-top: 10px; font-size: 13px; }
   .routine-browse summary { cursor: pointer; font-weight: 600; color: var(--accent); }
   .routine-browse summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -1498,6 +1501,57 @@ Routine names MUST be copied exactly from this menu:\n${routineMenu}`;
   return { summary: stripMd(parsed.summary || ""), routines: routines.slice(0, 3) };
 }
 
+/* ----------------------- Suggest outcomes (AI option on the Outcome field) -----------------------
+   Suggests 1-4 curriculum connections for the class, grounded in the stimulus when one exists.
+   Media packaging mirrors analyseStimulus. VCE Y11/12 and AC F-10 pass studyGuide so the server
+   injects the real curriculum extract — suggestions quote real phrases/codes, never invented. */
+async function suggestOutcomes({ passcode, mode, media = [], sourceText = "", classInfo }) {
+  const guide = vceStudyGuide(classInfo) || acStudyGuide(classInfo);
+  const sys = `You help a ${classInfo.curriculum} teacher of ${classInfo.subject}, year ${classInfo.yearLevel}, connect a lesson stimulus to their curriculum.
+Return STRICT JSON only: {"suggestions": [{"outcome": string (<=30 words, one curriculum connection/outcome this lesson could target), "why": string (<=18 words, why it fits this stimulus and class)} x4]}
+${guide ? "A curriculum extract is appended below. Ground every suggestion in THAT extract (its outcomes, achievement standards or content descriptions), quoting its real phrases and codes; never invent codes." : "Use plain language. Never invent official curriculum codes or identifiers."}`;
+
+  const userContent = [];
+  const mediaItems = Array.isArray(media) ? media : [];
+  if (mode === "media" && mediaItems.length) {
+    userContent.push({ type: "text", text: "Suggest curriculum connections for this stimulus per the system instructions." });
+    mediaItems.forEach(m => {
+      if (m.kind === "image") userContent.push({ type: "image_url", image_url: { url: m.dataUrl } });
+      else (m.frames || []).forEach(fr => userContent.push({ type: "image_url", image_url: { url: fr } }));
+    });
+  } else if ((sourceText || "").trim()) {
+    const trimmed = sourceText.slice(0, 12000).replace(/"{3,}/g, "“”");
+    userContent.push({ type: "text", text: `Suggest curriculum connections for this article per the system instructions:\n\n"""\n${trimmed}\n"""` });
+  } else {
+    userContent.push({ type: "text", text: "No stimulus added yet. Suggest curriculum connections a teacher of this class could build a lesson around, per the system instructions." });
+  }
+
+  const resp = await fetch(API_BASE + "/api/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-sb-passcode": passcode },
+    body: JSON.stringify({
+      messages: [
+        { role: "system", content: sys },
+        { role: "user", content: userContent },
+      ],
+      response_format: { type: "json_object" },
+      max_completion_tokens: 800,
+      ...(guide ? { studyGuide: guide } : {}),
+    }),
+  });
+  if (!resp.ok) throw new Error(await backendErrorMessage(resp));
+
+  const data = await resp.json();
+  const raw = data?.choices?.[0]?.message?.content || "";
+  if (!raw.trim()) throw new Error("The model returned an empty response.");
+  const parsed = parseJsonLoose(raw);
+  const out = (Array.isArray(parsed.suggestions) ? parsed.suggestions : [])
+    .map(s => ({ outcome: stripMd(s && s.outcome), why: stripMd((s && s.why) || "") }))
+    .filter(s => s.outcome);
+  if (!out.length) throw new Error("No suggestions came back — try again.");
+  return out.slice(0, 4);
+}
+
 /* Merge a scoped regenerate's parsed reply back into the deck: only the scoped slide
    (ignite | think | launch | reflect) and its teacher notes are replaced, so edits to the
    other three slides survive. think.routine stays the teacher's pick. Full-scope callers
@@ -1694,6 +1748,12 @@ function App() {
   const [selectedRoutine, setSelectedRoutine] = useState(""); // "" until the teacher picks a card
   const [reflectRoutine, setReflectRoutine] = useState("");   // "" = let the model vary the end-of-lesson reflection routine; else a pinned REFLECT_ROUTINES name
 
+  // Outcome source: teacher pastes from their planner, or AI suggests curriculum connections.
+  const [outcomeMode, setOutcomeMode] = useState("paste");    // "paste" | "ai"
+  const [suggests, setSuggests] = useState(null);             // [{outcome, why}] | null
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestError, setSuggestError] = useState("");
+
   const [fetchingArticle, setFetchingArticle] = useState(false);
   const [error, setError] = useState("");
   const [rawDump, setRawDump] = useState("");
@@ -1755,6 +1815,18 @@ function App() {
         keepalive: true,
       }).catch(() => {});
     } catch (_) {}
+  }
+
+  // "Suggest connections" on the Outcome field: ask the AI for curriculum connections.
+  async function runSuggestOutcomes() {
+    setSuggesting(true); setSuggestError("");
+    try {
+      const list = await suggestOutcomes({ passcode, mode, media, sourceText: articleText, classInfo });
+      setSuggests(list);
+      logEvent("suggest_outcomes", { stimulusType: mode === "media" ? ((media[0] && media[0].kind) || "none") : "article" });
+    } catch (err) {
+      setSuggests(null); setSuggestError(String((err && err.message) || err));
+    } finally { setSuggesting(false); }
   }
 
   // Keep reelIndex in range whenever the reel shrinks.
@@ -2464,10 +2536,52 @@ function App() {
                          value={classInfo.subject} onChange={e => saveClassInfo({ ...classInfo, subject: e.target.value })} />}
             </div>
             <div className="field-row">
-              <label htmlFor="f-outcome">Outcome or topic (optional — paste from your planner)</label>
-              <textarea id="f-outcome" rows={2}
-                        placeholder="e.g. 'Students analyse how text structures shape meaning' or 'Unit: Body systems'"
-                        value={classInfo.outcome} onChange={e => saveClassInfo({ ...classInfo, outcome: e.target.value })} />
+              <label htmlFor="f-outcome">Outcome or topic (optional)</label>
+              <div className="modes sm" role="group" aria-label="Outcome source">
+                <button type="button" className={outcomeMode === "paste" ? "active" : ""} aria-pressed={outcomeMode === "paste"} onClick={() => setOutcomeMode("paste")}>Paste from planner</button>
+                <button type="button" className={outcomeMode === "ai" ? "active" : ""} aria-pressed={outcomeMode === "ai"} onClick={() => setOutcomeMode("ai")}>AI suggestions</button>
+              </div>
+              {outcomeMode === "paste" && (
+                <textarea id="f-outcome" rows={2} style={{ marginTop: 8 }}
+                          placeholder="e.g. 'Students analyse how text structures shape meaning' or 'Unit: Body systems'"
+                          value={classInfo.outcome} onChange={e => saveClassInfo({ ...classInfo, outcome: e.target.value })} />
+              )}
+              {outcomeMode === "ai" && (
+                <React.Fragment>
+                  <button type="button" className="btn ghost" style={{ marginTop: 8 }}
+                          disabled={suggesting || !classInfo.subject.trim() || !classInfo.yearLevel.trim()}
+                          aria-busy={suggesting} onClick={runSuggestOutcomes}>
+                    {suggesting
+                      ? <React.Fragment><span className="spinner sm dark"></span> Suggesting…</React.Fragment>
+                      : <React.Fragment><Icon d={I.generate} size={16} stroke /> {suggests ? "Suggest again" : "Suggest connections"}</React.Fragment>}
+                  </button>
+                  {(!classInfo.subject.trim() || !classInfo.yearLevel.trim())
+                    ? <div className="hint">Fill in year level and subject first. Adding a stimulus makes suggestions sharper.</div>
+                    : <div className="hint">Suggests where your lesson could connect to the curriculum — pick one, then edit it freely.</div>}
+                  {suggestError && <div className="alert bad" role="alert">{suggestError}</div>}
+                  {suggests && (
+                    <div className="routine-cards">
+                      {suggests.map(s => (
+                        <div className={"routine-card" + (classInfo.outcome === s.outcome ? " on" : "")} key={s.outcome}>
+                          <label className="routine-card-pick">
+                            <input type="radio" name="outcomeCard" value={s.outcome}
+                              checked={classInfo.outcome === s.outcome} onChange={() => saveClassInfo({ ...classInfo, outcome: s.outcome })} />
+                            <span>{s.outcome}</span>
+                          </label>
+                          <p className="routine-card-why">{s.why}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {classInfo.outcome.trim() !== "" && (
+                    <React.Fragment>
+                      <div className="hint" style={{ marginTop: 8 }}>Chosen outcome (edit freely):</div>
+                      <textarea id="f-outcome" rows={2} aria-label="Chosen outcome"
+                                value={classInfo.outcome} onChange={e => saveClassInfo({ ...classInfo, outcome: e.target.value })} />
+                    </React.Fragment>
+                  )}
+                </React.Fragment>
+              )}
             </div>
           </div>
 
