@@ -2426,6 +2426,13 @@ function App() {
                 {CURRICULA.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
+            {/* Year level before Subject: year decides which subject picker shows
+                (VCE Y11/12 studies, AC F-10 year-filtered subjects, or free text). */}
+            <div className="field-row">
+              <label htmlFor="f-year">Year level</label>
+              <input id="f-year" type="text" placeholder="e.g. Prep, 4, 8, 11"
+                     value={classInfo.yearLevel} onChange={e => saveClassInfo({ ...classInfo, yearLevel: e.target.value })} />
+            </div>
             <div className="field-row">
               <label htmlFor="f-subj">Subject</label>
               {isVceSenior(classInfo)
@@ -2455,11 +2462,6 @@ function App() {
                   </select>
                 : <input id="f-subj" type="text" placeholder="e.g. Science, English, Humanities"
                          value={classInfo.subject} onChange={e => saveClassInfo({ ...classInfo, subject: e.target.value })} />}
-            </div>
-            <div className="field-row">
-              <label htmlFor="f-year">Year level</label>
-              <input id="f-year" type="text" placeholder="e.g. Prep, 4, 8, 11"
-                     value={classInfo.yearLevel} onChange={e => saveClassInfo({ ...classInfo, yearLevel: e.target.value })} />
             </div>
             <div className="field-row">
               <label htmlFor="f-outcome">Outcome or topic (optional — paste from your planner)</label>
