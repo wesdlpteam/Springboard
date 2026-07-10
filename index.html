@@ -135,6 +135,13 @@
   }
   @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } }
 
+  /* Pre-generate: the builder owns the full width; the panel splits into two internal
+     columns (stimulus | class + generate). After Generate: classic 380px + preview. */
+  .layout.pre { grid-template-columns: 1fr; }
+  .layout.pre .panel.input { position: static; display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; align-items: start; }
+  .layout:not(.pre) .panel.input .icol { display: contents; }
+  @media (max-width: 980px) { .layout.pre .panel.input { display: block; } }
+
   .panel {
     background: var(--panel);
     border: 1px solid var(--line);
@@ -1791,6 +1798,10 @@ function App() {
     return { ...all, [activeBand]: next };
   });
 
+  // Preview earns its column only once Generate is clicked (loading) or a deck exists;
+  // before that the builder takes the full width (.layout.pre).
+  const previewOpen = loading || Object.keys(spots).length > 0;
+
   // Stale-deck hint: fingerprint the stimulus so we can nudge "Regenerate" if it changed
   // after the last successful generate.
   // class settings (curriculum/subject/year) drive the band + chip label, so fold them in:
@@ -2394,9 +2405,12 @@ function App() {
 
       {adminOpen && <AdminGate onClose={() => setAdminOpen(false)} />}
 
-      <main className="layout">
+      <main className={"layout" + (previewOpen ? "" : " pre")}>
         {/* ----------------- INPUT PANEL ----------------- */}
+        {/* Two .icol wrappers: pre-generate they are the panel's two internal columns
+            (stimulus | class + generate); post-generate they display:contents away. */}
         <div className="panel input">
+          <div className="icol">
           <div className="group">
             <label className="cap" id="lbl-mode">Stimulus mode</label>
             <div className="modes" role="group" aria-labelledby="lbl-mode">
@@ -2488,7 +2502,9 @@ function App() {
             <label className="cap" htmlFor="f-title">Title (optional)</label>
             <input id="f-title" type="text" value={title} placeholder="Leave blank to auto-generate" onChange={e => setTitle(e.target.value)} />
           </div>
+          </div>
 
+          <div className="icol">
           <div className="group">
             <label className="cap">Class settings</label>
             <div className="field-row">
@@ -2651,15 +2667,17 @@ function App() {
           </div>
 
           {error && <div className="alert bad" role="alert"><b>Something went wrong.</b><pre>{error}</pre>{rawDump && <React.Fragment><b>Raw model output:</b><pre>{rawDump}</pre></React.Fragment>}</div>}
+          </div>
         </div>
 
-        {/* ----------------- PREVIEW PANEL ----------------- */}
+        {/* ----------------- PREVIEW PANEL (only after Generate) ----------------- */}
+        {previewOpen && (
         <div>
-          {!spot && !loading && (
+          {!spot && loading && (
             <div className="panel"><div className="empty">
               <div className="big" aria-hidden="true"><Icon d={I.generate} size={46} /></div>
-              <h2 style={{ margin: "0 0 6px", fontFamily: "var(--font-display)" }}>Your Springboard preview appears here</h2>
-              <p>Add a stimulus on the left and hit <b>Generate</b>. Every field below will be editable before you download.</p>
+              <h2 style={{ margin: "0 0 6px", fontFamily: "var(--font-display)" }}>Building your Springboard…</h2>
+              <p>This takes a moment — the editable preview will appear right here.</p>
             </div></div>
           )}
 
@@ -2812,6 +2830,7 @@ function App() {
             </React.Fragment>
           )}
         </div>
+        )}
       </main>
     </React.Fragment>
   );
