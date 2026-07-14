@@ -59,10 +59,13 @@ In the Vercel project, go to **Settings → Environment Variables** and add:
 | Variable | Value | Notes |
 |---|---|---|
 | `OPENAI_API_KEY` | your OpenAI secret key | Never commit this. Lives only in Vercel. |
-| `OPENAI_MODEL` | e.g. `gpt-5.4` | Optional — `api/generate.js` falls back to `gpt-5.4` if unset. |
 | `TEACHER_PASSCODE` | a strong shared passphrase: 4+ random words or 16+ characters, not a dictionary word or school name, e.g. `emu-lantern-cricket-42` | This passcode is the main lock on the school's OpenAI spending — treat it like a password, and change it each term or if it leaks. |
 | `ADMIN_PASSWORD` | a separate, stronger password | Gates the `/api/stats` analytics dashboard only. |
 | `DATABASE_URL` | (already added automatically in step 2) | Leave as-is. |
+
+The OpenAI model is fixed in code (`api/generate.js`, currently `gpt-5.6-sol`); there is
+no `OPENAI_MODEL` variable. If one is still set in Vercel from an older deploy, it is
+ignored and can be deleted.
 
 Apply to all environments (Production, Preview, Development) unless you have a reason
 not to. After adding/changing variables, **redeploy** the project (Vercel's dashboard has
@@ -173,7 +176,6 @@ with the same variables as the table in step 3:
 
 ```bash
 OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-5.4
 TEACHER_PASSCODE=devpasscode
 ADMIN_PASSWORD=devadmin
 ```

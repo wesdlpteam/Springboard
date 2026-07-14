@@ -109,7 +109,7 @@ test("forwards to OpenAI with server-side model and returns raw JSON", async () 
     assert.equal(sent.url, "https://api.openai.com/v1/chat/completions");
     assert.equal(sent.auth, "Bearer sk-test");
     assert.notEqual(sent.body.model, "gpt-99-hax"); // client cannot pick the model
-    assert.equal(sent.body.model, "gpt-5.4");
+    assert.equal(sent.body.model, "gpt-5.6-sol");
     assert.equal(sent.body.temperature, 0.4);
     assert.equal(res.body.choices[0].message.content, "ok");
   } finally {

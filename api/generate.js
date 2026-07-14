@@ -103,7 +103,9 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Too many messages" });
   }
 
-  const payload = { model: process.env.OPENAI_MODEL || "gpt-5.4", messages: injectStickiness(injectStudyGuide(messages, studyGuide), stickiness) };
+  // Pinned to OpenAI's flagship tier by request — no env override, so a stale
+  // OPENAI_MODEL var in Vercel can't silently downgrade the model.
+  const payload = { model: "gpt-5.6-sol", messages: injectStickiness(injectStudyGuide(messages, studyGuide), stickiness) };
   if (response_format) payload.response_format = response_format;
   // 8000 = 2x the app's largest legit request (4000 tokens); anything bigger is abuse. Non-numeric
   // input is dropped rather than forwarded. Temperature is coerced into OpenAI's valid [0,2] range.
