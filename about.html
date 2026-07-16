@@ -7,37 +7,45 @@
 <style>
   :root{
     --purple:#4F2759; --purple-deep:#3A1C42; --purple-soft:#F4EFF6;
-    --gold:#B08D3F; --gold-soft:#F7F1E4;
-    --gold-text:#7a5c26; /* darker gold for small text on white — brand gold is only ~3.1:1 (fails AA) */
-    --ink:#241a29; --muted:#6c6472; --line:#e7e1ea; --bg:#faf8fb; --white:#fff;
+    --gold:#C59F40; --gold-soft:#F7F1E4; --gold-light:#e4d1a1;
+    --label:#6a5375; /* small uppercase label ink — brand gold fails AA on white at this size */
+    --ink:#241a29; --muted:#574f63; --line:#e7e1ea; --bg:#faf8fb; --white:#fff;
   }
   *{box-sizing:border-box}
   html{ -webkit-text-size-adjust:100%; }
   body{
-    margin:0; background:var(--bg); color:var(--ink);
+    margin:0; color:var(--ink);
     font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:
+      radial-gradient(900px 520px at 88% -120px, rgba(197,159,64,.16), transparent 60%),
+      radial-gradient(820px 560px at -160px 28%, rgba(124,163,255,.13), transparent 60%),
+      radial-gradient(760px 500px at 108% 82%, rgba(253,175,189,.12), transparent 62%),
+      #f7f3fc;
+    background-attachment:fixed;
   }
   .wrap{ max-width:860px; margin:0 auto; padding:0 22px 72px; }
   a{ color:var(--purple); }
+  a:focus-visible{ outline:2px solid var(--purple); outline-offset:2px; }
 
-  header.hero{ background:linear-gradient(135deg,var(--purple),var(--purple-deep)); color:#fff; }
+  header.hero{ background:var(--purple); color:#fff; box-shadow:0 2px 18px rgba(79,39,89,.30); }
   header.hero .wrap{ padding-top:40px; padding-bottom:40px; }
-  .eyebrow{ font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:#e4d3ae; font-weight:700; margin:0 0 10px; }
-  header.hero h1{ font-size:34px; line-height:1.1; margin:0 0 12px; letter-spacing:-.5px; }
-  header.hero p{ font-size:17px; margin:0; max-width:60ch; color:#efe7f2; }
-  .back{ display:inline-block; margin-top:22px; font-size:14px; font-weight:600; color:#fff; text-decoration:none; border:1px solid rgba(255,255,255,.4); border-radius:999px; padding:7px 15px; }
-  .back:hover{ background:rgba(255,255,255,.12); }
+  .eyebrow{ font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:#fff; font-weight:700; margin:0 0 10px; }
+  header.hero h1{ font-size:34px; line-height:1.1; margin:0 0 12px; letter-spacing:-.5px; color:var(--gold-light); font-weight:800; }
+  header.hero p{ font-size:17px; margin:0; max-width:60ch; color:#fff; }
+  .back{ display:inline-block; margin-top:22px; font-size:14px; font-weight:600; color:#fff; text-decoration:none; border:1.5px solid rgba(255,255,255,.4); border-radius:999px; padding:7px 15px; }
+  .back:hover{ background:rgba(255,255,255,.14); }
+  .back:focus-visible{ outline:2px solid #fff; outline-offset:2px; }
 
   h2{ font-size:22px; margin:44px 0 6px; letter-spacing:-.3px; color:var(--purple); }
-  h2 .num{ color:var(--gold-text); font-variant-numeric:tabular-nums; margin-right:8px; }
+  h2 .num{ color:var(--label); font-variant-numeric:tabular-nums; margin-right:8px; }
   h3{ font-size:16px; margin:20px 0 4px; }
   p{ margin:10px 0; }
   .lede{ font-size:17px; color:#2c2331; }
   .rule{ height:3px; width:60px; background:var(--gold); border:0; border-radius:2px; margin:8px 0 0; }
 
   .cards{ display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin-top:16px; }
-  .card{ background:var(--white); border:1px solid var(--line); border-radius:14px; padding:16px 18px; }
-  .card .tag{ display:inline-block; font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--gold-text); }
+  .card{ background:var(--white); border:1.5px solid #e3d9ec; border-radius:20px; box-shadow:0 10px 30px rgba(60,40,90,.12); padding:16px 18px; }
+  .card .tag{ display:inline-block; font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--label); }
   .card h3{ margin:4px 0 4px; color:var(--purple); font-size:15px; }
   .card p{ margin:0; font-size:14.5px; color:#413a48; }
 
@@ -46,7 +54,9 @@
   ol.steps li:first-child{ border-top:0; }
   ol.steps li::before{ counter-increment:s; content:counter(s); position:absolute; left:0; top:9px; width:28px; height:28px; border-radius:50%; background:var(--purple); color:#fff; font-weight:700; font-size:14px; display:flex; align-items:center; justify-content:center; }
 
-  .panel{ background:var(--purple-soft); border:1px solid #e4d9ea; border-radius:14px; padding:18px 20px; margin-top:16px; }
+  /* Colour-tinted callouts (distinct from plain white .card) keep their tint but adopt the
+     same rounded/shadowed depth language as cards for a consistent playful feel. */
+  .panel{ background:var(--purple-soft); border:1.5px solid #e4d9ea; border-radius:20px; box-shadow:0 10px 30px rgba(60,40,90,.12); padding:18px 20px; margin-top:16px; }
   .panel h3{ margin-top:0; color:var(--purple); }
   ul.tight{ margin:8px 0 0; padding-left:18px; }
   ul.tight li{ margin:6px 0; }
@@ -55,7 +65,7 @@
   .succes li:first-child{ border-top:0; }
   .succes b{ color:var(--purple); }
 
-  .note{ display:flex; gap:12px; align-items:flex-start; background:var(--gold-soft); border:1px solid #e8dcc0; border-radius:14px; padding:16px 18px; margin-top:16px; }
+  .note{ display:flex; gap:12px; align-items:flex-start; background:var(--gold-soft); border:1.5px solid #e8dcc0; border-radius:20px; box-shadow:0 10px 30px rgba(60,40,90,.12); padding:16px 18px; margin-top:16px; }
   .note .ic{ font-size:20px; line-height:1.2; }
   .note p{ margin:0; font-size:14.5px; }
   .note strong{ color:#6b551f; }
@@ -67,6 +77,8 @@
     header.hero h1{ font-size:27px; }
     .cards{ grid-template-columns:1fr; }
   }
+
+  @media (prefers-reduced-motion: reduce) { * { animation-duration: .001ms !important; transition-duration: .001ms !important; } }
 </style>
 </head>
 <body>
