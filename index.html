@@ -182,11 +182,30 @@
   @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } }
 
   /* Pre-generate: the builder owns the full width; the panel splits into two internal
-     columns (stimulus | class + generate). After Generate: classic 380px + preview. */
+     columns (stimulus | class + generate) separated by a full-height hairline, each headed
+     by a numbered step so the left-then-right order reads at a glance. After Generate:
+     classic 380px + preview. */
   .layout.pre { grid-template-columns: 1fr; }
-  .layout.pre .panel.input { position: static; display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; align-items: start; }
+  .layout.pre .panel.input { position: static; display: grid; grid-template-columns: 1fr 1fr; gap: 0; padding: 26px 32px 30px; }
+  .layout.pre .panel.input .icol:first-child { padding-right: 36px; border-right: 1.5px solid var(--line); }
+  .layout.pre .panel.input .icol:last-child { padding-left: 36px; }
   .layout:not(.pre) .panel.input .icol { display: contents; }
-  @media (max-width: 980px) { .layout.pre .panel.input { display: block; } }
+  /* Post-generate the sidebar is for tweaking, not first-run steps — drop the headers. */
+  .layout:not(.pre) .icol-head { display: none; }
+  @media (max-width: 980px) {
+    .layout.pre .panel.input { display: block; padding: 18px; }
+    .layout.pre .panel.input .icol:first-child { padding-right: 0; border-right: 0; }
+    .layout.pre .panel.input .icol:last-child { padding-left: 0; margin-top: 24px; padding-top: 22px; border-top: 1.5px solid var(--line); }
+  }
+
+  /* Numbered step header at the top of each builder column. */
+  .icol-head { display: flex; align-items: center; gap: 11px; margin: 0 0 18px; }
+  .icol-head .n {
+    flex: 0 0 auto; width: 28px; height: 28px; border-radius: 999px;
+    background: var(--accent); color: #fff; display: grid; place-items: center;
+    font-weight: 800; font-size: 14px; box-shadow: 0 2px 0 var(--pop);
+  }
+  .icol-head h3 { margin: 0; font-size: 17px; font-weight: 800; font-family: var(--font-display); color: var(--ink); letter-spacing: -.01em; }
 
   .panel {
     background: var(--panel);
@@ -654,7 +673,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.7.0 · 2026-07-16";
+const APP_VERSION = "v0.7.1 · 2026-07-16";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2666,7 +2685,7 @@ function App() {
         {!previewOpen && (
           <section className="hero">
             <h2>What will <span className="hero-mark">spark</span> your class today?</h2>
-            <p className="hero-sub">Drop in a photo, an article, a video or a link — Springboard turns it into a ready-to-teach thinking deck in about two minutes.</p>
+            <p className="hero-sub">Two steps: drop in a photo, an article, a video or a link in <b>step&nbsp;1</b>, set up your class and thinking move in <b>step&nbsp;2</b> — Springboard turns it into a ready-to-teach thinking deck in about two minutes.</p>
             <div className="hero-arc">
               <span className="arc-chip arc-1">Ignite</span><span className="arc-sep" aria-hidden="true">→</span>
               <span className="arc-chip arc-2">Think</span><span className="arc-sep" aria-hidden="true">→</span>
@@ -2680,6 +2699,7 @@ function App() {
             (stimulus | class + generate); post-generate they display:contents away. */}
         <div className="panel input">
           <div className="icol">
+          <div className="icol-head"><span className="n">1</span><h3>Add your stimulus</h3></div>
           <div className="group">
             <label className="cap" id="lbl-mode">Stimulus mode</label>
             <div className="modes" role="group" aria-labelledby="lbl-mode">
@@ -2774,6 +2794,7 @@ function App() {
           </div>
 
           <div className="icol">
+          <div className="icol-head"><span className="n">2</span><h3>Set up &amp; generate</h3></div>
           <div className="group">
             <label className="cap">Class settings</label>
             <div className="field-row">
