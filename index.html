@@ -304,6 +304,14 @@
   .routine-card-why { margin: 6px 0 4px; font-size: 12.5px; color: var(--muted); line-height: 1.4; }
   .routine-card-link { font-size: 12px; font-weight: 600; color: var(--accent); }
   .routine-card-link:hover { text-decoration: underline; }
+  /* Thinking Move picker (the new first step) — a grid of selectable cards from MOVES. */
+  .move-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 4px; }
+  .move-card { display: flex; flex-direction: column; gap: 3px; text-align: left; font: inherit; cursor: pointer; border: 1.5px solid #e3d9ec; border-radius: 14px; padding: 9px 11px; background: var(--panel); transition: border-color .15s, background .15s, box-shadow .15s; }
+  .move-card:hover { border-color: var(--accent); }
+  .move-card.on { border-color: var(--accent); background: var(--wash); box-shadow: 0 3px 0 var(--accent-soft); }
+  .move-card-name { font-weight: 700; font-size: 13px; color: var(--ink); line-height: 1.2; }
+  .move-card-q { font-size: 11.5px; color: var(--muted); line-height: 1.3; }
+  @media (max-width: 520px) { .move-cards { grid-template-columns: 1fr; } }
   /* Small variant of the mode toggle, for the outcome source (paste / AI suggest). */
   .modes.sm { margin-top: 2px; }
   .modes.sm button { padding: 7px 6px; font-size: 12.5px; }
@@ -521,7 +529,7 @@
   html[data-theme="dark"] .chip.band-middle { color: var(--band-middle-ink); }
   html[data-theme="dark"] .chip.band-senior { color: var(--band-senior-ink); }
   html[data-theme="dark"] .theme-picks .pick:hover { color: #d9bce7; border-color: #b98fd0; }
-  html[data-theme="dark"] .routine-card.on { box-shadow: 0 3px 0 #140d1a; }
+  html[data-theme="dark"] :is(.routine-card.on, .move-card.on) { box-shadow: 0 3px 0 #140d1a; }
   html[data-theme="dark"] .spinner.dark { border-color: #3a2544; border-top-color: #d9bce7; }
   html[data-theme="dark"] *:focus-visible { outline-color: #e4d1a1; }
 
@@ -646,7 +654,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.6.0 · 2026-07-16";
+const APP_VERSION = "v0.7.0 · 2026-07-16";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -850,6 +858,9 @@ const ROUTINES = [
   { steps: ["What do you think you know about this topic?","What questions or puzzles do you have?","How might you explore your puzzles?"], structure: "Individual write, then share, revisit later", name: "Think, Puzzle, Explore", url: "https://pz.harvard.edu/resources/think-puzzle-explore",
     gist: "Activate prior knowledge, surface puzzles, plan exploration.",
     bands: ["younger", "middle", "senior"], group: "Core observation and inquiry" },
+  { steps: ["Reveal only a small part of the image. What do you see? What's your hypothesis?","Reveal a bit more. How does your interpretation change?","Keep revealing, revising your thinking each time.","Reflect: how did seeing it gradually change what you noticed?"], structure: "Whole-class, projected image revealed in stages", name: "Zoom In", url: "https://pz.harvard.edu/resources/zoom-in",
+    gist: "Reveal an image slowly, interpreting and revising your thinking as more is uncovered.",
+    bands: ["younger", "middle", "senior"], group: "Core observation and inquiry" },
   { steps: ["Look quietly for 30 seconds.","List 10 words or phrases about what you see.","Look again and add 10 more."], structure: "Individual, two timed rounds", name: "Looking: Ten Times Two", url: "https://pz.harvard.edu/resources/looking-ten-times-two",
     gist: "List ten words on a first look, then ten more on a second — builds sustained observation.",
     bands: ["younger"], group: "Core observation and inquiry" },
@@ -888,6 +899,9 @@ const ROUTINES = [
   { steps: ["Think about the question on your own.","Pair up and share your thinking.","Listen and ask your partner a clarifying question.","Share your thinking with the whole group."], structure: "Individual, then pairs, then whole class", name: "Think, Pair, Share", url: "https://pz.harvard.edu/resources/think-pair-share",
     gist: "Think individually, discuss with a partner, then share with the group.",
     bands: ["younger", "middle"], group: "Activating, connecting, and reflecting on learning" },
+  { steps: ["In small groups, each person speaks uninterrupted for a set time while the others listen silently.","Go around so everyone has spoken once.","Open the floor to discuss and connect what was shared."], structure: "Small groups of 3-4, timed silent-listening rounds", name: "MicroLab", url: "https://pz.harvard.edu/resources/micro-lab-protocol",
+    gist: "A structured talk protocol: each person speaks in turn without interruption, then the group discusses.",
+    bands: ["middle", "senior"], group: "Activating, connecting, and reflecting on learning" },
   { steps: ["Silently write your ideas and questions on the paper.","Move around and read what others wrote.","Add your own comments or questions to their writing.","Return to your paper and discuss what emerged."], structure: "Silent writing on chart paper, then rotate", name: "Chalk Talk", url: "https://pz.harvard.edu/resources/chalk-talk",
     gist: "A silent written conversation: respond to a prompt and to each other's comments on paper.",
     bands: ["younger", "middle", "senior"], group: "Activating, connecting, and reflecting on learning" },
@@ -1125,6 +1139,42 @@ const ROUTINES = [
     bands: ["younger", "middle", "senior"], group: "Reflection on daily life" },
 ];
 const ROUTINE_SOURCE = "Harvard Project Zero Thinking Routines · pz.harvard.edu/thinking-routines";
+
+// The Understanding Map (Harvard Project Zero / Cultures of Thinking). The teacher
+// picks a Thinking Move first; Analyse then ranks routines FROM that move's list.
+// `routines` names MUST match ROUTINES[].name exactly — unmatched names are silently
+// dropped by movesRoutineList() below, never crash. Lists merge both source maps
+// (superset). Order follows the Understanding Map circle.
+const MOVES = [
+  { name: "Wondering", question: "What are you curious about here?",
+    routines: ["Step Inside", "See, Think, Wonder", "Zoom In", "3-2-1 Bridge", "Think, Puzzle, Explore", "Chalk Talk", "Compass Points", "The Explanation Game"] },
+  { name: "Describe What's There", question: "What do you see and notice?",
+    routines: ["Step Inside", "See, Think, Wonder", "Zoom In", "3-2-1 Bridge", "I Used to Think... Now I Think...", "Chalk Talk", "Peel the Fruit"] },
+  { name: "Build Explanations", question: "What's really going on here?",
+    routines: ["See, Think, Wonder", "Zoom In", "Generate-Sort-Connect-Elaborate", "Think, Pair, Share", "I Used to Think... Now I Think...", "The Explanation Game", "Connect, Extend, Challenge", "MicroLab", "Claim, Support, Question", "Peel the Fruit"] },
+  { name: "Reason with Evidence", question: "Why do you think so?",
+    routines: ["Step Inside", "Circle of Viewpoints", "Tug of War", "Word-Phrase-Sentence", "Generate-Sort-Connect-Elaborate", "Peel the Fruit", "Claim, Support, Question", "MicroLab", "What Makes You Say That?"] },
+  { name: "Make Connections", question: "How does this fit?",
+    routines: ["Step Inside", "Circle of Viewpoints", "Chalk Talk", "3-2-1 Bridge", "Compass Points", "The 4 Cs", "Peel the Fruit", "Connect, Extend, Challenge"] },
+  { name: "Consider Different Viewpoints", question: "What's another angle on this?",
+    routines: ["Step Inside", "Circle of Viewpoints", "Tug of War", "See, Think, Wonder", "I Used to Think... Now I Think...", "Compass Points", "The Explanation Game", "Color, Symbol, Image", "Peel the Fruit"] },
+  { name: "Capture the Heart & Form Conclusions", question: "What's at the centre of this?",
+    routines: ["Step Inside", "Circle of Viewpoints", "Tug of War", "Zoom In", "Headlines", "Color, Symbol, Image", "The 4 Cs", "Peel the Fruit", "Word-Phrase-Sentence"] },
+  { name: "Uncovering Complexity", question: "What lies beneath the surface?",
+    routines: ["Step Inside", "Tug of War", "See, Think, Wonder", "Zoom In", "Word-Phrase-Sentence", "Claim, Support, Question", "Red Light, Yellow Light", "I Used to Think... Now I Think...", "Generate-Sort-Connect-Elaborate"] },
+];
+// Resolve a move's routine names to ROUTINES objects for a band, dropping unmatched
+// names. Keeps the band filter (Nathan's choice) but tops the list back up from the
+// move's full (band-agnostic) list if band-filtering leaves fewer than `min`, so the
+// teacher never sees an empty/too-short list.
+function moveRoutineList(move, band, min = 3) {
+  if (!move) return [];
+  const resolved = move.routines.map(n => ROUTINES.find(r => r.name === n)).filter(Boolean);
+  const inBand = resolved.filter(r => r.bands.includes(band));
+  if (inBand.length >= min) return inBand;
+  const seen = new Set(inBand.map(r => r.name));
+  return inBand.concat(resolved.filter(r => !seen.has(r.name)));
+}
 
 // Made to Stick (SUCCESs) guidance now lives SERVER-SIDE (api/generate.js) so every generated
 // lesson inherently follows the philosophy. The client just flags a generation with
@@ -1564,12 +1614,15 @@ Return STRICT JSON with keys: title, keywords, ignite{question}, think{routine, 
    Reads the stimulus and recommends 3 thinking routines (band-filtered from ROUTINES), so the
    teacher picks a routine before Generate runs. Media-parts packaging mirrors generateSpringboard
    above. */
-async function analyseStimulus({ passcode, mode, media = [], sourceText = "", classInfo }) {
+async function analyseStimulus({ passcode, mode, media = [], sourceText = "", classInfo, move = null }) {
   const band = bandOf(classInfo.yearLevel); // "younger" | "middle" | "senior"
-  const bandRoutines = ROUTINES.filter(r => r.bands.includes(band));
+  // Candidate routines are scoped to the chosen Thinking Move (band-filtered, topped
+  // up by moveRoutineList); fall back to the full band list only if no move was passed.
+  const bandRoutines = move ? moveRoutineList(move, band) : ROUTINES.filter(r => r.bands.includes(band));
   const routineMenu = bandRoutines.map(r => `- ${r.name}: ${r.gist}`).join("\n");
+  const moveLine = move ? `The teacher has chosen the Thinking Move "${move.name}" (${move.question}). Rank the routines from the menu that best serve THAT move for this stimulus and age group.\n` : "";
   const sys = `You help a ${classInfo.curriculum} teacher of ${classInfo.subject}, year ${classInfo.yearLevel}, launch student thinking from a stimulus.
-Return STRICT JSON only: {"summary": string (<=40 words, what the stimulus shows),
+${moveLine}Return STRICT JSON only: {"summary": string (<=40 words, what the stimulus shows),
 "routines": [{"name": string, "why": string (<=20 words, why it fits THIS stimulus and age group)} x3]}
 Routine names MUST be copied exactly from this menu:\n${routineMenu}`;
 
@@ -1932,6 +1985,8 @@ function App() {
   const [analysing, setAnalysing] = useState(false);
   const [analyseError, setAnalyseError] = useState("");
   const [selectedRoutine, setSelectedRoutine] = useState(""); // "" until the teacher picks a card
+  const [selectedMove, setSelectedMove] = useState("");       // "" until the teacher picks a Thinking Move (the new first step); else a MOVES name
+  const selectedMoveObj = MOVES.find(m => m.name === selectedMove) || null;
   const [reflectRoutine, setReflectRoutine] = useState("");   // "" = let the model vary the end-of-lesson reflection routine; else a pinned REFLECT_ROUTINES name
 
   // Outcome source: teacher pastes from their planner, or AI suggests curriculum connections.
@@ -2144,10 +2199,11 @@ function App() {
     if (analysing) return;
     setAnalyseError("");
     if (!inputReady()) { setAnalyseError("Please add a stimulus first, and fill in the subject and year level."); return; }
+    if (!selectedMove) { setAnalyseError("Please choose a Thinking Move first."); return; }
     setAnalysing(true);
     try {
       const sourceText = mode === "article" ? articleText : "";
-      const result = await analyseStimulus({ passcode: passcode.trim(), mode, media, sourceText, classInfo });
+      const result = await analyseStimulus({ passcode: passcode.trim(), mode, media, sourceText, classInfo, move: selectedMoveObj });
       setAnalysis(result);
       setSelectedRoutine("");
       // Log the successful analyse event.
@@ -2164,10 +2220,17 @@ function App() {
   function pickRoutine(name) {
     setSelectedRoutine(name);
   }
+  function pickMove(name) {
+    if (name === selectedMove) return;
+    setSelectedMove(name);
+    // A new move changes the candidate routines, so drop the stale analysis + pick.
+    setAnalysis(null); setSelectedRoutine(""); setAnalyseError("");
+  }
   const analyseBandRoutines = useMemo(() => {
     const tag = bandOf(classInfo.yearLevel);
-    return ROUTINES.filter(r => r.bands.includes(tag));
-  }, [classInfo.yearLevel]);
+    // Scope the browse list to the chosen move (band-filtered, topped up); full band list only if no move.
+    return selectedMoveObj ? moveRoutineList(selectedMoveObj, tag) : ROUTINES.filter(r => r.bands.includes(tag));
+  }, [classInfo.yearLevel, selectedMove]);
   const routineGroups = useMemo(() => {
     const map = new Map();
     analyseBandRoutines.forEach(r => { if (!map.has(r.group)) map.set(r.group, []); map.get(r.group).push(r); });
@@ -2816,15 +2879,34 @@ function App() {
             </div>
           </div>
 
+          {/* ----------------- THINKING MOVE STEP (new first step, from the Understanding Map) ----------------- */}
+          <div className="group">
+            <label className="cap">Choose a Thinking Move</label>
+            <div className="hint" style={{ marginBottom: 8 }}>Start from the Understanding Map. Analyse then suggests the routines that best fit this move.</div>
+            <div className="move-cards" role="radiogroup" aria-label="Thinking Move">
+              {MOVES.map(m => (
+                <button type="button" key={m.name}
+                  role="radio" aria-checked={selectedMove === m.name}
+                  className={"move-card" + (selectedMove === m.name ? " on" : "")}
+                  onClick={() => pickMove(m.name)}>
+                  <span className="move-card-name">{m.name}</span>
+                  <span className="move-card-q">{m.question}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* ----------------- ANALYSE STEP ----------------- */}
           <div className="group">
             <label className="cap">Analyse stimulus</label>
-            <button type="button" className="btn ghost" disabled={!inputReady() || analysing} aria-busy={analysing} onClick={runAnalyse}>
+            <button type="button" className="btn ghost" disabled={!inputReady() || analysing || !selectedMove} aria-busy={analysing} onClick={runAnalyse}>
               {analysing
                 ? <React.Fragment><span className="spinner sm dark"></span> Analysing…</React.Fragment>
                 : <React.Fragment><Icon d={I.generate} size={16} stroke /> Analyse stimulus</React.Fragment>}
             </button>
-            <div className="hint">Reads your stimulus and suggests a thinking routine before you generate.</div>
+            <div className="hint">{selectedMove
+              ? `Reads your stimulus and ranks routines for "${selectedMove}" before you generate.`
+              : "Choose a Thinking Move above to enable Analyse."}</div>
 
             {analyseError && <div className="alert bad" role="alert">{analyseError}</div>}
 
@@ -2847,7 +2929,7 @@ function App() {
                 </div>
 
                 <details className="routine-browse">
-                  <summary>Browse all routines</summary>
+                  <summary>{selectedMove ? `Browse all routines for "${selectedMove}"` : "Browse all routines"}</summary>
                   {routineGroups.map(([group, list]) => (
                     <div className="routine-browse-group" key={group}>
                       <div className="routine-browse-heading">{group}</div>
