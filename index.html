@@ -1616,8 +1616,9 @@ const Icon = ({ d, size = 18, stroke = false, label }) => (
   </svg>
 );
 const I = {
-  // Wesley shield mark for the app logo
-  shield: "M12 2.5l7 2.6v5.2c0 4.6-3 8.3-7 9.7-4-1.4-7-5.1-7-9.7V5.1l7-2.6z",
+  // Springboard mark for the app logo: arrow bouncing off a bowed board with a
+  // coil spring beneath (stroke-rendered, trampoline silhouette)
+  spring: "M12 8.6V2.6M12 2.6l-3 3M12 2.6l3 3M5 12c2.8 1.7 11.2 1.7 14 0M8.6 16.2c2 1.4 4.8 1.4 6.8 0M10.4 19.6c1 .8 2.2 .8 3.2 0",
   image: "M3 5h18v14H3zM3 16l5-5 4 4 3-3 6 6",
   doc: "M6 2h8l4 4v16H6zM14 2v4h4",
   video: "M3 6h13v12H3zM21 8v8l-5-4z",
@@ -2433,7 +2434,7 @@ function App() {
   return (
     <React.Fragment>
       <header className="app">
-        <div className="logo"><Icon d={I.shield} size={22} /></div>
+        <div className="logo"><Icon d={I.spring} size={26} stroke /></div>
         <div>
           <h1>Springboard</h1>
           <p>Launch student thinking — stimulus to slides in two minutes.</p>
