@@ -155,6 +155,30 @@
     padding: 22px 26px 60px;
     max-width: 1500px; margin: 0 auto;
   }
+
+  /* Welcome hero — pre-generate only. Headline purple (gold fails contrast on light),
+     one word on a rotated highlighter tint; the 4-stage arc as tilted pastel stickers.
+     A single deliberate ordered sequence, all AA inks from the Wesley kit. */
+  .hero { grid-column: 1 / -1; text-align: center; padding: 30px 18px 6px; }
+  .hero h2 {
+    font-family: var(--font-display); font-size: clamp(26px, 3.4vw, 38px); font-weight: 800;
+    color: var(--accent); margin: 0 auto 10px; max-width: 22ch; line-height: 1.15;
+    letter-spacing: -.02em; text-wrap: balance;
+  }
+  .hero-mark { display: inline-block; background: #ffedbc; padding: 0 .2em; border-radius: .25em; transform: rotate(-1.5deg); }
+  .hero-sub { color: var(--muted); font-size: 15px; line-height: 1.55; max-width: 62ch; margin: 0 auto 20px; }
+  .hero-arc { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 9px; margin: 0 0 8px; }
+  .arc-chip {
+    display: inline-block; padding: 6px 14px; border-radius: 999px;
+    font-size: 12.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+    box-shadow: 0 2px 0 rgba(43,37,54,.14);
+  }
+  .arc-chip.arc-1 { background: #ffedbc; color: #7a5012; transform: rotate(-3deg); }
+  .arc-chip.arc-2 { background: #cbdaff; color: #4242a1; transform: rotate(2deg); }
+  .arc-chip.arc-3 { background: #ffdab5; color: #8a4b12; transform: rotate(-2deg); }
+  .arc-chip.arc-4 { background: #cfe9d3; color: #4d5142; transform: rotate(2.5deg); }
+  .arc-sep { color: var(--purple-grey); font-weight: 700; }
+  @media (max-width: 720px) { .hero { padding: 18px 8px 2px; } .hero-sub { font-size: 14px; } }
   @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } }
 
   /* Pre-generate: the builder owns the full width; the panel splits into two internal
@@ -2447,6 +2471,20 @@ function App() {
       {adminOpen && <AdminGate onClose={() => setAdminOpen(false)} />}
 
       <main className={"layout" + (previewOpen ? "" : " pre")}>
+        {/* Welcome hero — first-visit warmth; disappears once the preview opens so the
+            two-minute path stays clear. */}
+        {!previewOpen && (
+          <section className="hero">
+            <h2>What will <span className="hero-mark">spark</span> your class today?</h2>
+            <p className="hero-sub">Drop in a photo, an article, a video or a link — Springboard turns it into a ready-to-teach thinking deck in about two minutes.</p>
+            <div className="hero-arc">
+              <span className="arc-chip arc-1">Ignite</span><span className="arc-sep" aria-hidden="true">→</span>
+              <span className="arc-chip arc-2">Think</span><span className="arc-sep" aria-hidden="true">→</span>
+              <span className="arc-chip arc-3">Launch</span><span className="arc-sep" aria-hidden="true">→</span>
+              <span className="arc-chip arc-4">Reflect</span>
+            </div>
+          </section>
+        )}
         {/* ----------------- INPUT PANEL ----------------- */}
         {/* Two .icol wrappers: pre-generate they are the panel's two internal columns
             (stimulus | class + generate); post-generate they display:contents away. */}
