@@ -2921,7 +2921,7 @@ function App() {
                 <input id="f-postlink" type="text" aria-label="Post link to grab photos and videos from"
                   value={postLink} placeholder="…or paste a post link — Instagram, YouTube, X, Facebook"
                   onChange={e => setPostLink(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); importFromPostLink(); } }} />
+                  onKeyDown={e => { if (e.key === "Enter" && !importingPost) { e.preventDefault(); importFromPostLink(); } }} />
                 <button type="button" className="btn ghost" style={{ width: "auto", padding: "9px 12px", whiteSpace: "nowrap" }}
                   disabled={importingPost || extractingVideo} onClick={() => importFromPostLink()}>
                   {importingPost ? "Fetching…" : "Add from link"}
