@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <!-- Lock script loading to the known CDNs (unpkg/jsdelivr/cdnjs) + self; block injected external scripts, object embeds and base-tag hijack. connect-src/img-src stay permissive https: so the Vercel backend, r.jina.ai, images.weserv.nl and wikimedia (all https) plus blob:/data: media keep working. 'unsafe-eval' is needed by in-browser Babel, 'unsafe-inline' by the inline app + styles. -->
 <meta name="referrer" content="strict-origin-when-cross-origin" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' blob: data:; connect-src 'self' https:;" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' blob: data:; frame-src https://www.youtube.com https://www.youtube-nocookie.com; connect-src 'self' https:;" />
 <title>Springboard</title>
 
 <!-- React + Babel (in-browser JSX, no build step) -->
@@ -1946,6 +1946,108 @@ function AdminGate({ onClose }) {
       </div>
     </div>
   );
+}
+
+/* ---- YouTube online-video post-processing ----
+   Same marked-poster trick as SharePoint videos above, but simpler markup:
+   current PowerPoint represents a YouTube clip as an ordinary poster pic whose
+   nvPr carries <a:videoFile r:link> to an EXTERNAL video relationship targeting
+   the youtube.com/embed/<id> URL, plus an interactive click-to-toggle timing
+   block. No p14:media / p15:webVideoPr. Desktop AND web PowerPoint play it; the
+   clip streams live from YouTube, so no download, no bot-block. Ground truth
+   captured from PowerPoint's own AddMediaObjectFromEmbedTag output and verified
+   on SharePoint web (docs/superpowers/notes/2026-07-17-youtube-ooxml-groundtruth.md).
+   Click-to-play by design: interactive togglePause timing, NOT autoplay. */
+const YT_MARK_PREFIX = "TSG-YT::";
+// EXACT timing PowerPoint writes for an online video (click-to-toggle + media
+// node). Copied verbatim from docs/superpowers/notes/yt-timing-template.xml —
+// never hand-edit (one dropped tag hard-corrupts the file; spike lesson).
+const YT_TIMING_TEMPLATE = `<p:timing><p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst><p:seq concurrent="1" nextAc="seek"><p:cTn id="2" restart="whenNotActive" fill="hold" evtFilter="cancelBubble" nodeType="interactiveSeq"><p:stCondLst><p:cond evt="onClick" delay="0"><p:tgtEl><p:spTgt spid="SPID_PLACEHOLDER"/></p:tgtEl></p:cond></p:stCondLst><p:endSync evt="end" delay="0"><p:rtn val="all"/></p:endSync><p:childTnLst><p:par><p:cTn id="3" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="4" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="5" presetID="2" presetClass="mediacall" presetSubtype="0" fill="hold" nodeType="clickEffect"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst><p:cmd type="call" cmd="togglePause"><p:cBhvr><p:cTn id="6" dur="1" fill="hold"/><p:tgtEl><p:spTgt spid="SPID_PLACEHOLDER"/></p:tgtEl></p:cBhvr></p:cmd></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn><p:nextCondLst><p:cond evt="onClick" delay="0"><p:tgtEl><p:spTgt spid="SPID_PLACEHOLDER"/></p:tgtEl></p:cond></p:nextCondLst></p:seq><p:video><p:cMediaNode vol="80000"><p:cTn id="7" fill="hold" display="0"><p:stCondLst><p:cond delay="indefinite"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid="SPID_PLACEHOLDER"/></p:tgtEl></p:cMediaNode></p:video></p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>`;
+async function injectYouTubeVideos(blob, ytMarks) {
+  if (!ytMarks.length || typeof JSZip === "undefined") return blob;
+  const zip = await JSZip.loadAsync(blob);
+  const slidePaths = Object.keys(zip.files).filter(p => /^ppt\/slides\/slide\d+\.xml$/.test(p));
+  for (const sp of slidePaths) {
+    let xml = await zip.file(sp).async("string");
+    if (xml.indexOf(YT_MARK_PREFIX) === -1) continue;
+    const relPath = sp.replace(/slides\/(slide\d+)\.xml$/, "slides/_rels/$1.xml.rels");
+    let rels = await zip.file(relPath).async("string");
+    let relSeq = 0;
+    let lastYtSpid = null;
+    xml = xml.replace(/<p:pic>[\s\S]*?<\/p:pic>/g, (pic) => {
+      const m = pic.match(/descr="TSG-YT::([^"]+)"/);
+      if (!m) return pic;
+      const id = m[1];
+      const idm = pic.match(/<p:cNvPr\s+id="(\d+)"/);
+      if (idm) lastYtSpid = idm[1];
+      const rid = "rIdYt" + (++relSeq);
+      rels = rels.replace("</Relationships>",
+        `<Relationship Id="${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/video" Target="https://www.youtube.com/embed/${id}?feature=oembed" TargetMode="External"/></Relationships>`);
+      let p = pic.replace(/\s*descr="TSG-YT::[^"]+"/, "");
+      p = p.replace(/(<p:cNvPr\b[^>]*?)(\/>|>)/, (full, head, close) => {
+        if (close === "/>") return head + '><a:hlinkClick r:id="" action="ppaction://media"/></p:cNvPr>';
+        return head + '><a:hlinkClick r:id="" action="ppaction://media"/>';
+      });
+      const vf = `<a:videoFile r:link="${rid}"/>`;
+      if (/<p:nvPr\s*\/>/.test(p)) p = p.replace(/<p:nvPr\s*\/>/, `<p:nvPr>${vf}</p:nvPr>`);
+      else if (/<p:nvPr>[\s\S]*?<\/p:nvPr>/.test(p)) p = p.replace(/<\/p:nvPr>/, `${vf}</p:nvPr>`);
+      else p = p.replace(/<\/p:nvPicPr>/, `<p:nvPr>${vf}</p:nvPr></p:nvPicPr>`);
+      return p;
+    });
+    // Click-to-play wiring: interactive togglePause timing targeting the video pic.
+    // (One reel item per slide, so a YouTube slide never also carries the
+    // SharePoint autoplay timing injected by injectOnlineVideos above.)
+    if (lastYtSpid) {
+      const timing = YT_TIMING_TEMPLATE.replace(/SPID_PLACEHOLDER/g, lastYtSpid);
+      xml = xml.replace(/<\/p:sld>/, timing + "</p:sld>");
+    }
+    zip.file(sp, xml);
+    zip.file(relPath, rels);
+  }
+  return await zip.generateAsync({ type: "blob" });
+}
+
+// Client-side twin of api/youtube-meta.js's youtubeVideoId() — keep the two in sync.
+// (index.html ships standalone to GitHub Pages, so it can't import server code.)
+function youtubeIdFromLink(raw) {
+  let u;
+  try { u = new URL(String(raw || "").trim()); } catch (_) { return ""; }
+  if (u.protocol !== "https:" && u.protocol !== "http:") return "";
+  const host = u.hostname.toLowerCase().replace(/^(www|m|music)\./, "");
+  const parts = u.pathname.split("/").filter(Boolean);
+  let id = "";
+  if (host === "youtu.be") id = parts[0] || "";
+  else if (host === "youtube.com" || host === "youtube-nocookie.com") {
+    if (parts[0] === "watch") id = u.searchParams.get("v") || "";
+    else if (["shorts", "live", "embed", "v"].includes(parts[0])) id = parts[1] || "";
+  }
+  return /^[A-Za-z0-9_-]{11}$/.test(id) ? id : "";
+}
+
+// Bake a play badge into a 16:9 cover-cropped copy of the thumbnail so the item
+// never reads as "just a photo" — in the reel, on the slide, anywhere the poster
+// shows. Empty/broken input -> dark placeholder with the badge alone.
+async function addPlayBadge(dataUrl) {
+  const W = 640, H = 360;
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const x = c.getContext("2d");
+  x.fillStyle = "#111111"; x.fillRect(0, 0, W, H);
+  if (dataUrl) {
+    const im = await new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = dataUrl; });
+    if (im && im.naturalWidth && im.naturalHeight) {
+      const ar = im.naturalWidth / im.naturalHeight, box = W / H;
+      let sw = im.naturalWidth, sh = im.naturalHeight, sx = 0, sy = 0;
+      if (ar > box) { sw = sh * box; sx = (im.naturalWidth - sw) / 2; }
+      else { sh = sw / box; sy = (im.naturalHeight - sh) / 2; }
+      x.drawImage(im, sx, sy, sw, sh, 0, 0, W, H);
+    }
+  }
+  x.fillStyle = "rgba(0,0,0,0.55)"; x.beginPath(); x.arc(W / 2, H / 2, 46, 0, Math.PI * 2); x.fill();
+  x.strokeStyle = "rgba(255,255,255,0.9)"; x.lineWidth = 3; x.stroke();
+  x.fillStyle = "#FFFFFF"; x.beginPath();
+  x.moveTo(W / 2 - 14, H / 2 - 22); x.lineTo(W / 2 + 24, H / 2); x.lineTo(W / 2 - 14, H / 2 + 22);
+  x.closePath(); x.fill();
+  return c.toDataURL("image/jpeg", 0.9);
 }
 
 function App() {
