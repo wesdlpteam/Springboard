@@ -1586,12 +1586,13 @@ Return STRICT JSON with keys: title, keywords, ignite{question}, think{routine, 
       `${imgs ? ` — ${imgs} image(s)` : ""}${vids ? `${imgs ? " and" : " —"} ${vids} video(s) (still frames attached per clip)` : ""}. ` +
       `Treat them as ONE stimulus in sequence; item 1 is the primary stimulus. Build the whole Springboard from what you genuinely see/read across them.`;
     const clipText = mediaItems
-      .map((m, i) => (m.kind === "video" && m.text && m.text.trim()) ? `Video at position ${i + 1} — ${m.text.trim().slice(0, 4000)}` : "")
+      .map((m, i) => ((m.kind === "video" || m.kind === "youtube") && m.text && m.text.trim()) ? `${m.kind === "youtube" ? "YouTube clip" : "Video"} at position ${i + 1} — ${m.text.trim().slice(0, 4000)}` : "")
       .filter(Boolean);
     if (clipText.length) mt += `\nClip notes:\n${clipText.join("\n")}`;
     userContent.push({ type: "text", text: instruction + "\n\n" + mt });
     mediaItems.forEach(m => {
       if (m.kind === "image") userContent.push({ type: "image_url", image_url: { url: m.dataUrl } });
+      else if (m.kind === "youtube") { const y = m.thumb || m.poster; if (y) userContent.push({ type: "image_url", image_url: { url: y } }); }
       else (m.frames || []).forEach(fr => userContent.push({ type: "image_url", image_url: { url: fr } }));
     });
   } else {
@@ -1651,6 +1652,7 @@ Routine names MUST be copied exactly from this menu:\n${routineMenu}`;
     userContent.push({ type: "text", text: "Analyse this stimulus and recommend routines per the system instructions." });
     mediaItems.forEach(m => {
       if (m.kind === "image") userContent.push({ type: "image_url", image_url: { url: m.dataUrl } });
+      else if (m.kind === "youtube") { const y = m.thumb || m.poster; if (y) userContent.push({ type: "image_url", image_url: { url: y } }); }
       else (m.frames || []).forEach(fr => userContent.push({ type: "image_url", image_url: { url: fr } }));
     });
   } else {
@@ -1715,6 +1717,7 @@ ${guide ? "A curriculum extract is appended below. Ground every suggestion in TH
     userContent.push({ type: "text", text: "Suggest curriculum connections for this stimulus per the system instructions." });
     mediaItems.forEach(m => {
       if (m.kind === "image") userContent.push({ type: "image_url", image_url: { url: m.dataUrl } });
+      else if (m.kind === "youtube") { const y = m.thumb || m.poster; if (y) userContent.push({ type: "image_url", image_url: { url: y } }); }
       else (m.frames || []).forEach(fr => userContent.push({ type: "image_url", image_url: { url: fr } }));
     });
   } else if ((sourceText || "").trim()) {
