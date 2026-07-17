@@ -1876,14 +1876,18 @@ function MediaCarousel({ items, index, setIndex }) {
       <div className="reel-frame">
         {it.kind === "image"
           ? <img src={it.dataUrl} alt={"Stimulus " + (index + 1) + ": " + it.name} />
-          : <video src={it.dataUrl || undefined} poster={it.poster} controls playsInline />}
+          : it.kind === "youtube"
+            ? <iframe src={"https://www.youtube.com/embed/" + it.youtubeId} title={it.name}
+                style={{ width: "100%", height: "100%", border: 0 }}
+                allow="encrypted-media; picture-in-picture" allowFullScreen />
+            : <video src={it.dataUrl || undefined} poster={it.poster} controls playsInline />}
         {n > 1 && <React.Fragment>
           <button type="button" className="reel-arrow left" aria-label="Previous item" onClick={() => go(-1)}>‹</button>
           <button type="button" className="reel-arrow right" aria-label="Next item" onClick={() => go(1)}>›</button>
         </React.Fragment>}
       </div>
       {n > 1 && <div className="reel-dots">
-        {items.map((m, i) => <button key={m.id} type="button" className={"dot" + (i === index ? " on" : "")} aria-label={"Go to " + (m.kind === "video" ? "video " : "image ") + (i + 1)} aria-current={i === index ? "true" : "false"} onClick={() => setIndex(i)} />)}
+        {items.map((m, i) => <button key={m.id} type="button" className={"dot" + (i === index ? " on" : "")} aria-label={"Go to " + ((m.kind === "video" || m.kind === "youtube") ? "video " : "image ") + (i + 1)} aria-current={i === index ? "true" : "false"} onClick={() => setIndex(i)} />)}
       </div>}
       {n > 1 && <div className="sr-only" aria-live="polite">{`Stimulus ${index + 1} of ${n}`}</div>}
     </div>
@@ -2899,6 +2903,16 @@ function App() {
                   : <React.Fragment><div className="big"><Icon d={I.image} size={26} stroke /></div><div className="small">Click, or drop images / videos here ({media.length}/{MAX_MEDIA})</div></React.Fragment>}
               </button>
               <input ref={mediaInput} id="f-media" type="file" accept="image/*,video/*" multiple hidden onChange={onMedia} />
+              <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                <input id="f-postlink" type="text" aria-label="Post link to grab photos and videos from"
+                  value={postLink} placeholder="…or paste a post link — Instagram, YouTube, X, Facebook"
+                  onChange={e => setPostLink(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); importFromPostLink(); } }} />
+                <button type="button" className="btn ghost" style={{ width: "auto", padding: "9px 12px", whiteSpace: "nowrap" }}
+                  disabled={importingPost || extractingVideo} onClick={() => importFromPostLink()}>
+                  {importingPost ? "Fetching…" : "Add from link"}
+                </button>
+              </div>
               {mediaNote && <div className="alert info" role="status" aria-live="polite" style={{ marginTop: 8 }}>{mediaNote}</div>}
 
               {media.length > 0 && (
@@ -2906,7 +2920,7 @@ function App() {
                   {media.map((it, i) => (
                     <div className="media-thumb" key={it.id}>
                       <img src={it.kind === "image" ? it.dataUrl : it.poster} alt={it.name} />
-                      {it.kind === "video" && <span className="vtag"><Icon d={I.play} size={14} /></span>}
+                      {(it.kind === "video" || it.kind === "youtube") && <span className="vtag"><Icon d={I.play} size={14} /></span>}
                       <div className="media-thumb-tools">
                         <button type="button" className="iconbtn" aria-label={"Move " + it.name + " earlier"} disabled={i === 0} onClick={() => moveMedia(it.id, -1)}>‹</button>
                         <span className="ord">{i + 1}</span>
@@ -2925,6 +2939,18 @@ function App() {
                           {it.transcribeState === "failed" && it.transcribeNote}
                         </div>
                       )}
+                      {it.kind === "youtube" && (
+                        <React.Fragment>
+                          <textarea className="media-text" rows={2} value={it.text}
+                            placeholder="What happens in this clip? (it can't be transcribed)"
+                            onChange={e => setMediaText(it.id, e.target.value)} />
+                          <div className="hint" aria-live="polite">
+                            {it.text.trim()
+                              ? <span style={{ color: "var(--accent)", fontWeight: 600 }}>Description added ✓</span>
+                              : <span>YouTube clips can't be transcribed — type what happens so the questions match.</span>}
+                          </div>
+                        </React.Fragment>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -2934,7 +2960,7 @@ function App() {
                 <label className="cap" htmlFor="f-mlink">Link (optional — becomes a QR code)</label>
                 <input id="f-mlink" type="text" value={link} placeholder="https://…" onChange={e => setLink(e.target.value)} />
               </div>
-              <div className="hint">Add one or many — they appear as a swipeable carousel with the routine on the right, and export as a click-through slideshow. Videos: still frames are read so the model can "see" them; small clips embed and play in <b>desktop</b> PowerPoint.</div>
+              <div className="hint">Add one or many — they appear as a swipeable carousel with the routine on the right, and export as a click-through slideshow. Videos: still frames are read so the model can "see" them; small clips embed and play in <b>desktop</b> PowerPoint. YouTube links become a live click-to-play clip on the slide (needs internet; works in desktop and web PowerPoint).</div>
             </div>
           )}
 
