@@ -2127,6 +2127,8 @@ function App() {
   const [extractCount, setExtractCount] = useState(0); // count of video extractions in flight (batch/overlap-safe)
   const extractingVideo = extractCount > 0; // spinner shows while any extraction runs
   const [mediaNote, setMediaNote] = useState(""); // soft inline status under the dropzone
+  const [postLink, setPostLink] = useState("");       // paste-a-link box
+  const [importingPost, setImportingPost] = useState(false); // link fetch in flight
 
   const mediaInput = useRef(null);
   const pdfInput = useRef(null);
@@ -2255,6 +2257,74 @@ function App() {
         } catch (_) { setError("Could not read video: " + f.name); }
         finally { setExtractCount(c => c - 1); }
       }
+    }
+  }
+
+  // Paste a post link -> Cobalt lists its media -> fetch each tunnel URL in the
+  // browser -> feed through addMediaFiles (same path as the picker). YouTube routes
+  // to its own metadata-only handler (Cobalt is bot-blocked on YouTube).
+  async function importFromPostLink(overrideUrl) {
+    const url = (typeof overrideUrl === "string" ? overrideUrl : postLink).trim();
+    setError(""); setMediaNote("");
+    if (!/^https?:\/\//i.test(url)) { setError("Paste a full post link starting with http(s):// first."); return; }
+    if (MAX_MEDIA - media.length <= 0) { setMediaNote(`That's the limit of ${MAX_MEDIA} items — remove one to add more.`); return; }
+    if (youtubeIdFromLink(url)) return importYouTubeLink(url);
+
+    setImportingPost(true);
+    try {
+      const headers = { "Content-Type": "application/json" };
+      if (passcode.trim()) headers["x-sb-passcode"] = passcode.trim();
+      const resp = await fetch(API_BASE + "/api/fetch-post-media", { method: "POST", headers, body: JSON.stringify({ url }) });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) { setError(data.error || "Couldn't fetch that post. Check the link and try again."); return; }
+      const items = Array.isArray(data.items) ? data.items : [];
+      if (!items.length) { setMediaNote(data.error || data.note || "No photos or videos found in that post."); return; }
+
+      const files = [];
+      for (const it of items) {
+        try {
+          const mr = await fetch(it.url);                 // Cobalt tunnel is CORS-open
+          if (!mr.ok) throw new Error("http " + mr.status);
+          const b = await mr.blob();
+          const fallback = it.type === "video" ? "video/mp4" : "image/jpeg";
+          files.push(new File([b], it.filename || (it.type === "video" ? "clip.mp4" : "photo.jpg"), { type: b.type || fallback }));
+        } catch (_) { /* skip the ones the site blocks */ }
+      }
+      if (!files.length) { setError("Found media but couldn't download it (the site may be blocking it)."); return; }
+      await addMediaFiles(files);                          // handles cap + ingest + transcript
+      if (data.note) setMediaNote(data.note);
+      setPostLink("");
+    } catch (_) {
+      setError("Couldn't reach the link-import service. Try again in a moment.");
+    } finally {
+      setImportingPost(false);
+    }
+  }
+
+  // Paste a YouTube link -> oEmbed title + thumbnail -> reel item kind:"youtube".
+  // Nothing is downloaded; the export bakes a click-to-play player onto its slide.
+  async function importYouTubeLink(url) {
+    setImportingPost(true);
+    try {
+      const headers = { "Content-Type": "application/json" };
+      if (passcode.trim()) headers["x-sb-passcode"] = passcode.trim();
+      const resp = await fetch(API_BASE + "/api/youtube-meta", { method: "POST", headers, body: JSON.stringify({ url }) });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) { setError(data.error || "Couldn't read that YouTube link. Check it and try again."); return; }
+      const thumb = data.thumbnailDataUrl || "";          // clean frame -> fed to the model
+      const poster = await addPlayBadge(thumb);            // play-badged -> reel + slide
+      setMedia(m => m.length >= MAX_MEDIA ? m : [...m, {
+        id: newId(), kind: "youtube", youtubeId: data.videoId,
+        watchUrl: "https://www.youtube.com/watch?v=" + data.videoId,
+        poster, thumb, title: data.title || "", author: data.author || "",
+        name: data.title || "YouTube video", aspect: 16 / 9, text: "",
+      }]);
+      setMediaNote("YouTube clip added. It can't be transcribed — type what happens in it under its thumbnail so the questions match.");
+      setPostLink("");
+    } catch (_) {
+      setError("Couldn't reach the YouTube lookup. Try again in a moment.");
+    } finally {
+      setImportingPost(false);
     }
   }
 
