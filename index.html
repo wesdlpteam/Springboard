@@ -2581,6 +2581,7 @@ function App() {
       pptx.layout = "WIDE";
 
       let sNum = 0; // 1-based slide counter, drives the "n / total" footer
+      const ytMarks = []; // youtubeIds whose slide gets a click-to-play player injected post-build
 
       // --- drawing helpers: each only ever builds fresh object literals (no shared options) ---
       const goldCrest = (s, lw) => { const w = lw || 1.5, h = w / 1.743; s.addImage({ data: WESLEY_LOGO_GOLD, x: W - 0.55 - w, y: 0.4, w, h }); };
@@ -2644,6 +2645,15 @@ function App() {
           const it = items[0];
           const box = contain(x, y, w, Math.max(0.5, mediaH), it.aspect || (it.kind === "video" ? 16 / 9 : w / mediaH));
           if (it.kind === "image") { s.addImage({ data: it.dataUrl, x: box.x, y: box.y, w: box.w, h: box.h }); drew = true; }
+          else if (it.kind === "youtube") {
+            // Poster (play badge baked in). On the primary slide, tag it so the post-build
+            // pass swaps it for a real click-to-play YouTube player; on posterOnly slides it
+            // stays a static poster (one live player per deck, on the IGNITE slide).
+            const mark = !opts.posterOnly;
+            s.addImage({ data: it.poster, x: box.x, y: box.y, w: box.w, h: box.h, altText: mark ? (YT_MARK_PREFIX + it.youtubeId) : undefined });
+            if (mark) ytMarks.push(it.youtubeId);
+            drew = true;
+          }
           else { // video: embed small clips (play in desktop PowerPoint); otherwise its poster frame
             const embed = !opts.posterOnly && !!it.dataUrl && it.sizeBytes <= VIDEO_EMBED_MAX_BYTES;
             if (embed) { s.addMedia({ type: "video", data: it.dataUrl, cover: it.poster || undefined, x: box.x, y: box.y, w: box.w, h: box.h }); drew = true; }
@@ -2794,7 +2804,8 @@ function App() {
       pptx.company = "Wesley College";
       pptx.author = "Springboard";
       const tags = [...kw, routine, curriculum].filter(Boolean);
-      const blob = await pptx.write({ outputType: "blob" });
+      let blob = await pptx.write({ outputType: "blob" });
+      blob = await injectYouTubeVideos(blob, ytMarks); // no-op when ytMarks is empty
       return await stampDocProps(blob, { Title: title, Subject: pptx.subject, Company: "Wesley College" }, tags);
     } catch (err) {
       setError("PowerPoint export failed: " + (err.message || String(err)));
