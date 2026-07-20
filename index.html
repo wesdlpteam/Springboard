@@ -757,6 +757,30 @@
   @media (prefers-reduced-motion: reduce) {
     .bx-cue .l, .bx-working .sp::after { animation: none; }
   }
+
+  /* ---------- Brain World (bw-) ---------- */
+  .bw-night { position: fixed; inset: 0; z-index: 0; background: #101017; opacity: 0; transition: opacity .5s; pointer-events: none; }
+  .bw-on-night .bw-night { opacity: 1; }
+  .bw-gl { position: fixed; inset: 0; z-index: 1; width: 100%; height: 100%; display: block; }
+  .bw-scene { position: fixed; inset: 0; z-index: 2; display: grid; place-items: center; text-align: center; padding: 24px; }
+  /* cover: text top, Enter bottom — the brain owns the middle of the frame */
+  .bw-cover { display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: clamp(84px, 11vh, 120px) 24px clamp(26px, 4vh, 44px); }
+  .bw-cover a { color: inherit; }
+  .bw-cover .bw-top { background: radial-gradient(closest-side, var(--paper) 35%, color-mix(in srgb, var(--paper) 60%, transparent) 70%, transparent 100%); padding: 10px clamp(30px, 6vw, 90px) 26px; }
+  .bw-cover .bw-bottom { background: radial-gradient(closest-side, var(--paper) 30%, color-mix(in srgb, var(--paper) 55%, transparent) 68%, transparent 100%); padding: 14px clamp(30px, 6vw, 90px) 6px; }
+  .bw-cover .bx-kicker { display: block; margin-bottom: 16px; }
+  .bw-cover h1 { font-family: var(--bx-display); font-weight: 400; font-size: clamp(34px, 4.2vw, 64px); line-height: 1.04; letter-spacing: -.025em; margin: 0 auto; text-wrap: balance; max-width: 22ch; }
+  .bw-cover h1 em { font-style: italic; }
+  .bw-cover .bw-sub { margin: 14px auto 0; color: var(--ink-soft); font-size: clamp(13.5px,1.2vw,16px); max-width: 52ch; }
+  .bw-enter { display: inline-flex; align-items: center; gap: 12px; border: 1px solid var(--ink); background: var(--ink); color: var(--paper); font: inherit; font-size: 15px; letter-spacing: .02em; padding: 14px 30px; border-radius: 999px; cursor: pointer; transition: transform .15s, box-shadow .2s; }
+  .bw-enter:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(16,16,23,.25); }
+  .bw-enter:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+  .bw-on-night .bx-mast { background: linear-gradient(to bottom, rgba(16,16,23,.9) 55%, transparent); }
+  .bw-on-night .bx-mast .bx-word, .bw-on-night .bx-mast .bx-nav a, .bw-on-night .bx-mast .bx-nav button { color: #d9d9e3; }
+  .bw-on-night .bx-mast .bx-nav a:hover, .bw-on-night .bx-mast .bx-nav button:hover { color: #fff; }
+  .bw-on-night .bx-tog { border-color: rgba(255,255,255,.35); }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  @media (prefers-reduced-motion: reduce) { .bw-night { transition: opacity .4s; } }
 </style>
 
 <script type="text/babel" data-presets="react-classic">
@@ -2257,6 +2281,26 @@ const BX_COLOR = {
 };
 const bxColor = (name) => BX_COLOR[name] || "#17171b";
 
+// Rasterise the Lucide brain paths offscreen, return `count` normalized points
+// [x,y] in roughly [-1,1] (aspect preserved, centred). Returns [] on any failure.
+function sampleBrainSilhouette(count) {
+  const BRAIN_D = ["M12 18V5", "M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4", "M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5", "M17.997 5.125a4 4 0 0 1 2.526 5.77", "M18 18a4 4 0 0 0 2-7.464", "M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517", "M6 18a4 4 0 0 1-2-7.464", "M6.003 5.125a4 4 0 0 0-2.526 5.77"];
+  const S = 600, pad = 96;
+  let g; try { const oc = document.createElement("canvas"); oc.width = oc.height = S; g = oc.getContext("2d", { willReadFrequently: true }); } catch (e) { return []; }
+  g.strokeStyle = "#000"; g.lineJoin = g.lineCap = "round";
+  const sc = (S - pad * 2) / 24; g.setTransform(sc, 0, 0, sc, pad, pad); g.lineWidth = 1.7;
+  for (const d of BRAIN_D) { try { g.stroke(new Path2D(d)); } catch (e) {} }
+  let data; try { data = g.getImageData(0, 0, S, S).data; } catch (e) { return []; }
+  const raw = [];
+  for (let y = 0; y < S; y += 2) for (let x = 0; x < S; x += 2) if (data[(y * S + x) * 4 + 3] > 40) raw.push([x, y]);
+  if (!raw.length) return [];
+  for (let i = raw.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; const t = raw[i]; raw[i] = raw[j]; raw[j] = t; }
+  let minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
+  for (const p of raw) { if (p[0] < minx) minx = p[0]; if (p[0] > maxx) maxx = p[0]; if (p[1] < miny) miny = p[1]; if (p[1] > maxy) maxy = p[1]; }
+  const cx = (minx + maxx) / 2, cy = (miny + maxy) / 2, half = Math.max(maxx - minx, maxy - miny) / 2 || 1;
+  return raw.slice(0, Math.min(count, raw.length)).map(p => [(p[0] - cx) / half, -(p[1] - cy) / half]);
+}
+
 function App() {
   // config — passcode persists in this browser's localStorage (per user request)
   const [passcode, setPasscode] = useState(() => { try { return localStorage.getItem(KEY_STORE) || ""; } catch (_) { return ""; } });
@@ -2265,7 +2309,13 @@ function App() {
   const [brainView, setBrainView] = useState(true);
   const [openSlide, setOpenSlide] = useState(null);   // which bloomed slide is previewed
   const [bxDrag, setBxDrag] = useState(false);        // dropzone dragover
-  const brainCanvasRef = useRef(null);
+  // Brain World scenes: cover (porcelain, rotating brain) -> transport -> inside -> chamber
+  const [bxScene, setBxScene] = useState("cover");
+  const [glOk, setGlOk] = useState(true);             // WebGL/Three available
+  const sceneRef = useRef("cover");                   // RAF-readable mirror of bxScene
+  const brainGlRef = useRef(null);                    // the WebGL canvas
+  const nightRef = useRef(null);                      // deep-night DOM layer
+  const brainApi = useRef(null);                      // imperative camera/world API
   const brainRootRef = useRef(null);
 
   // inputs
@@ -3056,80 +3106,97 @@ function App() {
     } finally { busyRef.current.exporting = false; setExporting(false); }
   }
 
-  /* ---------- editorial brain experience: canvas + GSAP scroll (sandbox) ---------- */
+  /* ---------- Brain World: persistent Three.js scene (sandbox) ---------- */
+  useEffect(() => { sceneRef.current = bxScene; }, [bxScene]);
+  useEffect(() => { // scene-based experience: the page never scrolls in brain view
+    if (!brainView) return;
+    const prev = document.body.style.overflow; document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [brainView]);
   useEffect(() => {
     if (!brainView) return;
-    const canvas = brainCanvasRef.current; if (!canvas) return;
-    const ctx = canvas.getContext("2d");
+    const T = window.THREE, canvas = brainGlRef.current;
     const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const BRAIN_D = ["M12 18V5", "M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4", "M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5", "M17.997 5.125a4 4 0 0 1 2.526 5.77", "M18 18a4 4 0 0 0 2-7.464", "M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517", "M6 18a4 4 0 0 1-2-7.464", "M6.003 5.125a4 4 0 0 0-2.526 5.77"];
-    const cols = Object.values(BX_COLOR);
-    let raf = 0, W = 0, H = 0, DPR = 1, last = 0, zoom = 1, pts = [], edges = [], cx = 0, cy = 0;
-    // Sample points ALONG the brain outline so the particles literally form a brain.
-    const buildBrain = () => {
-      const S = 600, pad = 96; let oc, g;
-      try { oc = document.createElement("canvas"); oc.width = oc.height = S; g = oc.getContext("2d"); } catch (e) { return; }
-      g.clearRect(0, 0, S, S); g.strokeStyle = "#000"; g.lineJoin = "round"; g.lineCap = "round";
-      const scg = (S - pad * 2) / 24; g.setTransform(scg, 0, 0, scg, pad, pad); g.lineWidth = 1.7;
-      for (const d of BRAIN_D) { try { g.stroke(new Path2D(d)); } catch (e) {} }
-      let data; try { data = g.getImageData(0, 0, S, S).data; } catch (e) { return; }
-      const raw = []; for (let y = 0; y < S; y += 2) for (let x = 0; x < S; x += 2) { if (data[(y * S + x) * 4 + 3] > 40) raw.push([x, y]); }
-      if (!raw.length) return;
-      for (let i = raw.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; const t = raw[i]; raw[i] = raw[j]; raw[j] = t; }
-      const chosen = raw.slice(0, Math.min(1100, raw.length));
-      let minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
-      for (const p of chosen) { if (p[0] < minx) minx = p[0]; if (p[0] > maxx) maxx = p[0]; if (p[1] < miny) miny = p[1]; if (p[1] > maxy) maxy = p[1]; }
-      const bw = maxx - minx || 1, bh = maxy - miny || 1, target = Math.min(W, H) * 0.82, s = target / Math.max(bw, bh);
-      // wide screens: seat brain right of the copy column so scrim never washes it;
-      // narrow screens: seat it low, under the stacked copy
-      const bcx = W > 900 ? W * 0.62 : W / 2;
-      const bcy = W > 900 ? H / 2 : H * 0.62;
-      const ox = bcx - (bw * s) / 2 - minx * s, oy = bcy - (bh * s) / 2 - miny * s;
-      pts = chosen.map(p => { const hx = p[0] * s + ox, hy = p[1] * s + oy; return { hx, hy, x: hx, y: hy, ph: Math.random() * 6.283, amp: 0.6 + Math.random() * 1.3, ac: Math.random() < 0.12, ci: (Math.random() * cols.length) | 0 }; });
-      cx = bcx; cy = bcy;
-      edges = []; const seen = new Set(), lim = (target * 0.15) * (target * 0.15);
-      for (let i = 0; i < pts.length; i++) { let n1 = -1, n2 = -1, n3 = -1, d1 = 1e9, d2 = 1e9, d3 = 1e9;
-        for (let j = 0; j < pts.length; j++) { if (j === i) continue; const dx = pts[i].hx - pts[j].hx, dy = pts[i].hy - pts[j].hy, dd = dx * dx + dy * dy;
-          if (dd < d1) { d3 = d2; n3 = n2; d2 = d1; n2 = n1; d1 = dd; n1 = j; } else if (dd < d2) { d3 = d2; n3 = n2; d2 = dd; n2 = j; } else if (dd < d3) { d3 = dd; n3 = j; } }
-        [[i, n1], [i, n2], [i, n3]].forEach(pr => { const a = pr[0], b = pr[1]; if (b < 0) return; const k = a < b ? a + "-" + b : b + "-" + a; if (seen.has(k)) return; seen.add(k);
-          const dx = pts[a].hx - pts[b].hx, dy = pts[a].hy - pts[b].hy; if (dx * dx + dy * dy < lim) edges.push([a, b]); });
-      }
+    if (!T || !canvas) { setGlOk(false); return; }
+    let renderer;
+    try { renderer = new T.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "high-performance" }); }
+    catch (e) { setGlOk(false); return; }
+    const mobile = window.innerWidth < 900;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobile ? 1.5 : 2));
+    renderer.setClearColor(0x000000, 0); // transparent: porcelain page shows through on the cover
+    const scene = new T.Scene();
+    const camera = new T.PerspectiveCamera(55, 1, 0.1, 120);
+    camera.position.set(0, -0.02, 3.55);
+    const N_PTS = mobile ? 2200 : 6000;
+    const flat = sampleBrainSilhouette(N_PTS);
+    if (!flat.length) { setGlOk(false); renderer.dispose(); return; }
+    // give the silhouette volume: depth budget shrinks toward the rim
+    const pos = new Float32Array(flat.length * 3), inkCol = new Float32Array(flat.length * 3), glowCol = new Float32Array(flat.length * 3);
+    const ink = new T.Color("#17171d"), glow = new T.Color("#8f93b4"), white = new T.Color("#ffffff"), tmp = new T.Color();
+    const moveCols = Object.values(BX_COLOR).map(c => new T.Color(c));
+    for (let i = 0; i < flat.length; i++) {
+      const x = flat[i][0] * 1.6, y = flat[i][1] * 1.6;
+      const r = Math.min(1, Math.hypot(flat[i][0], flat[i][1]));
+      const z = (Math.random() * 2 - 1) * Math.sqrt(Math.max(0.02, 1 - r * r)) * 0.85;
+      pos.set([x + (Math.random() - .5) * .05, y + (Math.random() - .5) * .05, z], i * 3);
+      const accent = Math.random() < 0.1 ? moveCols[(Math.random() * moveCols.length) | 0] : null;
+      tmp.copy(accent || ink); inkCol.set([tmp.r, tmp.g, tmp.b], i * 3);
+      if (accent) { tmp.copy(accent).lerp(white, 0.25); } else { tmp.copy(glow); }
+      glowCol.set([tmp.r, tmp.g, tmp.b], i * 3);
+    }
+    const geo = new T.BufferGeometry();
+    geo.setAttribute("position", new T.BufferAttribute(pos, 3));
+    const mkPts = (colors, opacity, blending) => {
+      const g2 = geo.clone(); g2.setAttribute("color", new T.BufferAttribute(colors, 3));
+      const m = new T.PointsMaterial({ size: 0.028, vertexColors: true, transparent: true, opacity, depthWrite: false, blending, sizeAttenuation: true });
+      return new T.Points(g2, m);
     };
-    const resize = () => {
-      const wrap = canvas.parentElement; if (!wrap) return; const r = wrap.getBoundingClientRect();
-      DPR = Math.min(window.devicePixelRatio || 1, 2); W = r.width; H = r.height;
-      canvas.width = Math.max(1, (W * DPR) | 0); canvas.height = Math.max(1, (H * DPR) | 0);
-      buildBrain();
+    const inkPts = mkPts(inkCol, 0.9, T.NormalBlending);
+    const glowPts = mkPts(glowCol, 0, T.AdditiveBlending);
+    // synapse lines: nearest neighbour over a sampled subset
+    const L = mobile ? 700 : 1600, lp = new Float32Array(L * 6);
+    for (let i = 0; i < L; i++) {
+      const a = (Math.random() * flat.length) | 0; let best = a === 0 ? 1 : 0, bd = 1e9;
+      for (let t2 = 0; t2 < 24; t2++) { const b = (Math.random() * flat.length) | 0; if (b === a) continue;
+        const dx = pos[a*3]-pos[b*3], dy = pos[a*3+1]-pos[b*3+1], dz = pos[a*3+2]-pos[b*3+2], dd = dx*dx+dy*dy+dz*dz;
+        if (dd < bd) { bd = dd; best = b; } }
+      lp.set([pos[a*3], pos[a*3+1], pos[a*3+2], pos[best*3], pos[best*3+1], pos[best*3+2]], i * 6);
+    }
+    const lgeo = new T.BufferGeometry(); lgeo.setAttribute("position", new T.BufferAttribute(lp, 3));
+    const inkLines = new T.LineSegments(lgeo, new T.LineBasicMaterial({ color: 0x1c1c22, transparent: true, opacity: 0.3, depthWrite: false }));
+    const glowLines = new T.LineSegments(lgeo.clone(), new T.LineBasicMaterial({ color: 0x6f74a0, transparent: true, opacity: 0, depthWrite: false, blending: T.AdditiveBlending }));
+    const brainGroup = new T.Group(); brainGroup.add(inkPts, glowPts, inkLines, glowLines); scene.add(brainGroup);
+    // far specks: depth parallax once inside
+    const SN = 800, sp = new Float32Array(SN * 3);
+    for (let i = 0; i < SN; i++) { const R = 18 + Math.random() * 40, th = Math.random() * 6.283, ph = Math.acos(2 * Math.random() - 1);
+      sp.set([R * Math.sin(ph) * Math.cos(th), R * Math.cos(ph), R * Math.sin(ph) * Math.sin(th)], i * 3); }
+    const sgeo = new T.BufferGeometry(); sgeo.setAttribute("position", new T.BufferAttribute(sp, 3));
+    const specks = new T.Points(sgeo, new T.PointsMaterial({ color: 0x50546e, size: 0.35, transparent: true, opacity: 0, depthWrite: false, sizeAttenuation: true }));
+    scene.add(specks);
+    const world = { renderer, scene, camera, brainGroup, inkPts, glowPts, inkLines, glowLines, specks, reduce };
+    brainApi.current = {
+      world,
+      setNight(v) { // 0 = porcelain cover, 1 = deep night
+        inkPts.material.opacity = 0.9 * (1 - v); inkLines.material.opacity = 0.3 * (1 - v);
+        glowPts.material.opacity = 0.95 * v; glowLines.material.opacity = 0.45 * v;
+        specks.material.opacity = 0.6 * v;
+      },
     };
-    resize();
-    const ro = window.ResizeObserver ? new ResizeObserver(resize) : null; if (ro) ro.observe(canvas.parentElement);
+    const resize = () => { const w = canvas.clientWidth, h = canvas.clientHeight;
+      renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); };
+    resize(); window.addEventListener("resize", resize);
+    let raf = 0, tPrev = 0;
     const frame = (now) => {
-      raf = requestAnimationFrame(frame); if (document.hidden) { last = now; return; }
-      last = now; ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
-      if (!pts.length) return;
-      const alpha = Math.max(0, Math.min(1, 1 - (zoom - 2.2) / 1.4)); if (alpha <= 0) return;
-      const t = now * 0.001, zc = Math.max(.5, Math.min(zoom, 2.4));
-      const px = p => cx + (p.x - cx) * zoom, py = p => cy + (p.y - cy) * zoom;
-      for (const p of pts) { if (!reduce) { p.x = p.hx + Math.sin(t * 0.7 + p.ph) * p.amp; p.y = p.hy + Math.cos(t * 0.6 + p.ph) * p.amp; } }
-      ctx.lineWidth = 1.35;
-      for (const e of edges) { const a = pts[e[0]], b = pts[e[1]]; ctx.strokeStyle = "rgba(20,20,24," + (0.36 * alpha).toFixed(3) + ")"; ctx.beginPath(); ctx.moveTo(px(a), py(a)); ctx.lineTo(px(b), py(b)); ctx.stroke(); }
-      for (const p of pts) { ctx.globalAlpha = (p.ac ? 0.96 : 0.84) * alpha; ctx.beginPath(); ctx.arc(px(p), py(p), (p.ac ? 2.4 : 1.75) * zc, 0, 6.283); ctx.fillStyle = p.ac ? cols[p.ci] : "#141418"; ctx.fill(); }
-      ctx.globalAlpha = 1;
+      raf = requestAnimationFrame(frame); if (document.hidden) return;
+      const dt = Math.min(0.05, (now - tPrev) / 1000 || 0.016); tPrev = now;
+      if (!reduce && sceneRef.current === "cover") brainGroup.rotation.y = Math.sin(now * 0.00035) * 0.6; // sway, not spin: the extruded silhouette is flat side-on
+      renderer.render(scene, camera);
     };
     raf = requestAnimationFrame(frame);
-    let lenis = null; const sts = [];
-    try {
-      if (!reduce && window.gsap && window.ScrollTrigger) {
-        const gsap = window.gsap, ST = window.ScrollTrigger; gsap.registerPlugin(ST);
-        if (window.Lenis) { lenis = new Lenis({ lerp: .09, smoothWheel: true }); lenis.on("scroll", ST.update); gsap.ticker.add(t => lenis.raf(t * 1000)); gsap.ticker.lagSmoothing(0); }
-        const zt = gsap.to({ z: 1 }, { z: 3.7, ease: "none", onUpdate() { zoom = this.targets()[0].z; }, scrollTrigger: { trigger: ".bx-hero", start: "top top", end: "bottom top", scrub: true } });
-        if (zt.scrollTrigger) sts.push(zt.scrollTrigger);
-        gsap.to(".bx-hero-copy", { opacity: 0, y: -50, ease: "none", scrollTrigger: { trigger: ".bx-hero", start: "top top", end: "bottom top", scrub: true } });
-        gsap.utils.toArray("[data-bx-reveal]").forEach(el => { const tw = gsap.from(el, { opacity: 0, y: 34, duration: 1, ease: "power3.out", scrollTrigger: { trigger: el, start: "top 86%", toggleActions: "play none none reverse" } }); if (tw.scrollTrigger) sts.push(tw.scrollTrigger); });
-      }
-    } catch (e) { /* enhancement only */ }
-    return () => { cancelAnimationFrame(raf); if (ro) ro.disconnect(); sts.forEach(s => s && s.kill && s.kill()); if (lenis) lenis.destroy(); if (window.ScrollTrigger) window.ScrollTrigger.refresh(); };
+    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", resize);
+      renderer.dispose(); geo.dispose(); lgeo.dispose(); sgeo.dispose(); brainApi.current = null; };
   }, [brainView]);
+  const enterMind = () => {};
 
   const scrollToId = (id) => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); };
   const onPickBrainMove = (name) => { pickMove(name); setTimeout(() => scrollToId("bx-tool"), 80); };
@@ -3257,57 +3324,33 @@ function App() {
   );
 
   const renderBrain = () => (
-    <div className="bx" ref={brainRootRef}>
+    <div className={"bx" + (bxScene !== "cover" ? " bw-on-night" : "")} ref={brainRootRef}>
       <div className="bx-grain" aria-hidden="true" />
+      <div className="bw-night" ref={nightRef} aria-hidden="true" />
+      <canvas className="bw-gl" ref={brainGlRef} aria-hidden="true" />
       <header className="bx-mast">
         <div className="bx-word">Spring<i>board</i></div>
         <nav className="bx-nav">
-          <button onClick={() => scrollToId("bx-map")}>The moves</button>
           <a href="about.html" target="_blank" rel="noopener">About</a>
           <button className="bx-tog" onClick={() => setBrainView(false)}>Classic view</button>
         </nav>
       </header>
 
-      <section className="bx-hero">
-        <div className="bx-hero-copy">
-          <span className="bx-kicker">A thinking tool for Wesley teachers</span>
-          <h1>Every lesson begins in the <em>mind.</em></h1>
-          <p className="bx-lede">Springboard turns a photograph, a film or an article into a Project Zero thinking lesson — pitched to your class, ready in about two minutes.</p>
-          <div className="bx-meta">
-            <div><b>Eight</b> thinking moves</div>
-            <div><b>Four</b> slides, made for you</div>
-            <div><b>~2 min</b> to a deck</div>
+      {bxScene === "cover" && (
+        <div className="bw-scene bw-cover">
+          <div className="bw-top">
+            <span className="bx-kicker">A thinking tool for Wesley teachers</span>
+            <h1>Every lesson begins in the <em>mind.</em></h1>
+            <p className="bw-sub">Springboard turns a photograph, a film or an article into a Project Zero thinking lesson — ready in about two minutes.</p>
+          </div>
+          <div className="bw-bottom">
+            <button className="bw-enter" autoFocus onClick={enterMind}>Enter the mind →</button>
+            <p className="bw-sub" style={{ fontSize: 12.5, opacity: .8, marginTop: 14 }}>Eight thinking moves · Cultures of Thinking · <a href="https://pz.harvard.edu/thinking-routines" target="_blank" rel="noopener">Harvard Project Zero</a></p>
           </div>
         </div>
-        <div className="bx-brain-wrap"><canvas id="bx-brain" ref={brainCanvasRef} aria-hidden="true"></canvas></div>
-        <div className="bx-cue" aria-hidden="true"><span className="l" /> Scroll into the map</div>
-      </section>
-
-      <section className="bx-dive"><p data-bx-reveal>Look closer. Choose <em>how your class will think.</em></p></section>
-
-      <section className="bx-map" id="bx-map">
-        <div className="bx-map-head" data-bx-reveal>
-          <h2>The Understanding Map</h2>
-          <span className="bx-count">Eight moves · Cultures of Thinking</span>
-        </div>
-        <ul className="bx-moves">
-          {MOVES.map((m, i) => (
-            <li key={m.name}>
-              <button className={"bx-move" + (selectedMove === m.name ? " sel" : "")} style={{ "--mv": bxColor(m.name) }} onClick={() => onPickBrainMove(m.name)}>
-                <span className="bx-idx">{String(i + 1).padStart(2, "0")}</span>
-                <span><span className="bx-name">{m.name}</span><span className="bx-q">{m.question}</span></span>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 14 }}><span className="bx-dot" /><span className="bx-go">Begin →</span></span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
+      )}
 
       {selectedMoveObj && renderBrainTool()}
-
-      <footer className="bx-foot">
-        <div style={{ maxWidth: "62ch" }}>Built for Wesley College teachers. The eight thinking moves are from the Cultures of Thinking project and <a href="https://pz.harvard.edu/thinking-routines" target="_blank" rel="noopener">Harvard Project Zero</a>. A sandbox experiment.</div>
-      </footer>
 
       {openSlide && spot && renderBrainPreview()}
     </div>
