@@ -3067,24 +3067,24 @@ function App() {
       const S = 600, pad = 96; let oc, g;
       try { oc = document.createElement("canvas"); oc.width = oc.height = S; g = oc.getContext("2d"); } catch (e) { return; }
       g.clearRect(0, 0, S, S); g.strokeStyle = "#000"; g.lineJoin = "round"; g.lineCap = "round";
-      const scg = (S - pad * 2) / 24; g.setTransform(scg, 0, 0, scg, pad, pad); g.lineWidth = 1.0;
+      const scg = (S - pad * 2) / 24; g.setTransform(scg, 0, 0, scg, pad, pad); g.lineWidth = 1.7;
       for (const d of BRAIN_D) { try { g.stroke(new Path2D(d)); } catch (e) {} }
       let data; try { data = g.getImageData(0, 0, S, S).data; } catch (e) { return; }
       const raw = []; for (let y = 0; y < S; y += 2) for (let x = 0; x < S; x += 2) { if (data[(y * S + x) * 4 + 3] > 40) raw.push([x, y]); }
       if (!raw.length) return;
       for (let i = raw.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; const t = raw[i]; raw[i] = raw[j]; raw[j] = t; }
-      const chosen = raw.slice(0, Math.min(640, raw.length));
+      const chosen = raw.slice(0, Math.min(1100, raw.length));
       let minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
       for (const p of chosen) { if (p[0] < minx) minx = p[0]; if (p[0] > maxx) maxx = p[0]; if (p[1] < miny) miny = p[1]; if (p[1] > maxy) maxy = p[1]; }
-      const bw = maxx - minx || 1, bh = maxy - miny || 1, target = Math.min(W, H) * 0.78, s = target / Math.max(bw, bh);
+      const bw = maxx - minx || 1, bh = maxy - miny || 1, target = Math.min(W, H) * 0.82, s = target / Math.max(bw, bh);
       const ox = (W - bw * s) / 2 - minx * s, oy = (H - bh * s) / 2 - miny * s;
       pts = chosen.map(p => { const hx = p[0] * s + ox, hy = p[1] * s + oy; return { hx, hy, x: hx, y: hy, ph: Math.random() * 6.283, amp: 0.6 + Math.random() * 1.3, ac: Math.random() < 0.12, ci: (Math.random() * cols.length) | 0 }; });
       cx = W / 2; cy = H / 2;
       edges = []; const seen = new Set(), lim = (target * 0.15) * (target * 0.15);
-      for (let i = 0; i < pts.length; i++) { let n1 = -1, n2 = -1, d1 = 1e9, d2 = 1e9;
+      for (let i = 0; i < pts.length; i++) { let n1 = -1, n2 = -1, n3 = -1, d1 = 1e9, d2 = 1e9, d3 = 1e9;
         for (let j = 0; j < pts.length; j++) { if (j === i) continue; const dx = pts[i].hx - pts[j].hx, dy = pts[i].hy - pts[j].hy, dd = dx * dx + dy * dy;
-          if (dd < d1) { d2 = d1; n2 = n1; d1 = dd; n1 = j; } else if (dd < d2) { d2 = dd; n2 = j; } }
-        [[i, n1], [i, n2]].forEach(pr => { const a = pr[0], b = pr[1]; if (b < 0) return; const k = a < b ? a + "-" + b : b + "-" + a; if (seen.has(k)) return; seen.add(k);
+          if (dd < d1) { d3 = d2; n3 = n2; d2 = d1; n2 = n1; d1 = dd; n1 = j; } else if (dd < d2) { d3 = d2; n3 = n2; d2 = dd; n2 = j; } else if (dd < d3) { d3 = dd; n3 = j; } }
+        [[i, n1], [i, n2], [i, n3]].forEach(pr => { const a = pr[0], b = pr[1]; if (b < 0) return; const k = a < b ? a + "-" + b : b + "-" + a; if (seen.has(k)) return; seen.add(k);
           const dx = pts[a].hx - pts[b].hx, dy = pts[a].hy - pts[b].hy; if (dx * dx + dy * dy < lim) edges.push([a, b]); });
       }
     };
@@ -3104,9 +3104,9 @@ function App() {
       const t = now * 0.001, zc = Math.max(.5, Math.min(zoom, 2.4));
       const px = p => cx + (p.x - cx) * zoom, py = p => cy + (p.y - cy) * zoom;
       for (const p of pts) { if (!reduce) { p.x = p.hx + Math.sin(t * 0.7 + p.ph) * p.amp; p.y = p.hy + Math.cos(t * 0.6 + p.ph) * p.amp; } }
-      ctx.lineWidth = 1;
-      for (const e of edges) { const a = pts[e[0]], b = pts[e[1]]; ctx.strokeStyle = "rgba(23,23,27," + (0.2 * alpha).toFixed(3) + ")"; ctx.beginPath(); ctx.moveTo(px(a), py(a)); ctx.lineTo(px(b), py(b)); ctx.stroke(); }
-      for (const p of pts) { ctx.globalAlpha = (p.ac ? 0.9 : 0.6) * alpha; ctx.beginPath(); ctx.arc(px(p), py(p), (p.ac ? 1.9 : 1.25) * zc, 0, 6.283); ctx.fillStyle = p.ac ? cols[p.ci] : "#17171b"; ctx.fill(); }
+      ctx.lineWidth = 1.35;
+      for (const e of edges) { const a = pts[e[0]], b = pts[e[1]]; ctx.strokeStyle = "rgba(20,20,24," + (0.36 * alpha).toFixed(3) + ")"; ctx.beginPath(); ctx.moveTo(px(a), py(a)); ctx.lineTo(px(b), py(b)); ctx.stroke(); }
+      for (const p of pts) { ctx.globalAlpha = (p.ac ? 0.96 : 0.84) * alpha; ctx.beginPath(); ctx.arc(px(p), py(p), (p.ac ? 2.4 : 1.75) * zc, 0, 6.283); ctx.fillStyle = p.ac ? cols[p.ci] : "#141418"; ctx.fill(); }
       ctx.globalAlpha = 1;
     };
     raf = requestAnimationFrame(frame);
