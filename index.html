@@ -780,7 +780,23 @@
   .bw-on-night .bx-mast .bx-nav a:hover, .bw-on-night .bx-mast .bx-nav button:hover { color: #fff; }
   .bw-on-night .bx-tog { border-color: rgba(255,255,255,.35); }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  @media (prefers-reduced-motion: reduce) { .bw-night { transition: opacity .4s; } }
+  /* inside the mind: constellation labels (projected from 3D each frame) */
+  .bw-inside { position: fixed; inset: 0; z-index: 2; }
+  .bw-label { position: absolute; left: 0; top: 0; visibility: hidden; background: none; border: 0; cursor: pointer; text-align: center; color: var(--bwt); font: inherit; padding: 10px 14px; transition: opacity .3s; will-change: transform; }
+  .bw-label-name { display: block; font-family: var(--bx-display); font-weight: 400; font-size: clamp(19px, 2vw, 27px); letter-spacing: -.01em; white-space: nowrap; text-shadow: 0 0 24px rgba(0,0,0,.9); }
+  .bw-label-q { display: block; font-size: 12.5px; color: #b9bac9; margin-top: 4px; white-space: nowrap; }
+  .bw-label:hover .bw-label-name, .bw-label:focus-visible .bw-label-name { text-decoration: underline; text-underline-offset: 5px; }
+  .bw-label:focus-visible { outline: 2px solid var(--bwt); outline-offset: 2px; border-radius: 6px; }
+  .bw-listbtn { position: fixed; right: clamp(20px,4vw,52px); bottom: 26px; background: none; border: 1px solid rgba(255,255,255,.3); color: #d9d9e3; font: inherit; font-size: 12.5px; padding: 8px 16px; border-radius: 999px; cursor: pointer; }
+  .bw-listbtn:hover { border-color: #fff; color: #fff; }
+  .bw-list { position: fixed; inset: 0; z-index: 5; background: rgba(16,16,23,.92); display: flex; flex-direction: column; justify-content: center; padding: 8vh clamp(24px,10vw,180px); gap: 2px; overflow: auto; }
+  .bw-list-row { display: grid; grid-template-columns: 14px 1fr; column-gap: 14px; align-items: baseline; text-align: left; background: none; border: 0; border-bottom: 1px solid rgba(255,255,255,.12); padding: 13px 4px; cursor: pointer; font: inherit; }
+  .bw-list-row i { width: 10px; height: 10px; border-radius: 50%; background: var(--bwt); align-self: center; }
+  .bw-list-row b { font-family: var(--bx-display); font-weight: 400; font-size: clamp(18px,2.4vw,26px); color: var(--bwt); }
+  .bw-list-row span { grid-column: 2; font-size: 13px; color: #b9bac9; margin-top: 3px; }
+  .bw-list-row:hover b { text-decoration: underline; text-underline-offset: 4px; }
+  .bw-list-close { position: absolute; top: 20px; right: 26px; background: none; border: 0; color: #d9d9e3; font-size: 26px; cursor: pointer; }
+  @media (prefers-reduced-motion: reduce) { .bw-night { transition: opacity .4s; } .bw-label { transition: none; } }
 </style>
 
 <script type="text/babel" data-presets="react-classic">
@@ -2281,6 +2297,14 @@ const BX_COLOR = {
 };
 const bxColor = (name) => BX_COLOR[name] || "#17171b";
 
+// Night-world text tint: move colour lifted toward white for AA on #101017.
+const BW_TINT = Object.fromEntries(Object.entries(BX_COLOR).map(([k, v]) => {
+  const c = parseInt(v.slice(1), 16), r = c >> 16, g = (c >> 8) & 255, b = c & 255;
+  const L = (x) => Math.round(x + (255 - x) * 0.45);
+  return [k, "rgb(" + L(r) + "," + L(g) + "," + L(b) + ")"];
+}));
+const bwTint = (name) => BW_TINT[name] || "#e6e6ee";
+
 // Rasterise the Lucide brain paths offscreen, return `count` normalized points
 // [x,y] in roughly [-1,1] (aspect preserved, centred). Returns [] on any failure.
 function sampleBrainSilhouette(count) {
@@ -2316,6 +2340,9 @@ function App() {
   const brainGlRef = useRef(null);                    // the WebGL canvas
   const nightRef = useRef(null);                      // deep-night DOM layer
   const brainApi = useRef(null);                      // imperative camera/world API
+  const labelEls = useRef([]);                        // constellation label buttons, positioned per-frame
+  const hoveredRef = useRef(-1);                      // which constellation the pointer is near
+  const [listOpen, setListOpen] = useState(false);    // "See as a list" overlay
   const brainRootRef = useRef(null);
 
   // inputs
@@ -3173,6 +3200,29 @@ function App() {
     const sgeo = new T.BufferGeometry(); sgeo.setAttribute("position", new T.BufferAttribute(sp, 3));
     const specks = new T.Points(sgeo, new T.PointsMaterial({ color: 0x50546e, size: 0.35, transparent: true, opacity: 0, depthWrite: false, sizeAttenuation: true }));
     scene.add(specks);
+    // eight constellations in a frontal fan inside the camera's view cone
+    const clusters = [];
+    MOVES.map(m => m.name).forEach((name, i) => {
+      const az = (-36 + (72 / 7) * i) * Math.PI / 180;
+      const R = 7 + [0, 1.6, 0.6, 2.4, 0.2, 2.0, 0.9, 1.4][i], Y = [1.4, -0.6, 0.7, -1.2, 1.1, -0.2, 1.7, -0.9][i];
+      const center = new T.Vector3(Math.sin(az) * R, Y, -Math.cos(az) * R);
+      const n = 80, cp = new Float32Array(n * 3);
+      for (let k = 0; k < n; k++) {
+        const th = Math.random() * 6.283, ph = Math.acos(2 * Math.random() - 1), rr = Math.pow(Math.random(), 0.6) * 0.6;
+        cp.set([center.x + rr * Math.sin(ph) * Math.cos(th), center.y + rr * Math.cos(ph), center.z + rr * Math.sin(ph) * Math.sin(th)], k * 3);
+      }
+      const cg = new T.BufferGeometry(); cg.setAttribute("position", new T.BufferAttribute(cp, 3));
+      const col = new T.Color(BX_COLOR[name]).lerp(white, 0.2);
+      const ptsMat = new T.PointsMaterial({ color: col, size: 0.09, transparent: true, opacity: 0, depthWrite: false, blending: T.AdditiveBlending });
+      const pts2 = new T.Points(cg, ptsMat);
+      const LN = 46, ll = new Float32Array(LN * 6);
+      for (let k = 0; k < LN; k++) { const a = (Math.random() * n) | 0, b = (Math.random() * n) | 0;
+        ll.set([cp[a*3], cp[a*3+1], cp[a*3+2], cp[b*3], cp[b*3+1], cp[b*3+2]], k * 6); }
+      const lg = new T.BufferGeometry(); lg.setAttribute("position", new T.BufferAttribute(ll, 3));
+      const lineMat = new T.LineBasicMaterial({ color: col, transparent: true, opacity: 0, depthWrite: false, blending: T.AdditiveBlending });
+      const group = new T.Group(); group.add(pts2, new T.LineSegments(lg, lineMat)); scene.add(group);
+      clusters.push({ center, group, ptsMat, lineMat, drift: Math.random() * 6.283 });
+    });
     const world = { renderer, scene, camera, brainGroup, inkPts, glowPts, inkLines, glowLines, specks, reduce };
     brainApi.current = {
       world,
@@ -3180,11 +3230,17 @@ function App() {
         inkPts.material.opacity = 0.9 * (1 - v); inkLines.material.opacity = 0.3 * (1 - v);
         glowPts.material.opacity = 0.95 * v; glowLines.material.opacity = 0.45 * v;
         specks.material.opacity = 0.6 * v;
+        clusters.forEach(c => { c.ptsMat.opacity = 0.9 * v; c.lineMat.opacity = 0.35 * v; });
+      },
+      clusters,
+      settleInside() { // brain shell -> constant-size dust so near points can't balloon
+        glowPts.material.sizeAttenuation = false; glowPts.material.size = 2.2; glowPts.material.opacity = 0.5; glowPts.material.needsUpdate = true;
+        glowLines.material.opacity = 0.16;
       },
       enter(onArrived) { // the transport: dive through the core into the night
         const api = this;
         const done = () => { camera.position.set(0, 0, 0.001); camera.lookAt(0, 0, -1);
-          brainGroup.rotation.set(0, 0, 0); api.setNight(1); onArrived(); };
+          brainGroup.rotation.set(0, 0, 0); api.setNight(1); api.settleInside(); onArrived(); };
         if (reduce) { done(); return; }
         const st = { z: camera.position.z, n: 0, size: 0.028 };
         api._tw = gsap.to(st, { z: -2.6, n: 1, size: 0.05, duration: 3.4, ease: "power2.inOut",
@@ -3192,17 +3248,32 @@ function App() {
             glowPts.material.size = st.size; camera.lookAt(0, 0, Math.min(0, st.z - 1)); },
           onComplete: () => { glowPts.material.size = 0.028; done(); } });
       },
-      skipToInside() { if (this._tw) this._tw.kill(); glowPts.material.size = 0.028;
-        camera.position.set(0, 0, 0.001); camera.lookAt(0, 0, -1); brainGroup.rotation.set(0, 0, 0); this.setNight(1); },
+      skipToInside() { if (this._tw) this._tw.kill();
+        camera.position.set(0, 0, 0.001); camera.lookAt(0, 0, -1); brainGroup.rotation.set(0, 0, 0); this.setNight(1); this.settleInside(); },
     };
     const resize = () => { const w = canvas.clientWidth, h = canvas.clientHeight;
       renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); };
     resize(); window.addEventListener("resize", resize);
     let raf = 0, tPrev = 0;
+    const frameV3 = new T.Vector3();
     const frame = (now) => {
       raf = requestAnimationFrame(frame); if (document.hidden) return;
       const dt = Math.min(0.05, (now - tPrev) / 1000 || 0.016); tPrev = now;
       if (!reduce && sceneRef.current === "cover") brainGroup.rotation.y = Math.sin(now * 0.00035) * 0.6; // sway, not spin: the extruded silhouette is flat side-on
+      if (sceneRef.current === "inside" || sceneRef.current === "chamber") {
+        if (!reduce && sceneRef.current === "inside") camera.rotation.y = Math.sin(now * 0.00013) * 0.035;
+        const els = labelEls.current;
+        clusters.forEach((c, i) => {
+          if (!reduce) { c.group.position.y = Math.sin(now * 0.0004 + c.drift) * 0.18;
+            const target = hoveredRef.current === i ? 1.14 : 1; const s = c.group.scale.x + (target - c.group.scale.x) * 0.08; c.group.scale.setScalar(s); }
+          const el = els[i]; if (!el) return;
+          frameV3.copy(c.center); frameV3.y += c.group.position.y; frameV3.project(camera);
+          const off = frameV3.z > 1 || Math.abs(frameV3.x) > 1.1 || Math.abs(frameV3.y) > 1.1;
+          el.style.visibility = "visible";
+          el.style.opacity = off ? "0" : "1"; el.style.pointerEvents = off ? "none" : "";
+          el.style.transform = "translate(-50%,-46%) translate(" + ((frameV3.x * 0.5 + 0.5) * canvas.clientWidth).toFixed(1) + "px," + ((-frameV3.y * 0.5 + 0.5) * canvas.clientHeight).toFixed(1) + "px)";
+        });
+      }
       renderer.render(scene, camera);
     };
     raf = requestAnimationFrame(frame);
@@ -3216,13 +3287,18 @@ function App() {
     setBxScene("transport");
     brainApi.current.enter(() => { setBxScene("inside"); announce("Inside the mind. Eight thinking moves around you."); });
   };
+  const chooseMove = (name) => { pickMove(name); setBxScene("chamber"); }; // glide added with the chamber
   useEffect(() => {
     const onKey = (e) => {
       if (e.key !== "Escape") return;
-      if (sceneRef.current === "transport" && brainApi.current) { brainApi.current.skipToInside(); setBxScene("inside"); }
+      if (sceneRef.current === "transport" && brainApi.current) { brainApi.current.skipToInside(); setBxScene("inside"); return; }
+      setListOpen(false);
     };
     window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey);
   }, []);
+  useEffect(() => { // landing inside: hand focus to the first constellation
+    if (bxScene === "inside") setTimeout(() => { if (labelEls.current[0]) labelEls.current[0].focus(); }, 80);
+  }, [bxScene]);
 
   const scrollToId = (id) => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); };
   const onPickBrainMove = (name) => { pickMove(name); setTimeout(() => scrollToId("bx-tool"), 80); };
@@ -3381,7 +3457,32 @@ function App() {
         </div>
       )}
 
-      {selectedMoveObj && renderBrainTool()}
+      {(bxScene === "inside" || bxScene === "chamber") && (
+        <div className="bw-inside" style={bxScene === "chamber" ? { pointerEvents: "none", opacity: 0, transition: "opacity .4s" } : null}>
+          {MOVES.map((m, i) => (
+            <button key={m.name} ref={el => { labelEls.current[i] = el; }} className="bw-label" style={{ "--bwt": bwTint(m.name) }}
+              onMouseEnter={() => { hoveredRef.current = i; }} onMouseLeave={() => { hoveredRef.current = -1; }}
+              onFocus={() => { hoveredRef.current = i; }} onBlur={() => { hoveredRef.current = -1; }}
+              onClick={() => chooseMove(m.name)}>
+              <span className="bw-label-name">{m.name}</span>
+              <span className="bw-label-q">{m.question}</span>
+            </button>
+          ))}
+          {bxScene === "inside" && <button className="bw-listbtn" onClick={() => setListOpen(true)}>See as a list</button>}
+          {listOpen && bxScene === "inside" && (
+            <div className="bw-list" role="dialog" aria-modal="true" aria-label="The eight thinking moves">
+              <button className="bw-list-close" aria-label="Close list" onClick={() => setListOpen(false)}>×</button>
+              {MOVES.map((m) => (
+                <button key={m.name} className="bw-list-row" style={{ "--bwt": bwTint(m.name) }} onClick={() => { setListOpen(false); chooseMove(m.name); }}>
+                  <i /><b>{m.name}</b><span>{m.question}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {bxScene === "chamber" && selectedMoveObj && renderBrainTool()}
 
       {openSlide && spot && renderBrainPreview()}
     </div>
