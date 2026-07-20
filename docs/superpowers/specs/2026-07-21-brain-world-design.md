@@ -26,10 +26,10 @@ Replace the scroll-film brain experience with a click-to-enter journey:
 ## 2. Technology
 
 - **Three.js** for real 3D (points, line segments, perspective camera, fog). Loaded like
-  our other CDN libraries: pinned version, SRI hash, CSP `script-src` entry. Modern Three
-  ships ES modules only, so it loads in a `<script type="module">` that does
-  `import * as THREE from "<pinned cdn url>"; window.THREE = THREE;` before the Babel
-  block runs. Brain-view code guards on `window.THREE` being present.
+  our other CDN libraries: pinned version, SRI hash, CSP `script-src` entry. Three
+  0.150.1 is the last UMD release; it loads as a classic pinned+SRI script exposing
+  `window.THREE`, matching the house CDN pattern exactly. Brain-view code guards on
+  `window.THREE` being present.
 - **GSAP** (already on the page) drives camera tweens (enter flight, glide-to-chamber)
   with expo ease-out. **No ScrollTrigger, no Lenis** in the brain view — both removed
   from the brain-view effect (classic view untouched).
