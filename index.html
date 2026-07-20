@@ -3181,6 +3181,19 @@ function App() {
         glowPts.material.opacity = 0.95 * v; glowLines.material.opacity = 0.45 * v;
         specks.material.opacity = 0.6 * v;
       },
+      enter(onArrived) { // the transport: dive through the core into the night
+        const api = this;
+        const done = () => { camera.position.set(0, 0, 0.001); camera.lookAt(0, 0, -1);
+          brainGroup.rotation.set(0, 0, 0); api.setNight(1); onArrived(); };
+        if (reduce) { done(); return; }
+        const st = { z: camera.position.z, n: 0, size: 0.028 };
+        api._tw = gsap.to(st, { z: -2.6, n: 1, size: 0.05, duration: 3.4, ease: "power2.inOut",
+          onUpdate: () => { camera.position.z = st.z; api.setNight(st.n);
+            glowPts.material.size = st.size; camera.lookAt(0, 0, Math.min(0, st.z - 1)); },
+          onComplete: () => { glowPts.material.size = 0.028; done(); } });
+      },
+      skipToInside() { if (this._tw) this._tw.kill(); glowPts.material.size = 0.028;
+        camera.position.set(0, 0, 0.001); camera.lookAt(0, 0, -1); brainGroup.rotation.set(0, 0, 0); this.setNight(1); },
     };
     const resize = () => { const w = canvas.clientWidth, h = canvas.clientHeight;
       renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); };
@@ -3196,7 +3209,20 @@ function App() {
     return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", resize);
       renderer.dispose(); geo.dispose(); lgeo.dispose(); sgeo.dispose(); brainApi.current = null; };
   }, [brainView]);
-  const enterMind = () => {};
+  const liveRef = useRef(null);
+  const announce = (msg) => { if (liveRef.current) liveRef.current.textContent = msg; };
+  const enterMind = () => {
+    if (!glOk || !brainApi.current) { setBxScene("inside"); return; } // no-WebGL path (completed in Task 6)
+    setBxScene("transport");
+    brainApi.current.enter(() => { setBxScene("inside"); announce("Inside the mind. Eight thinking moves around you."); });
+  };
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== "Escape") return;
+      if (sceneRef.current === "transport" && brainApi.current) { brainApi.current.skipToInside(); setBxScene("inside"); }
+    };
+    window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const scrollToId = (id) => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); };
   const onPickBrainMove = (name) => { pickMove(name); setTimeout(() => scrollToId("bx-tool"), 80); };
@@ -3328,6 +3354,11 @@ function App() {
       <div className="bx-grain" aria-hidden="true" />
       <div className="bw-night" ref={nightRef} aria-hidden="true" />
       <canvas className="bw-gl" ref={brainGlRef} aria-hidden="true" />
+      <span className="sr-only" aria-live="polite" ref={liveRef} />
+      {bxScene === "transport" && (
+        <button className="bw-scene" style={{ background: "none", border: 0, cursor: "default" }} aria-label="Skip the flight"
+          onClick={() => { brainApi.current && brainApi.current.skipToInside(); setBxScene("inside"); }} />
+      )}
       <header className="bx-mast">
         <div className="bx-word">Spring<i>board</i></div>
         <nav className="bx-nav">
