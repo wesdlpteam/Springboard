@@ -608,7 +608,8 @@
 
   /* masthead */
   .bx-mast { position: fixed; top: 0; left: 0; right: 0; z-index: 30; display: flex; align-items: baseline; justify-content: space-between;
-    padding: 20px clamp(20px, 4vw, 52px); mix-blend-mode: normal; }
+    padding: 20px clamp(20px, 4vw, 52px) 16px; mix-blend-mode: normal;
+    background: linear-gradient(to bottom, var(--paper) 72%, transparent); }
   .bx-mast .bx-word { font-family: var(--bx-display); font-weight: 500; font-size: 22px; letter-spacing: -.01em; }
   .bx-mast .bx-word i { font-style: italic; font-weight: 400; }
   .bx-mast .bx-nav { display: flex; align-items: baseline; gap: 22px; font-size: 12.5px; letter-spacing: .01em; }
@@ -625,8 +626,8 @@
   .bx-hero { position: relative; min-height: 100svh; display: flex; align-items: center;
     padding: 104px clamp(20px, 4vw, 52px) 44px; overflow: hidden; }
   .bx-hero::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
-    background: linear-gradient(90deg, var(--paper) 20%, color-mix(in srgb, var(--paper) 55%, transparent) 50%, transparent 80%); }
-  @media (max-width: 900px) { .bx-hero::before { background: linear-gradient(180deg, var(--paper) 26%, color-mix(in srgb, var(--paper) 55%, transparent) 60%, transparent 92%); } }
+    background: linear-gradient(90deg, var(--paper) 16%, color-mix(in srgb, var(--paper) 65%, transparent) 28%, transparent 42%); }
+  @media (max-width: 900px) { .bx-hero::before { background: linear-gradient(180deg, var(--paper) 30%, color-mix(in srgb, var(--paper) 82%, transparent) 58%, color-mix(in srgb, var(--paper) 48%, transparent) 82%, transparent 98%); } }
   .bx-hero-copy { position: relative; z-index: 2; max-width: 19ch; }
   .bx-hero .bx-kicker { display: block; margin-bottom: 20px; }
   .bx-hero h1 { font-family: var(--bx-display); font-weight: 400; font-size: clamp(38px, 5vw, 72px); line-height: 1.0;
@@ -664,11 +665,11 @@
   .bx-move .bx-name { font-family: var(--bx-display); font-weight: 400; font-size: clamp(22px, 2.9vw, 38px); letter-spacing: -.02em; line-height: 1.05; transition: color .3s; }
   .bx-move .bx-q { display: block; font-family: var(--bx-ui); font-style: normal; font-size: clamp(13px,1.2vw,15px); color: var(--muted); margin-top: 7px; }
   .bx-move .bx-name { display: block; }
-  .bx-move .bx-dot { width: 13px; height: 13px; border-radius: 50%; background: var(--mv); box-shadow: 0 0 0 4px color-mix(in srgb, var(--mv) 18%, transparent); opacity: 0; transform: scale(.4); transition: opacity .3s, transform .3s; }
+  .bx-move .bx-dot { width: 13px; height: 13px; border-radius: 50%; background: var(--mv); opacity: .92; transform: scale(.6); transition: opacity .3s, transform .3s, box-shadow .3s; }
   .bx-move .bx-go { font-size: 12.5px; color: var(--muted); display: inline-flex; align-items: center; gap: 7px; opacity: 0; transform: translateX(-6px); transition: opacity .3s, transform .3s; }
   .bx-move:hover, .bx-move:focus-visible { outline: none; padding-left: 22px; }
   .bx-move:hover .bx-name, .bx-move:focus-visible .bx-name { color: var(--mv); }
-  .bx-move:hover .bx-dot, .bx-move:focus-visible .bx-dot { opacity: 1; transform: scale(1); }
+  .bx-move:hover .bx-dot, .bx-move:focus-visible .bx-dot { opacity: 1; transform: scale(1); box-shadow: 0 0 0 4px color-mix(in srgb, var(--mv) 18%, transparent); }
   .bx-move:hover .bx-go, .bx-move:focus-visible .bx-go { opacity: 1; transform: translateX(0); }
   .bx-move.sel .bx-name { color: var(--mv); font-style: italic; }
   .bx-move.sel .bx-dot { opacity: 1; transform: scale(1); }
@@ -3077,9 +3078,13 @@ function App() {
       let minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
       for (const p of chosen) { if (p[0] < minx) minx = p[0]; if (p[0] > maxx) maxx = p[0]; if (p[1] < miny) miny = p[1]; if (p[1] > maxy) maxy = p[1]; }
       const bw = maxx - minx || 1, bh = maxy - miny || 1, target = Math.min(W, H) * 0.82, s = target / Math.max(bw, bh);
-      const ox = (W - bw * s) / 2 - minx * s, oy = (H - bh * s) / 2 - miny * s;
+      // wide screens: seat brain right of the copy column so scrim never washes it;
+      // narrow screens: seat it low, under the stacked copy
+      const bcx = W > 900 ? W * 0.62 : W / 2;
+      const bcy = W > 900 ? H / 2 : H * 0.62;
+      const ox = bcx - (bw * s) / 2 - minx * s, oy = bcy - (bh * s) / 2 - miny * s;
       pts = chosen.map(p => { const hx = p[0] * s + ox, hy = p[1] * s + oy; return { hx, hy, x: hx, y: hy, ph: Math.random() * 6.283, amp: 0.6 + Math.random() * 1.3, ac: Math.random() < 0.12, ci: (Math.random() * cols.length) | 0 }; });
-      cx = W / 2; cy = H / 2;
+      cx = bcx; cy = bcy;
       edges = []; const seen = new Set(), lim = (target * 0.15) * (target * 0.15);
       for (let i = 0; i < pts.length; i++) { let n1 = -1, n2 = -1, n3 = -1, d1 = 1e9, d2 = 1e9, d3 = 1e9;
         for (let j = 0; j < pts.length; j++) { if (j === i) continue; const dx = pts[i].hx - pts[j].hx, dy = pts[i].hy - pts[j].hy, dd = dx * dx + dy * dy;
