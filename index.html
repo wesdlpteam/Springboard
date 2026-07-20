@@ -622,9 +622,11 @@
   .bx-rule { height: 1px; background: var(--line); border: 0; }
 
   /* hero */
-  .bx-hero { position: relative; min-height: 100svh; display: grid; grid-template-columns: 1.05fr .95fr; align-items: center;
-    gap: 2vw; padding: 104px clamp(20px, 4vw, 52px) 44px; overflow: hidden; }
-  @media (max-width: 900px) { .bx-hero { grid-template-columns: 1fr; text-align: left; } }
+  .bx-hero { position: relative; min-height: 100svh; display: flex; align-items: center;
+    padding: 104px clamp(20px, 4vw, 52px) 44px; overflow: hidden; }
+  .bx-hero::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background: linear-gradient(90deg, var(--paper) 20%, color-mix(in srgb, var(--paper) 55%, transparent) 50%, transparent 80%); }
+  @media (max-width: 900px) { .bx-hero::before { background: linear-gradient(180deg, var(--paper) 26%, color-mix(in srgb, var(--paper) 55%, transparent) 60%, transparent 92%); } }
   .bx-hero-copy { position: relative; z-index: 2; max-width: 19ch; }
   .bx-hero .bx-kicker { display: block; margin-bottom: 20px; }
   .bx-hero h1 { font-family: var(--bx-display); font-weight: 400; font-size: clamp(38px, 5vw, 72px); line-height: 1.0;
@@ -635,9 +637,9 @@
   .bx-meta b { display: block; color: var(--ink); font-weight: 600; font-size: 14px; margin-bottom: 2px; }
 
   /* the brain canvas sits in the right column of the hero and behind the dive */
-  .bx-brain-wrap { position: relative; z-index: 1; align-self: stretch; }
+  .bx-brain-wrap { position: absolute; inset: 0; z-index: 0; }
   #bx-brain { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-  @media (max-width: 900px) { .bx-brain-wrap { position: absolute; inset: 0; opacity: .5; } .bx-hero-copy { max-width: 22ch; } }
+  @media (max-width: 900px) { .bx-hero-copy { max-width: 22ch; } }
 
   .bx-cue { position: absolute; left: clamp(20px,4vw,52px); bottom: 26px; z-index: 2; display: flex; align-items: center; gap: 10px; font-size: 11.5px; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); }
   .bx-cue .l { width: 46px; height: 1px; background: var(--line-strong); transform-origin: left; animation: bxcue 2.6s ease-in-out infinite; }
@@ -3057,32 +3059,54 @@ function App() {
     const canvas = brainCanvasRef.current; if (!canvas) return;
     const ctx = canvas.getContext("2d");
     const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let raf = 0, W = 0, H = 0, DPR = 1, nodes = [], last = 0, zoom = 1;
+    const BRAIN_D = ["M12 18V5", "M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4", "M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5", "M17.997 5.125a4 4 0 0 1 2.526 5.77", "M18 18a4 4 0 0 0 2-7.464", "M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517", "M6 18a4 4 0 0 1-2-7.464", "M6.003 5.125a4 4 0 0 0-2.526 5.77"];
     const cols = Object.values(BX_COLOR);
-    const mk = () => { const z = .5 + Math.random() * .5; return { x: Math.random() * W, y: Math.random() * H, vx: (Math.random() - .5) * .05, vy: (Math.random() - .5) * .05, z, r: (.8 + Math.random() * 1.5) * z, ac: Math.random() < .15, ci: (Math.random() * cols.length) | 0 }; };
+    let raf = 0, W = 0, H = 0, DPR = 1, last = 0, zoom = 1, pts = [], edges = [], cx = 0, cy = 0;
+    // Sample points ALONG the brain outline so the particles literally form a brain.
+    const buildBrain = () => {
+      const S = 600, pad = 96; let oc, g;
+      try { oc = document.createElement("canvas"); oc.width = oc.height = S; g = oc.getContext("2d"); } catch (e) { return; }
+      g.clearRect(0, 0, S, S); g.strokeStyle = "#000"; g.lineJoin = "round"; g.lineCap = "round";
+      const scg = (S - pad * 2) / 24; g.setTransform(scg, 0, 0, scg, pad, pad); g.lineWidth = 1.0;
+      for (const d of BRAIN_D) { try { g.stroke(new Path2D(d)); } catch (e) {} }
+      let data; try { data = g.getImageData(0, 0, S, S).data; } catch (e) { return; }
+      const raw = []; for (let y = 0; y < S; y += 2) for (let x = 0; x < S; x += 2) { if (data[(y * S + x) * 4 + 3] > 40) raw.push([x, y]); }
+      if (!raw.length) return;
+      for (let i = raw.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; const t = raw[i]; raw[i] = raw[j]; raw[j] = t; }
+      const chosen = raw.slice(0, Math.min(640, raw.length));
+      let minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
+      for (const p of chosen) { if (p[0] < minx) minx = p[0]; if (p[0] > maxx) maxx = p[0]; if (p[1] < miny) miny = p[1]; if (p[1] > maxy) maxy = p[1]; }
+      const bw = maxx - minx || 1, bh = maxy - miny || 1, target = Math.min(W, H) * 0.78, s = target / Math.max(bw, bh);
+      const ox = (W - bw * s) / 2 - minx * s, oy = (H - bh * s) / 2 - miny * s;
+      pts = chosen.map(p => { const hx = p[0] * s + ox, hy = p[1] * s + oy; return { hx, hy, x: hx, y: hy, ph: Math.random() * 6.283, amp: 0.6 + Math.random() * 1.3, ac: Math.random() < 0.12, ci: (Math.random() * cols.length) | 0 }; });
+      cx = W / 2; cy = H / 2;
+      edges = []; const seen = new Set(), lim = (target * 0.15) * (target * 0.15);
+      for (let i = 0; i < pts.length; i++) { let n1 = -1, n2 = -1, d1 = 1e9, d2 = 1e9;
+        for (let j = 0; j < pts.length; j++) { if (j === i) continue; const dx = pts[i].hx - pts[j].hx, dy = pts[i].hy - pts[j].hy, dd = dx * dx + dy * dy;
+          if (dd < d1) { d2 = d1; n2 = n1; d1 = dd; n1 = j; } else if (dd < d2) { d2 = dd; n2 = j; } }
+        [[i, n1], [i, n2]].forEach(pr => { const a = pr[0], b = pr[1]; if (b < 0) return; const k = a < b ? a + "-" + b : b + "-" + a; if (seen.has(k)) return; seen.add(k);
+          const dx = pts[a].hx - pts[b].hx, dy = pts[a].hy - pts[b].hy; if (dx * dx + dy * dy < lim) edges.push([a, b]); });
+      }
+    };
     const resize = () => {
       const wrap = canvas.parentElement; if (!wrap) return; const r = wrap.getBoundingClientRect();
       DPR = Math.min(window.devicePixelRatio || 1, 2); W = r.width; H = r.height;
       canvas.width = Math.max(1, (W * DPR) | 0); canvas.height = Math.max(1, (H * DPR) | 0);
-      const t = Math.round(Math.min(104, Math.max(30, (W * H) / 15000)));
-      while (nodes.length < t) nodes.push(mk()); nodes.length = t;
+      buildBrain();
     };
     resize();
     const ro = window.ResizeObserver ? new ResizeObserver(resize) : null; if (ro) ro.observe(canvas.parentElement);
     const frame = (now) => {
       raf = requestAnimationFrame(frame); if (document.hidden) { last = now; return; }
-      const dt = Math.min(50, now - (last || now)); last = now;
-      ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
-      const cx = W / 2, cy = H * .46, N = nodes;
-      for (const n of N) { if (!reduce) { n.x += n.vx * dt; n.y += n.vy * dt; } if (n.x < -30) n.x = W + 30; else if (n.x > W + 30) n.x = -30; if (n.y < -30) n.y = H + 30; else if (n.y > H + 30) n.y = -30; }
-      const px = n => cx + (n.x - cx) * zoom, py = n => cy + (n.y - cy) * zoom;
+      last = now; ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
+      if (!pts.length) return;
+      const alpha = Math.max(0, Math.min(1, 1 - (zoom - 2.2) / 1.4)); if (alpha <= 0) return;
+      const t = now * 0.001, zc = Math.max(.5, Math.min(zoom, 2.4));
+      const px = p => cx + (p.x - cx) * zoom, py = p => cy + (p.y - cy) * zoom;
+      for (const p of pts) { if (!reduce) { p.x = p.hx + Math.sin(t * 0.7 + p.ph) * p.amp; p.y = p.hy + Math.cos(t * 0.6 + p.ph) * p.amp; } }
       ctx.lineWidth = 1;
-      for (let i = 0; i < N.length; i++) { const a = N[i], ax = px(a), ay = py(a);
-        for (let j = i + 1; j < N.length; j++) { const b = N[j], bx = px(b), by = py(b), dx = ax - bx, dy = ay - by, d2 = dx * dx + dy * dy;
-          if (d2 < 12800) { const al = (1 - Math.sqrt(d2) / 113) * .16 * Math.min(a.z, b.z);
-            if (al > .008) { ctx.strokeStyle = "rgba(23,23,27," + al.toFixed(3) + ")"; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke(); } } } }
-      for (let i = 0; i < N.length; i++) { const n = N[i]; ctx.globalAlpha = n.ac ? .85 : .5;
-        ctx.beginPath(); ctx.arc(px(n), py(n), Math.max(.4, n.r * zoom), 0, 6.283); ctx.fillStyle = n.ac ? cols[n.ci] : "#17171b"; ctx.fill(); }
+      for (const e of edges) { const a = pts[e[0]], b = pts[e[1]]; ctx.strokeStyle = "rgba(23,23,27," + (0.2 * alpha).toFixed(3) + ")"; ctx.beginPath(); ctx.moveTo(px(a), py(a)); ctx.lineTo(px(b), py(b)); ctx.stroke(); }
+      for (const p of pts) { ctx.globalAlpha = (p.ac ? 0.9 : 0.6) * alpha; ctx.beginPath(); ctx.arc(px(p), py(p), (p.ac ? 1.9 : 1.25) * zc, 0, 6.283); ctx.fillStyle = p.ac ? cols[p.ci] : "#17171b"; ctx.fill(); }
       ctx.globalAlpha = 1;
     };
     raf = requestAnimationFrame(frame);
@@ -3091,7 +3115,7 @@ function App() {
       if (!reduce && window.gsap && window.ScrollTrigger) {
         const gsap = window.gsap, ST = window.ScrollTrigger; gsap.registerPlugin(ST);
         if (window.Lenis) { lenis = new Lenis({ lerp: .09, smoothWheel: true }); lenis.on("scroll", ST.update); gsap.ticker.add(t => lenis.raf(t * 1000)); gsap.ticker.lagSmoothing(0); }
-        const zt = gsap.to({ z: 1 }, { z: 2.5, ease: "none", onUpdate() { zoom = this.targets()[0].z; }, scrollTrigger: { trigger: ".bx-hero", start: "top top", end: "bottom top", scrub: true } });
+        const zt = gsap.to({ z: 1 }, { z: 3.7, ease: "none", onUpdate() { zoom = this.targets()[0].z; }, scrollTrigger: { trigger: ".bx-hero", start: "top top", end: "bottom top", scrub: true } });
         if (zt.scrollTrigger) sts.push(zt.scrollTrigger);
         gsap.to(".bx-hero-copy", { opacity: 0, y: -50, ease: "none", scrollTrigger: { trigger: ".bx-hero", start: "top top", end: "bottom top", scrub: true } });
         gsap.utils.toArray("[data-bx-reveal]").forEach(el => { const tw = gsap.from(el, { opacity: 0, y: 34, duration: 1, ease: "power3.out", scrollTrigger: { trigger: el, start: "top 86%", toggleActions: "play none none reverse" } }); if (tw.scrollTrigger) sts.push(tw.scrollTrigger); });
