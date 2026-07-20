@@ -796,6 +796,33 @@
   .bw-list-row span { grid-column: 2; font-size: 13px; color: #b9bac9; margin-top: 3px; }
   .bw-list-row:hover b { text-decoration: underline; text-underline-offset: 4px; }
   .bw-list-close { position: absolute; top: 20px; right: 26px; background: none; border: 0; color: #d9d9e3; font-size: 26px; cursor: pointer; }
+  /* the chamber: the working tool restyled for the night world */
+  .bw-chamber { position: fixed; inset: 0; z-index: 2; overflow: auto; }
+  .bw-chamber .bx-tool { padding-top: 92px; min-height: 100%; }
+  .bw-chamber .bx-tool-head h2 { color: var(--bwt); }
+  .bw-chamber .bx-tool-head .bx-back { color: #b9bac9; } .bw-chamber .bx-tool-head .bx-back:hover { color: #fff; }
+  .bw-chamber .bx-tool-sub { color: #b9bac9; }
+  .bw-chamber .bx-panel { border-top-color: rgba(255,255,255,.5); background: rgba(22,22,30,.78); backdrop-filter: blur(6px); border-radius: 6px; padding: 18px 18px 22px; }
+  .bw-chamber .bx-panel > h3 { color: #ececf1; }
+  .bw-chamber .bx-panel > .bx-note, .bw-chamber .bx-panel .bx-step-n, .bw-chamber .bx-field label { color: #a9aabb; }
+  .bw-chamber .bx-input, .bw-chamber .bx-tool textarea, .bw-chamber .bx-tool select { background: #101017; color: #ececf1; border-color: rgba(255,255,255,.22); }
+  .bw-chamber .bx-input::placeholder, .bw-chamber .bx-tool textarea::placeholder { color: #9fa0b2; }
+  .bw-chamber .bx-input:focus, .bw-chamber .bx-tool textarea:focus, .bw-chamber .bx-tool select:focus { outline-color: var(--bwt); }
+  .bw-chamber .bx-modes { background: rgba(255,255,255,.08); } .bw-chamber .bx-modes button { color: #b9bac9; }
+  .bw-chamber .bx-modes button.on { background: #26262f; color: #fff; box-shadow: none; }
+  .bw-chamber .bx-drop { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.28); color: #ececf1; }
+  .bw-chamber .bx-drop:hover, .bw-chamber .bx-drop.drag { border-color: #fff; background: rgba(255,255,255,.08); }
+  .bw-chamber .bx-drop small, .bw-chamber .bx-working, .bw-chamber .bx-routine .rw, .bw-chamber .bx-routine .ri, .bw-chamber .bx-more summary { color: #a9aabb; }
+  .bw-chamber .bx-btn { background: #ececf1; color: #101017; }
+  .bw-chamber .bx-btn.mv { background: var(--mv); color: #fff; }
+  .bw-chamber .bx-btn.ghost { background: none; color: #ececf1; border-color: rgba(255,255,255,.4); }
+  .bw-chamber .bx-field label { color: #a9aabb; }
+  .bw-chamber .bx-routine { border-bottom-color: rgba(255,255,255,.12); } .bw-chamber .bx-routine .rn { color: #ececf1; }
+  .bw-chamber .bx-routine.on .rn { color: var(--bwt); }
+  .bw-chamber .bx-card { background: rgba(22,22,30,.85); border-color: rgba(255,255,255,.2); }
+  .bw-chamber .bx-card:hover { border-color: #fff; }
+  .bw-chamber .bx-card .ck { color: #a9aabb; } .bw-chamber .bx-card .ct { color: #ececf1; }
+  .bw-chamber .bx-alert { background: rgba(143,29,46,.25); border-color: rgba(240,184,196,.4); color: #f6c9d2; }
   @media (prefers-reduced-motion: reduce) { .bw-night { transition: opacity .4s; } .bw-label { transition: none; } }
 </style>
 
@@ -3250,6 +3277,23 @@ function App() {
       },
       skipToInside() { if (this._tw) this._tw.kill();
         camera.position.set(0, 0, 0.001); camera.lookAt(0, 0, -1); brainGroup.rotation.set(0, 0, 0); this.setNight(1); this.settleInside(); },
+      toChamber(i, onArrived) { // glide toward the chosen constellation; dim the rest
+        const c = clusters[i], p = c.center.clone().multiplyScalar(0.45);
+        const go = () => { clusters.forEach((k, j) => { const on = j === i;
+            gsap.to(k.ptsMat, { opacity: on ? 0.95 : 0.12, duration: reduce ? 0 : 0.8 });
+            gsap.to(k.lineMat, { opacity: on ? 0.4 : 0.05, duration: reduce ? 0 : 0.8 }); });
+          onArrived(); };
+        if (reduce) { camera.position.copy(p); camera.lookAt(c.center); go(); return; }
+        this._tw = gsap.to(camera.position, { x: p.x, y: p.y, z: p.z, duration: 1.2, ease: "power3.inOut",
+          onUpdate: () => camera.lookAt(c.center), onComplete: go });
+      },
+      toInside() { // back out to the constellation space
+        clusters.forEach(k => { gsap.to(k.ptsMat, { opacity: 0.9, duration: reduce ? 0 : 0.6 });
+          gsap.to(k.lineMat, { opacity: 0.35, duration: reduce ? 0 : 0.6 }); });
+        if (reduce) { camera.position.set(0, 0, 0.001); camera.rotation.set(0, 0, 0); camera.lookAt(0, 0, -1); return; }
+        this._tw = gsap.to(camera.position, { x: 0, y: 0, z: 0.001, duration: 1, ease: "power3.inOut",
+          onComplete: () => { camera.rotation.set(0, 0, 0); camera.lookAt(0, 0, -1); } });
+      },
     };
     const resize = () => { const w = canvas.clientWidth, h = canvas.clientHeight;
       renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); };
@@ -3260,7 +3304,7 @@ function App() {
       raf = requestAnimationFrame(frame); if (document.hidden) return;
       const dt = Math.min(0.05, (now - tPrev) / 1000 || 0.016); tPrev = now;
       if (!reduce && sceneRef.current === "cover") brainGroup.rotation.y = Math.sin(now * 0.00035) * 0.6; // sway, not spin: the extruded silhouette is flat side-on
-      if (sceneRef.current === "inside" || sceneRef.current === "chamber") {
+      if (sceneRef.current === "inside" || sceneRef.current === "chamber" || sceneRef.current === "glide") {
         if (!reduce && sceneRef.current === "inside") camera.rotation.y = Math.sin(now * 0.00013) * 0.035;
         const els = labelEls.current;
         clusters.forEach((c, i) => {
@@ -3287,17 +3331,33 @@ function App() {
     setBxScene("transport");
     brainApi.current.enter(() => { setBxScene("inside"); announce("Inside the mind. Eight thinking moves around you."); });
   };
-  const chooseMove = (name) => { pickMove(name); setBxScene("chamber"); }; // glide added with the chamber
+  const chooseMove = (name) => {
+    pickMove(name);
+    const i = MOVES.findIndex(m => m.name === name);
+    if (brainApi.current && brainApi.current.toChamber) {
+      setBxScene("glide");
+      brainApi.current.toChamber(i, () => { setBxScene("chamber"); announce(name + ". Build the lesson here."); });
+    } else setBxScene("chamber");
+  };
+  const leaveChamber = () => {
+    pickMove("");
+    if (brainApi.current && brainApi.current.toInside) brainApi.current.toInside();
+    setBxScene("inside");
+  };
+  const leaveChamberRef = useRef(leaveChamber); leaveChamberRef.current = leaveChamber;
   useEffect(() => {
     const onKey = (e) => {
       if (e.key !== "Escape") return;
       if (sceneRef.current === "transport" && brainApi.current) { brainApi.current.skipToInside(); setBxScene("inside"); return; }
-      setListOpen(false);
+      if (document.querySelector(".bx-ov")) return;            // slide preview owns Esc
+      if (document.querySelector(".bw-list")) { setListOpen(false); return; }
+      if (sceneRef.current === "chamber") leaveChamberRef.current();
     };
     window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey);
   }, []);
-  useEffect(() => { // landing inside: hand focus to the first constellation
+  useEffect(() => { // scene changes hand focus to the scene's first control
     if (bxScene === "inside") setTimeout(() => { if (labelEls.current[0]) labelEls.current[0].focus(); }, 80);
+    if (bxScene === "chamber") setTimeout(() => { const b = document.querySelector(".bw-chamber .bx-back"); if (b) b.focus(); }, 80);
   }, [bxScene]);
 
   const scrollToId = (id) => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); };
@@ -3322,7 +3382,7 @@ function App() {
   const renderBrainTool = () => (
     <section className="bx-tool" id="bx-tool" style={{ "--mv": bxColor(selectedMove) }}>
       <div className="bx-tool-head" data-bx-reveal>
-        <button className="bx-back" onClick={() => { pickMove(""); scrollToId("bx-map"); }}>← All moves</button>
+        <button className="bx-back" onClick={leaveChamber}>← All moves</button>
         <h2>{selectedMove}</h2>
       </div>
       <p className="bx-tool-sub">{selectedMoveObj.question} Bring the stimulus your class will react to, and Springboard finds the routines that fit it.</p>
@@ -3457,8 +3517,8 @@ function App() {
         </div>
       )}
 
-      {(bxScene === "inside" || bxScene === "chamber") && (
-        <div className="bw-inside" style={bxScene === "chamber" ? { pointerEvents: "none", opacity: 0, transition: "opacity .4s" } : null}>
+      {(bxScene === "inside" || bxScene === "chamber" || bxScene === "glide") && (
+        <div className="bw-inside" style={bxScene !== "inside" ? { pointerEvents: "none", opacity: 0, transition: "opacity .4s" } : null}>
           {MOVES.map((m, i) => (
             <button key={m.name} ref={el => { labelEls.current[i] = el; }} className="bw-label" style={{ "--bwt": bwTint(m.name) }}
               onMouseEnter={() => { hoveredRef.current = i; }} onMouseLeave={() => { hoveredRef.current = -1; }}
@@ -3482,7 +3542,9 @@ function App() {
         </div>
       )}
 
-      {bxScene === "chamber" && selectedMoveObj && renderBrainTool()}
+      {bxScene === "chamber" && selectedMoveObj && (
+        <div className="bw-chamber" style={{ "--bwt": bwTint(selectedMove) }}>{renderBrainTool()}</div>
+      )}
 
       {openSlide && spot && renderBrainPreview()}
     </div>
