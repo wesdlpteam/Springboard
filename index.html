@@ -762,6 +762,7 @@
   .bw-night { position: fixed; inset: 0; z-index: 0; background: #101017; opacity: 0; transition: opacity .5s; pointer-events: none; }
   .bw-on-night .bw-night { opacity: 1; }
   .bw-gl { position: fixed; inset: 0; z-index: 1; width: 100%; height: 100%; display: block; }
+  .bw-poster { position: fixed; inset: 0; z-index: 1; width: 100%; height: 100%; display: block; }
   .bw-scene { position: fixed; inset: 0; z-index: 2; display: grid; place-items: center; text-align: center; padding: 24px; }
   /* cover: text top, Enter bottom — the brain owns the middle of the frame */
   .bw-cover { display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: clamp(84px, 11vh, 120px) 24px clamp(26px, 4vh, 44px); }
@@ -823,6 +824,7 @@
   .bw-chamber .bx-card:hover { border-color: #fff; }
   .bw-chamber .bx-card .ck { color: #a9aabb; } .bw-chamber .bx-card .ct { color: #ececf1; }
   .bw-chamber .bx-alert { background: rgba(143,29,46,.25); border-color: rgba(240,184,196,.4); color: #f6c9d2; }
+  @media (max-width: 720px) { .bw-label-q { display: none; } .bw-label-name { font-size: 16px; white-space: normal; max-width: 40vw; } .bw-label { max-width: 46vw; } }
   @media (prefers-reduced-motion: reduce) { .bw-night { transition: opacity .4s; } .bw-label { transition: none; } }
 </style>
 
@@ -2367,6 +2369,7 @@ function App() {
   const brainGlRef = useRef(null);                    // the WebGL canvas
   const nightRef = useRef(null);                      // deep-night DOM layer
   const brainApi = useRef(null);                      // imperative camera/world API
+  const posterRef = useRef(null);                     // static 2D brain when WebGL is unavailable
   const labelEls = useRef([]);                        // constellation label buttons, positioned per-frame
   const hoveredRef = useRef(-1);                      // which constellation the pointer is near
   const [listOpen, setListOpen] = useState(false);    // "See as a list" overlay
@@ -3180,7 +3183,7 @@ function App() {
     renderer.setClearColor(0x000000, 0); // transparent: porcelain page shows through on the cover
     const scene = new T.Scene();
     const camera = new T.PerspectiveCamera(55, 1, 0.1, 120);
-    camera.position.set(0, -0.02, 3.55);
+    if (mobile) camera.position.set(0, -0.25, 6.2); else camera.position.set(0, -0.02, 3.55); // portrait FOV is narrow: stand further back
     const N_PTS = mobile ? 2200 : 6000;
     const flat = sampleBrainSilhouette(N_PTS);
     if (!flat.length) { setGlOk(false); renderer.dispose(); return; }
@@ -3229,9 +3232,11 @@ function App() {
     scene.add(specks);
     // eight constellations in a frontal fan inside the camera's view cone
     const clusters = [];
+    const FANH = mobile ? 11 : 28; // portrait FOV is narrow, so mobile stacks the fan vertically instead
+    const YS = mobile ? [2.6, -1.8, 1.2, -3.0, 2.0, -0.6, 3.2, -2.4] : [1.4, -0.6, 0.7, -1.2, 1.1, -0.2, 1.7, -0.9];
     MOVES.map(m => m.name).forEach((name, i) => {
-      const az = (-36 + (72 / 7) * i) * Math.PI / 180;
-      const R = 7 + [0, 1.6, 0.6, 2.4, 0.2, 2.0, 0.9, 1.4][i], Y = [1.4, -0.6, 0.7, -1.2, 1.1, -0.2, 1.7, -0.9][i];
+      const az = (-FANH + (2 * FANH / 7) * i) * Math.PI / 180;
+      const R = 7 + [0, 1.6, 0.6, 2.4, 0.2, 2.0, 0.9, 1.4][i], Y = YS[i];
       const center = new T.Vector3(Math.sin(az) * R, Y, -Math.cos(az) * R);
       const n = 80, cp = new Float32Array(n * 3);
       for (let k = 0; k < n; k++) {
@@ -3327,10 +3332,25 @@ function App() {
   const liveRef = useRef(null);
   const announce = (msg) => { if (liveRef.current) liveRef.current.textContent = msg; };
   const enterMind = () => {
-    if (!glOk || !brainApi.current) { setBxScene("inside"); return; } // no-WebGL path (completed in Task 6)
+    if (!glOk || !brainApi.current) { // no-WebGL path: night backdrop + the list is the whole chooser
+      setBxScene("inside"); setListOpen(true);
+      announce("Inside the mind. Choose one of the eight thinking moves.");
+      return;
+    }
     setBxScene("transport");
     brainApi.current.enter(() => { setBxScene("inside"); announce("Inside the mind. Eight thinking moves around you."); });
   };
+  useEffect(() => { // WebGL unavailable: draw the brain once as a still 2D poster
+    if (!brainView || glOk) return;
+    const c = posterRef.current; if (!c) return;
+    const r = c.getBoundingClientRect(), DPR = Math.min(window.devicePixelRatio || 1, 2);
+    c.width = Math.max(1, (r.width * DPR) | 0); c.height = Math.max(1, (r.height * DPR) | 0);
+    const g = c.getContext("2d"); if (!g) return;
+    const pts = sampleBrainSilhouette(900), S = Math.min(r.width, r.height) * 0.42;
+    g.setTransform(DPR, 0, 0, DPR, 0, 0); g.clearRect(0, 0, r.width, r.height);
+    g.fillStyle = "#17171d"; g.globalAlpha = 0.85;
+    for (const p of pts) { g.beginPath(); g.arc(r.width / 2 + p[0] * S, r.height / 2 - 40 - p[1] * S, 1.6, 0, 6.283); g.fill(); }
+  }, [brainView, glOk]);
   const chooseMove = (name) => {
     pickMove(name);
     const i = MOVES.findIndex(m => m.name === name);
@@ -3490,6 +3510,7 @@ function App() {
       <div className="bx-grain" aria-hidden="true" />
       <div className="bw-night" ref={nightRef} aria-hidden="true" />
       <canvas className="bw-gl" ref={brainGlRef} aria-hidden="true" />
+      {!glOk && bxScene === "cover" && <canvas className="bw-poster" ref={posterRef} aria-hidden="true" />}
       <span className="sr-only" aria-live="polite" ref={liveRef} />
       {bxScene === "transport" && (
         <button className="bw-scene" style={{ background: "none", border: 0, cursor: "default" }} aria-label="Skip the flight"
