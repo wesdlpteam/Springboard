@@ -771,10 +771,18 @@
   .bx-stage-media { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
     min-width: 100%; min-height: 100%; width: auto; height: auto; object-fit: cover; }
   /* full scrim: horizontal fade (legible left text column) + a soft vertical fade so the
-     bottom row (Enter + credit) stays legible over bright artwork too. 1:1 with the approved
-     cover mock: docs/superpowers/inspiration/2026-07-21-brain-journey/round1/live-demo.html */
+     bottom row (Enter + credit) stays legible over bright artwork too. Started 1:1 with the
+     approved cover mock (docs/superpowers/inspiration/2026-07-21-brain-journey/round1/live-demo.html)
+     but that mock's stops were %-based, so the same visual fade covers fewer physical pixels on
+     a narrow viewport than on desktop. Measured against a WCAG >=4.5:1 target (chrome-devtools
+     sampling of the actual cover.png under each real glyph line, not just each element's box —
+     block text elements are often wider than their own text): the H1's second line failed at
+     tablet width (768px) because it fell in the fade's weak middle stretch. Switched to px stops
+     at the SAME pixel positions the old %s worked out to at 1440 (0/490/835/1080), only raising
+     the middle stop's opacity — desktop is visually unchanged past the 1080px mark, narrower
+     viewports keep the same physical darkened reach instead of losing it proportionally. */
   .bx-scrim-left { position: absolute; inset: 0; pointer-events: none;
-    background: linear-gradient(90deg, rgba(8,8,14,.92) 0%, rgba(8,8,14,.72) 34%, rgba(8,8,14,.18) 58%, rgba(8,8,14,0) 75%),
+    background: linear-gradient(90deg, rgba(8,8,14,.92) 0, rgba(8,8,14,.75) 490px, rgba(8,8,14,.48) 835px, rgba(8,8,14,0) 1080px),
                 linear-gradient(0deg, rgba(8,8,14,.55) 0%, rgba(8,8,14,0) 30%); }
   @media (prefers-reduced-motion: reduce) { .bx-stage video { display: none; } }
   /* cover: left-aligned text column (kicker/h1/sub top, Enter+credit bottom) over the
@@ -800,8 +808,11 @@
   .bw-enter:hover, .bw-enter:focus-visible { background: rgba(232,233,242,.14); border-color: rgba(232,233,242,.9); outline: none; }
   /* cover masthead/grain: minimal light-on-dark chrome, no paper grain. The dive/inside/
      chamber scenes already look right (they get this via .bw-on-night, untouched here) —
-     the resting cover was the one state that never got it, which is what read as a hybrid. */
-  .bx:not(.bw-on-night) .bx-mast { background: linear-gradient(to bottom, rgba(8,8,14,.6) 0%, rgba(8,8,14,0) 100%); }
+     the resting cover was the one state that never got it, which is what read as a hybrid.
+     Alpha raised from .6/0 to .85/.6 (WCAG measurement pass): the nav links sit hard against
+     the right edge, past where .bx-scrim-left's horizontal fade can reach on desktop, so this
+     bar has to carry their legibility on its own regardless of what's directly behind it. */
+  .bx:not(.bw-on-night) .bx-mast { background: linear-gradient(to bottom, rgba(8,8,14,.85) 0%, rgba(8,8,14,.6) 100%); }
   .bx:not(.bw-on-night) .bx-mast .bx-word, .bx:not(.bw-on-night) .bx-mast .bx-nav a, .bx:not(.bw-on-night) .bx-mast .bx-nav button { color: #d9d9e3; }
   .bx:not(.bw-on-night) .bx-mast .bx-nav a:hover, .bx:not(.bw-on-night) .bx-mast .bx-nav button:hover { color: #fff; }
   .bx:not(.bw-on-night) .bx-tog { border-color: rgba(255,255,255,.35); }
