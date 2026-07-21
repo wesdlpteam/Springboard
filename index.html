@@ -837,7 +837,11 @@
   .bw-label-q { display: block; font-size: 12px; color: #b9bac9; margin-top: 3px; white-space: nowrap; }
   .bw-label:hover .bw-label-name { text-decoration: underline; text-underline-offset: 5px; } /* hover only: the focus ring marks keyboard focus, so autofocus can't leave a stuck underline */
   .bw-label:focus-visible { outline: 2px solid var(--bwt); outline-offset: 2px; border-radius: 6px; }
-  .bw-listbtn { position: fixed; right: clamp(20px,4vw,52px); bottom: 26px; background: none; border: 1px solid rgba(255,255,255,.3); color: #d9d9e3; font: inherit; font-size: 12.5px; padding: 8px 16px; border-radius: 999px; cursor: pointer; }
+  /* glide (move select -> chamber, and chamber -> back): the artwork stage stays visible and
+     carries the ride (GSAP push on .bx-stage--inside, see the bxScene effect); only the
+     interactive bits fade out so nothing is clickable or seems to jump mid-flight. */
+  .bw-inside--glide .bw-label, .bw-inside--glide .bw-listbtn { opacity: 0; pointer-events: none; }
+  .bw-listbtn { position: fixed; right: clamp(20px,4vw,52px); bottom: 26px; background: none; border: 1px solid rgba(255,255,255,.3); color: #d9d9e3; font: inherit; font-size: 12.5px; padding: 8px 16px; border-radius: 999px; cursor: pointer; transition: opacity .3s; }
   .bw-listbtn:hover { border-color: #fff; color: #fff; }
   /* Very narrow screens: the neurons crop past both viewport edges, so scattered labels
      can't be laid out without overlaps. Hide them and route the moves through the always-
@@ -854,8 +858,11 @@
   .bw-list-row span { grid-column: 2; font-size: 13px; color: #b9bac9; margin-top: 3px; }
   .bw-list-row:hover b { text-decoration: underline; text-underline-offset: 4px; }
   .bw-list-close { position: absolute; top: 20px; right: 26px; background: none; border: 0; color: #d9d9e3; font-size: 26px; cursor: pointer; }
-  /* the chamber: the working tool restyled for the night world */
-  .bw-chamber { position: fixed; inset: 0; z-index: 2; overflow: auto; }
+  /* the chamber: the working tool restyled for the night world. Fades in on mount so the
+     glide -> chamber handoff is a crossfade (inside stage fades out underneath it). */
+  .bw-chamber { position: fixed; inset: 0; z-index: 2; overflow: auto; animation: bwChamberIn .45s ease both; }
+  @keyframes bwChamberIn { from { opacity: 0; } to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .bw-chamber { animation: none; } }
   .bw-chamber .bx-tool { padding-top: 92px; min-height: 100%; }
   .bw-chamber .bx-tool-head { display: block; }
   .bw-chamber .bx-tool-head h2 { color: var(--bwt); }
@@ -3763,6 +3770,17 @@ function App() {
     window.addEventListener("resize", place);
     return () => window.removeEventListener("resize", place);
   }, [bxScene]);
+  // Glide feedback: the Three flight is invisible now, so the artwork itself carries the
+  // ride — a gentle push in on the inside stage while the "camera" travels to the chamber,
+  // and a settle back when it returns. Reduced motion: no push, scenes just switch.
+  useEffect(() => {
+    const stage = insideStageRef.current; if (!stage || typeof gsap === "undefined") return;
+    if (prefersReducedMotion) { gsap.set(stage, { scale: 1 }); return; }
+    if (bxScene === "glide") gsap.to(stage, { scale: 1.06, duration: 1.1, ease: "power2.inOut", overwrite: "auto" });
+    else if (bxScene === "inside") gsap.to(stage, { scale: 1, duration: 0.6, ease: "power2.out", overwrite: "auto" });
+    // chamber: leave the stage at its pushed-in scale, hidden — the return glide fades it
+    // back in from there and the "inside" branch above settles it, mirroring the way out.
+  }, [bxScene]);
 
   const scrollToId = (id) => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); };
   const onPickBrainMove = (name) => { pickMove(name); setTimeout(() => scrollToId("bx-tool"), 80); };
@@ -3942,7 +3960,13 @@ function App() {
       )}
 
       {(bxScene === "inside" || bxScene === "chamber" || bxScene === "glide") && (
-        <div className="bw-inside" style={bxScene !== "inside" ? { pointerEvents: "none", opacity: 0, transition: "opacity .4s" } : { opacity: 1, transition: "opacity .4s" }}>
+        // Visible through BOTH inside and glide (the artwork carries the ride — with the Three
+        // canvas hidden, fading this out during glide would leave a dead black screen); only
+        // the chamber scene fades the whole layer away under the chamber's own fade-in.
+        <div className={"bw-inside" + (bxScene === "glide" ? " bw-inside--glide" : "")}
+          style={bxScene === "chamber" ? { pointerEvents: "none", opacity: 0, transition: prefersReducedMotion ? "none" : "opacity .4s" }
+            : bxScene === "glide" ? { pointerEvents: "none", opacity: 1, transition: prefersReducedMotion ? "none" : "opacity .4s" }
+            : { opacity: 1, transition: prefersReducedMotion ? "none" : "opacity .4s" }}>
           {/* Neuron artwork backdrop: cover-fit still, no video. Sits under the move labels
               (same absolute layer, earlier in the DOM). bxImagePoint reads this stage's box
               to anchor each label to its colour-matched neuron. */}
@@ -3959,7 +3983,8 @@ function App() {
               <span className="bw-label-q">{m.question}</span>
             </button>
           ))}
-          {bxScene === "inside" && <button className="bw-listbtn" onClick={() => setListOpen(true)}>See as a list</button>}
+          {/* mounted through glide too so it fades with the labels instead of popping out */}
+          {(bxScene === "inside" || bxScene === "glide") && <button className="bw-listbtn" onClick={() => setListOpen(true)}>See as a list</button>}
           {listOpen && bxScene === "inside" && (
             <div className="bw-list" role="dialog" aria-modal="true" aria-label="The eight thinking moves">
               <button className="bw-list-close" aria-label="Close list" onClick={() => setListOpen(false)}>×</button>
