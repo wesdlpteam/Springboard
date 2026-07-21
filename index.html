@@ -764,6 +764,16 @@
   .bw-gl { position: fixed; inset: 0; z-index: 1; width: 100%; height: 100%; display: block; }
   .bw-poster { position: fixed; inset: 0; z-index: 1; width: 100%; height: 100%; display: block; }
   .bw-scene { position: fixed; inset: 0; z-index: 2; display: grid; place-items: center; text-align: center; padding: 24px; }
+  /* image-backed stage (north-star art): fixed-aspect backdrop, cover-fit, optional
+     living clip on top of the still. Positioned so it sits UNDER the cover's own text
+     column stacking-wise (bw-top/bw-bottom get z-index below) — see .bw-cover rule. */
+  .bx-stage { position: absolute; inset: 0; overflow: hidden; background: #0b0b12; }
+  .bx-stage-media { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    min-width: 100%; min-height: 100%; width: auto; height: auto; object-fit: cover; }
+  /* keep left third legible for the headline */
+  .bx-scrim-left { position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(90deg, rgba(8,8,14,.9) 0%, rgba(8,8,14,.55) 34%, rgba(8,8,14,0) 62%); }
+  @media (prefers-reduced-motion: reduce) { .bx-stage video { display: none; } }
   /* cover: text top, Enter bottom — the brain owns the middle of the frame.
      overflow-y:auto is the guarantee the Enter button is reachable on short windows. */
   .bw-cover { display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 18px; padding: clamp(72px, 10vh, 120px) 24px clamp(22px, 3.5vh, 44px); overflow-y: auto; }
@@ -774,8 +784,10 @@
     .bw-cover .bx-kicker { margin-bottom: 10px; }
   }
   .bw-cover a { color: inherit; }
-  .bw-cover .bw-top { background: radial-gradient(closest-side, var(--paper) 48%, color-mix(in srgb, var(--paper) 70%, transparent) 74%, transparent 100%); padding: 16px clamp(30px, 6vw, 90px) 26px; }
-  .bw-cover .bw-bottom { background: radial-gradient(closest-side, var(--paper) 40%, color-mix(in srgb, var(--paper) 60%, transparent) 70%, transparent 100%); padding: 14px clamp(30px, 6vw, 90px) 6px; }
+  /* position:relative + z-index lifts these flex items above the absolutely-positioned
+     .bx-stage image sibling (position:absolute paints above plain flex items otherwise). */
+  .bw-cover .bw-top { position: relative; z-index: 1; background: radial-gradient(closest-side, var(--paper) 48%, color-mix(in srgb, var(--paper) 70%, transparent) 74%, transparent 100%); padding: 16px clamp(30px, 6vw, 90px) 26px; }
+  .bw-cover .bw-bottom { position: relative; z-index: 1; background: radial-gradient(closest-side, var(--paper) 40%, color-mix(in srgb, var(--paper) 60%, transparent) 70%, transparent 100%); padding: 14px clamp(30px, 6vw, 90px) 6px; }
   .bw-cover .bx-kicker { display: block; margin-bottom: 16px; color: var(--ink-soft); }
   .bw-cover h1 { font-family: var(--bx-display); font-weight: 400; font-size: clamp(34px, 4.2vw, 64px); line-height: 1.04; letter-spacing: -.025em; margin: 0 auto; text-wrap: balance; max-width: 22ch; }
   .bw-cover h1 em { font-style: italic; }
@@ -2346,6 +2358,17 @@ const BX_COLOR = {
 };
 const bxColor = (name) => BX_COLOR[name] || "#17171b";
 
+// North-star art (sandbox): AI-generated brain-journey images/clip, loaded from a
+// git-ignored local folder. PRE-MERGE: must be committed/hosted before this ships to main.
+const BX_ASSETS = {
+  base: "docs/superpowers/inspiration/2026-07-21-brain-journey/north-star/",
+  cover: "cover.png",        // 2752x1536
+  coverClip: "cover-living.mp4",
+  inside: "inside.png",      // 2720x1536
+  chamber: "chamber.png"
+};
+const BX_AR = { cover: 2752 / 1536, inside: 2720 / 1536 }; // image aspect ratios
+
 // Night-world text tint: move colour lifted toward white for AA on #101017.
 const BW_TINT = Object.fromEntries(Object.entries(BX_COLOR).map(([k, v]) => {
   const c = parseInt(v.slice(1), 16), r = c >> 16, g = (c >> 8) & 255, b = c & 255;
@@ -2544,6 +2567,8 @@ function App() {
   const hoveredRef = useRef(-1);                      // which constellation the pointer is near
   const [listOpen, setListOpen] = useState(false);    // "See as a list" overlay
   const brainRootRef = useRef(null);
+  // North-star cover media: video off, still image only, when the OS asks for less motion.
+  const prefersReducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   // inputs
   const [mode, setMode] = useState("media");
@@ -3782,8 +3807,16 @@ function App() {
     <div className={"bx" + (bxScene !== "cover" ? " bw-on-night" : "")} ref={brainRootRef}>
       <div className="bx-grain" aria-hidden="true" />
       <div className="bw-night" ref={nightRef} aria-hidden="true" />
-      <canvas className="bw-gl" ref={brainGlRef} aria-hidden="true" />
+      {/* Three canvas stays mounted (ref/effect run once on brainView) but is visually
+          hidden on the cover now that the north-star image is the cover backdrop —
+          unmounting it here would null brainGlRef before the engine's one-time setup
+          effect runs and permanently break the dive/inside/chamber scenes. */}
+      <canvas className="bw-gl" ref={brainGlRef} aria-hidden="true" style={bxScene === "cover" ? { opacity: 0 } : undefined} />
+      {/* bw-poster (no-WebGL fallback) retired on the cover: the north-star <img> below
+          renders unconditionally, so it is now the fallback too. Task 4 removes the
+          glOk/posterRef machinery outright.
       {!glOk && bxScene === "cover" && <canvas className="bw-poster" ref={posterRef} aria-hidden="true" />}
+      */}
       <span className="sr-only" aria-live="polite" ref={liveRef} />
       {bxScene === "transport" && (
         <button className="bw-scene" style={{ background: "none", border: 0, cursor: "default" }} aria-label="Skip the flight"
@@ -3799,14 +3832,22 @@ function App() {
 
       {bxScene === "cover" && (
         <div className="bw-scene bw-cover">
+          <div className="bx-stage" aria-hidden="true">
+            <img className="bx-stage-media" src={BX_ASSETS.base + BX_ASSETS.cover} alt="" />
+            {!prefersReducedMotion && (
+              <video className="bx-stage-media" src={BX_ASSETS.base + BX_ASSETS.coverClip}
+                autoPlay muted loop playsInline />
+            )}
+            <div className="bx-scrim-left" />
+          </div>
           <div className="bw-top">
             <span className="bx-kicker">A thinking tool for Wesley teachers</span>
-            <h1>Every lesson begins in the <em>mind.</em></h1>
-            <p className="bw-sub">Springboard turns a photograph, a film or an article into a lesson that makes your class's thinking visible — ready in about two minutes.</p>
+            <h1>Thinking, made <em>visible.</em></h1>
+            <p className="bw-sub">Springboard turns a photograph, a film or an article into a lesson that makes your class's thinking visible.</p>
           </div>
           <div className="bw-bottom">
             <button className="bw-enter" autoFocus onClick={enterMind}>Enter the mind →</button>
-            <p className="bw-sub" style={{ fontSize: 12.5, opacity: .8, marginTop: 14 }}>Eight thinking moves · Cultures of Thinking · <a href="https://pz.harvard.edu/thinking-routines" target="_blank" rel="noopener">Harvard Project Zero</a> · build 12</p>
+            <p className="bw-sub" style={{ fontSize: 12.5, opacity: .8, marginTop: 14 }}>Eight thinking moves · Cultures of Thinking · <a href="https://pz.harvard.edu/thinking-routines" target="_blank" rel="noopener">Harvard Project Zero</a> · build 13</p>
           </div>
         </div>
       )}
