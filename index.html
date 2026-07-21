@@ -2562,6 +2562,7 @@ function App() {
   const brainGlRef = useRef(null);                    // the WebGL canvas
   const nightRef = useRef(null);                      // deep-night DOM layer
   const brainApi = useRef(null);                      // imperative camera/world API
+  const diveTl = useRef(null);                        // GSAP timeline driving the cover -> inside dive
   const posterRef = useRef(null);                     // static 2D brain when WebGL is unavailable
   const labelEls = useRef([]);                        // constellation label buttons, positioned per-frame
   const hoveredRef = useRef(-1);                      // which constellation the pointer is near
@@ -3632,8 +3633,25 @@ function App() {
       announce("Inside the mind. Choose one of the eight thinking moves.");
       return;
     }
+    diveToInside();
+  };
+  // Image-based dive: the cover art zooms/crossfades to black via GSAP (no Three-driven camera
+  // move here). The Three engine is only told to settle into its "inside" pose once the dive
+  // lands, so the constellations it still draws (Task 3 replaces those visuals) are correct.
+  const diveToInside = () => {
+    const finishDive = () => {
+      gsap.set(".bw-cover .bx-stage", { clearProps: "all" });
+      gsap.set(".bw-cover", { clearProps: "all" }); // reset scale/opacity so a later cover visit isn't broken
+      if (brainApi.current) brainApi.current.skipToInside();
+      setBxScene("inside");
+      announce("Inside the mind. Eight thinking moves around you.");
+    };
+    if (prefersReducedMotion) { finishDive(); return; } // no dive animation: instant switch
     setBxScene("transport");
-    brainApi.current.enter(() => { setBxScene("inside"); announce("Inside the mind. Eight thinking moves around you."); });
+    const tl = gsap.timeline({ onComplete: finishDive });
+    tl.to(".bw-cover .bx-stage", { scale: 2.4, transformOrigin: "62% 45%", duration: 1.7, ease: "power2.in" }, 0)
+      .to(".bw-cover", { opacity: 0, duration: 0.6 }, 1.4);
+    diveTl.current = tl;
   };
   useEffect(() => { // WebGL unavailable: draw the brain once as a still 2D line drawing
     if (!brainView || glOk) return;
@@ -3666,7 +3684,7 @@ function App() {
   useEffect(() => {
     const onKey = (e) => {
       if (e.key !== "Escape") return;
-      if (sceneRef.current === "transport" && brainApi.current) { brainApi.current.skipToInside(); setBxScene("inside"); return; }
+      if (sceneRef.current === "transport") { if (diveTl.current) diveTl.current.progress(1); else setBxScene("inside"); return; }
       if (document.querySelector(".bx-ov")) return;            // slide preview owns Esc
       if (document.querySelector(".bw-list")) { setListOpen(false); return; }
       if (sceneRef.current === "chamber") leaveChamberRef.current();
@@ -3818,10 +3836,6 @@ function App() {
       {!glOk && bxScene === "cover" && <canvas className="bw-poster" ref={posterRef} aria-hidden="true" />}
       */}
       <span className="sr-only" aria-live="polite" ref={liveRef} />
-      {bxScene === "transport" && (
-        <button className="bw-scene" style={{ background: "none", border: 0, cursor: "default" }} aria-label="Skip the flight"
-          onClick={() => { brainApi.current && brainApi.current.skipToInside(); setBxScene("inside"); }} />
-      )}
       <header className="bx-mast">
         <div className="bx-word">Spring<i>board</i></div>
         <nav className="bx-nav">
@@ -3830,7 +3844,7 @@ function App() {
         </nav>
       </header>
 
-      {bxScene === "cover" && (
+      {(bxScene === "cover" || bxScene === "transport") && (
         <div className="bw-scene bw-cover">
           <div className="bx-stage" aria-hidden="true">
             <img className="bx-stage-media" src={BX_ASSETS.base + BX_ASSETS.cover} alt="" />
@@ -3850,6 +3864,13 @@ function App() {
             <p className="bw-sub" style={{ fontSize: 12.5, opacity: .8, marginTop: 14 }}>Eight thinking moves · Cultures of Thinking · <a href="https://pz.harvard.edu/thinking-routines" target="_blank" rel="noopener">Harvard Project Zero</a> · build 13</p>
           </div>
         </div>
+      )}
+
+      {/* Sits on top of .bw-cover (same stacking layer, later in DOM) while the dive plays:
+          catches every click so mid-dive taps skip instead of hitting "Enter the mind" again. */}
+      {bxScene === "transport" && (
+        <button className="bw-scene" style={{ background: "none", border: 0, cursor: "default" }} aria-label="Skip the flight"
+          onClick={() => { if (diveTl.current) diveTl.current.progress(1); else setBxScene("inside"); }} />
       )}
 
       {(bxScene === "inside" || bxScene === "chamber" || bxScene === "glide") && (
