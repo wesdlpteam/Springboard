@@ -833,15 +833,42 @@
   .bw-label-q { display: block; font-size: 12px; color: #b9bac9; margin-top: 3px; white-space: nowrap; }
   .bw-label:hover .bw-label-name { text-decoration: underline; text-underline-offset: 5px; } /* hover only: the focus ring marks keyboard focus, so autofocus can't leave a stuck underline */
   .bw-label:focus-visible { outline: 2px solid var(--bwt); outline-offset: 2px; border-radius: 6px; }
+  /* pulsing neuron glow: one per move, centred on the same anchor point as its label (the
+     positioning effect sets left/top identically for both, see the place() effect) so each
+     label visually reads as "grouped with" its colour-matched neuron. z-index 1 sits above
+     the artwork/scrim (0/1 inside .bx-stage--inside's own stacking context) and below the
+     label text (2). Non-interactive: aria-hidden, pointer-events none, never a hit target.
+     The keyframe bakes in the centring translate because a running CSS animation overrides
+     the inline transform the JS also sets (that inline transform is the reduced-motion
+     fallback centring, see the @media rule below). */
+  .bw-glow { position: absolute; left: 0; top: 0; z-index: 1; width: 104px; height: 104px;
+    border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle, var(--bwg) 0%, rgba(0,0,0,0) 70%);
+    opacity: .7; animation: bwGlowPulse 3.5s ease-in-out infinite alternate; }
+  @keyframes bwGlowPulse {
+    from { transform: translate(-50%, -50%) scale(1); opacity: .7; }
+    to   { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) { .bw-glow { animation: none; opacity: .85; } }
   /* glide (move select -> chamber, and chamber -> back): the artwork stage stays visible and
-     carries the ride (GSAP push on .bx-stage--inside, see the bxScene effect); only the
-     interactive bits fade out so nothing is clickable or seems to jump mid-flight. */
+     carries the ride (GSAP zoom into the neuron on .bx-stage--inside, see the bxScene
+     effect); only the interactive bits (+ the glow, which doesn't scale with the stage and
+     would visibly detach from the artwork mid-zoom) fade out so nothing is clickable or
+     seems to jump mid-flight. The glow's own infinite animation keeps writing opacity every
+     frame, which beats a plain override, so this pins it with !important + pauses the
+     animation rather than fight it. */
   .bw-inside--glide .bw-label, .bw-inside--glide .bw-listbtn { opacity: 0; pointer-events: none; }
+  .bw-inside--glide .bw-glow { animation-play-state: paused; opacity: 0 !important; }
   /* dive crossfade bloom: a pale glow pulse standing in for "passing through the brain's own
      light" at the moment the cover dissolves into the inside artwork — never a bare/black
      frame. Sits above both stages (z 2) but well below the fixed masthead (z 30/40). */
   .bw-dive-bloom { position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: 0;
     background: radial-gradient(55% 55% at 62% 45%, #dfe6ff 0%, rgba(223,230,255,0) 72%); }
+  /* move-select zoom bloom: same idea as .bw-dive-bloom, but centred on the neuron being
+     zoomed into (--bxbx/--bxby, set inline from the same origin the GSAP zoom uses) and
+     tinted with the chosen move's colour (--move-colour) instead of a fixed pale glow. */
+  .bw-move-bloom { position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: 0;
+    background: radial-gradient(45% 45% at var(--bxbx, 50%) var(--bxby, 50%), var(--move-colour, #dfe6ff) 0%, rgba(0,0,0,0) 72%); }
   .bw-listbtn { position: fixed; right: clamp(20px,4vw,52px); bottom: 26px; background: none; border: 1px solid rgba(255,255,255,.3); color: #d9d9e3; font: inherit; font-size: 12.5px; padding: 8px 16px; border-radius: 999px; cursor: pointer; transition: opacity .3s; }
   .bw-listbtn:hover { border-color: #fff; color: #fff; }
   /* Very narrow screens: the neurons crop past both viewport edges, so scattered labels
@@ -2462,8 +2489,12 @@ function App() {
   const diveTl = useRef(null);                        // GSAP timeline driving the cover -> inside dive
   const glideTimer = useRef(0);                       // setTimeout id: glide -> chamber / glide -> inside
   const labelEls = useRef([]);                        // move label buttons, positioned from the artwork
+  const glowEls = useRef([]);                         // pulsing neuron glows, positioned same as the labels
   const insideStageRef = useRef(null);                // .bx-stage holding inside.png (anchors the labels)
   const bloomRef = useRef(null);                      // full-viewport glow pulse at the dive's crossfade moment
+  const moveBloomRef = useRef(null);                  // colour bloom at the move-select zoom's crossfade moment
+  const zoomOriginRef = useRef({ css: "50% 50%", xPct: "50%", yPct: "50%" }); // neuron px point, as transform-origin css + bloom %ages
+  const [glideDir, setGlideDir] = useState("in");     // "in" (move select, zooming into the neuron) vs "out" (leaving chamber)
   const [listOpen, setListOpen] = useState(false);    // "See as a list" overlay
   const brainRootRef = useRef(null);
   // North-star cover media: video off, still image only, when the OS asks for less motion.
@@ -3309,21 +3340,43 @@ function App() {
     return () => { tl.kill(); diveTl.current = null; };
   }, [bxScene]);
   // Move select -> glide -> chamber. With the engine gone, plain timing runs the handoff:
-  // play the glide (the inside stage pushes in, see the glide effect), then after ~0.5s cross
-  // to the chamber. Reduced motion: skip the glide and land on the chamber immediately.
+  // play the glide (the inside stage zooms INTO the chosen neuron, see the zoom effect below),
+  // then once the zoom lands cross to the chamber. Reduced motion: skip the glide and land on
+  // the chamber immediately. BX_ZOOM_MS mirrors the zoom's own duration (see the zoom effect)
+  // so the chamber crossfades in right as the zoom completes, not before/after it.
+  const BX_ZOOM_MS = 650;
+  // Same cover-fit math the labels use (bxImagePoint), turned into (a) a transform-origin
+  // css string for the GSAP zoom and (b) %ages for the move-bloom's radial-gradient centre.
+  // Reads insideStageRef's clientWidth/Height, which is transform-immune, so this stays
+  // correct even mid-animation or while the "See as a list" overlay is covering the artwork.
+  const computeMoveOrigin = (name) => {
+    const stage = insideStageRef.current, pos = IMG_MOVE_POS[name];
+    if (!stage || !pos) return { css: "50% 50%", xPct: "50%", yPct: "50%" };
+    const p = bxImagePoint(stage, pos.fx, pos.fy, BX_AR.inside);
+    const w = stage.clientWidth || 1, h = stage.clientHeight || 1;
+    return {
+      css: p.left.toFixed(1) + "px " + p.top.toFixed(1) + "px",
+      xPct: ((p.left / w) * 100).toFixed(1) + "%",
+      yPct: ((p.top / h) * 100).toFixed(1) + "%",
+    };
+  };
   const chooseMove = (name) => {
     pickMove(name);
     if (prefersReducedMotion) { setBxScene("chamber"); announce(name + ". Build the lesson here."); return; }
+    zoomOriginRef.current = computeMoveOrigin(name); // zoom targets THIS neuron, not the stage centre
+    setGlideDir("in");
     setBxScene("glide");
     clearTimeout(glideTimer.current);
-    glideTimer.current = setTimeout(() => { setBxScene("chamber"); announce(name + ". Build the lesson here."); }, 500);
+    glideTimer.current = setTimeout(() => { setBxScene("chamber"); announce(name + ". Build the lesson here."); }, BX_ZOOM_MS);
   };
   const leaveChamber = () => {
-    pickMove("");
-    if (prefersReducedMotion) { setBxScene("inside"); return; }
+    const wasMove = selectedMove; // keep selectedMove alive through the closing glide so the
+    if (prefersReducedMotion) { pickMove(""); setBxScene("inside"); return; } // chamber (still tinted/labelled by it) can fade out instead of popping
+    if (wasMove) zoomOriginRef.current = computeMoveOrigin(wasMove); // zoom back out from the same neuron
+    setGlideDir("out");
     setBxScene("glide"); // labels hidden for the ride home — nothing on screen can jump
     clearTimeout(glideTimer.current);
-    glideTimer.current = setTimeout(() => setBxScene("inside"), 500);
+    glideTimer.current = setTimeout(() => { pickMove(""); setBxScene("inside"); }, BX_ZOOM_MS);
   };
   const leaveChamberRef = useRef(leaveChamber); leaveChamberRef.current = leaveChamber;
   useEffect(() => {
@@ -3346,42 +3399,80 @@ function App() {
     }, 80);
     if (bxScene === "chamber") setTimeout(() => { const b = document.querySelector(".bw-chamber .bx-back"); if (b) b.focus(); }, 80);
   }, [bxScene]);
-  // Position each move label in a dark pocket beside its colour-matched neuron on
-  // inside.png. Runs after layout (pre-paint, no flash) and on resize; the scene's own
-  // opacity transition handles show/hide, so we only compute geometry here.
+  // Position each move label AND its pulsing glow in a dark pocket beside its colour-matched
+  // neuron on inside.png — both anchored to the exact same fx/fy (the glow sits directly
+  // behind its label, reading as "this label belongs to that coloured neuron"). Runs after
+  // layout (pre-paint, no flash) and on resize; the scene's own opacity transition handles
+  // show/hide, so we only compute geometry here.
   useLayoutEffect(() => {
     if (bxScene !== "inside" && bxScene !== "chamber" && bxScene !== "glide") return;
     const stage = insideStageRef.current; if (!stage) return;
     const place = () => {
       MOVES.forEach((m, i) => {
-        const el = labelEls.current[i]; if (!el) return;
         const pos = IMG_MOVE_POS[m.name]; if (!pos) return;
         const p = bxImagePoint(stage, pos.fx, pos.fy, BX_AR.inside);
-        el.style.left = p.left.toFixed(1) + "px";
-        el.style.top = p.top.toFixed(1) + "px";
-        el.style.transform = "translate(-50%, -50%)";
-        // a11y: only the resting inside scene exposes the labels. During glide/chamber the
-        // layer is faded (opacity/parent), but opacity alone leaves the buttons Tab-reachable
-        // — visibility:hidden pulls the invisible labels out of the keyboard tab order, and
-        // it returns to visible the moment we settle back on inside.
-        el.style.visibility = bxScene === "inside" ? "visible" : "hidden";
+        const el = labelEls.current[i];
+        if (el) {
+          el.style.left = p.left.toFixed(1) + "px";
+          el.style.top = p.top.toFixed(1) + "px";
+          el.style.transform = "translate(-50%, -50%)";
+          // a11y: only the resting inside scene exposes the labels. During glide/chamber the
+          // layer is faded (opacity/parent), but opacity alone leaves the buttons Tab-reachable
+          // — visibility:hidden pulls the invisible labels out of the keyboard tab order, and
+          // it returns to visible the moment we settle back on inside.
+          el.style.visibility = bxScene === "inside" ? "visible" : "hidden";
+        }
+        const glow = glowEls.current[i];
+        if (glow) {
+          glow.style.left = p.left.toFixed(1) + "px";
+          glow.style.top = p.top.toFixed(1) + "px";
+          // inline centring is a reduced-motion fallback only — the running pulse animation
+          // (see .bw-glow's keyframes) overrides this transform every other frame.
+          glow.style.transform = "translate(-50%, -50%)";
+        }
       });
     };
     place();
     window.addEventListener("resize", place);
     return () => window.removeEventListener("resize", place);
   }, [bxScene]);
-  // Glide feedback: there is no camera flight any more, so the artwork itself carries the
-  // ride — a gentle ~0.5s push in on the inside stage while we travel to the chamber, and a
-  // settle back when it returns (matched to the 500ms glide timer). Reduced motion: no push.
+  // Zoom into the neuron: on move select, the inside stage's transform-origin is pinned to
+  // the chosen neuron's pixel point (computeMoveOrigin, above) and GSAP scales it up so the
+  // camera reads as diving INTO that neuron, with a colour bloom (tinted to the move) at the
+  // crossover moment; the chamber then crossfades in on top once the zoom lands (BX_ZOOM_MS
+  // timeout in chooseMove). Leaving the chamber reverses it: zoom back down to resting scale
+  // from the same origin, clearing transformOrigin once settled so later dives/resizes start
+  // clean. Reduced motion: no zoom, no bloom — scene changes are instant (see chooseMove/
+  // leaveChamber's reduced-motion branches, which skip "glide" entirely).
   useEffect(() => {
     const stage = insideStageRef.current; if (!stage || typeof gsap === "undefined") return;
-    if (prefersReducedMotion) { gsap.set(stage, { scale: 1 }); return; }
-    if (bxScene === "glide") gsap.to(stage, { scale: 1.06, duration: 0.5, ease: "power2.inOut", overwrite: "auto" });
-    else if (bxScene === "inside") gsap.to(stage, { scale: 1, duration: 0.5, ease: "power2.out", overwrite: "auto" });
-    // chamber: leave the stage at its pushed-in scale, hidden — the return glide fades it
-    // back in from there and the "inside" branch above settles it, mirroring the way out.
-  }, [bxScene]);
+    if (prefersReducedMotion) { gsap.set(stage, { scale: 1, clearProps: "transformOrigin" }); return; }
+    const ZOOM_S = 0.65, ZOOM_SCALE = 2.6;
+    if (bxScene === "glide") {
+      const origin = (zoomOriginRef.current && zoomOriginRef.current.css) || "50% 50%";
+      gsap.set(stage, { transformOrigin: origin });
+      const btl = gsap.timeline();
+      if (glideDir === "in") {
+        gsap.to(stage, { scale: ZOOM_SCALE, duration: ZOOM_S, ease: "power2.in", overwrite: "auto" });
+        if (moveBloomRef.current) {
+          btl.fromTo(moveBloomRef.current, { opacity: 0 }, { opacity: 0.4, duration: 0.22, ease: "sine.out" }, ZOOM_S - 0.35)
+             .to(moveBloomRef.current, { opacity: 0, duration: 0.22, ease: "sine.in" }, ZOOM_S - 0.13);
+        }
+      } else {
+        gsap.to(stage, { scale: 1, duration: ZOOM_S, ease: "power2.out", overwrite: "auto" });
+        if (moveBloomRef.current) {
+          btl.fromTo(moveBloomRef.current, { opacity: 0 }, { opacity: 0.4, duration: 0.22, ease: "sine.out" }, 0.05)
+             .to(moveBloomRef.current, { opacity: 0, duration: 0.22, ease: "sine.in" }, 0.3);
+        }
+      }
+    } else if (bxScene === "inside") {
+      // settle back to resting scale + wipe the pinned origin so a later move-select or the
+      // dive-to-inside timeline (which sets its own transformOrigin: 50% 50%) starts clean.
+      gsap.to(stage, { scale: 1, duration: 0.5, ease: "power2.out", overwrite: "auto", clearProps: "transformOrigin" });
+    }
+    // chamber: leave the stage at ZOOM_SCALE, hidden (the whole .bw-inside layer fades to
+    // opacity 0) — the "glide"/dir "out" branch above reverses it from there once the tool closes.
+  }, [bxScene, glideDir]);
 
   const scrollToId = (id) => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); };
   const onPickBrainMove = (name) => { pickMove(name); setTimeout(() => scrollToId("bx-tool"), 80); };
@@ -3570,6 +3661,12 @@ function App() {
             <img className="bx-stage-media" src={BX_ASSETS.base + BX_ASSETS.inside} alt="" />
             <div className="bx-inside-scrim" />
           </div>
+          {/* one pulsing colour glow per move, grouping each label with its neuron (see
+              .bw-glow) — rendered before the labels so it sits behind them (z-index 1 < 2). */}
+          {MOVES.map((m, i) => (
+            <div key={m.name} ref={el => { glowEls.current[i] = el; }} className="bw-glow" aria-hidden="true"
+              style={{ "--bwg": bxColor(m.name), animationDelay: (i * 0.44) + "s" }} />
+          ))}
           {MOVES.map((m, i) => (
             <button key={m.name} ref={el => { labelEls.current[i] = el; }} className="bw-label" style={{ "--bwt": bwTint(m.name) }}
               onClick={() => chooseMove(m.name)}>
@@ -3583,6 +3680,10 @@ function App() {
             <div className="bw-list" role="dialog" aria-modal="true" aria-label="The eight thinking moves">
               <button className="bw-list-close" aria-label="Close list" onClick={() => setListOpen(false)}>×</button>
               {MOVES.map((m) => (
+                // chooseMove (called here too) computes the zoom origin from IMG_MOVE_POS,
+                // which only reads the artwork stage's own box — unaffected by this overlay
+                // sitting on top of it — so picking from the list still zooms from the
+                // correct neuron, not a centre-origin fallback.
                 <button key={m.name} className="bw-list-row" style={{ "--bwt": bwTint(m.name) }} onClick={() => { setListOpen(false); chooseMove(m.name); }}>
                   <i /><b>{m.name}</b><span>{m.question}</span>
                 </button>
@@ -3592,10 +3693,23 @@ function App() {
         </div>
       )}
 
-      {bxScene === "chamber" && selectedMoveObj && (
+      {/* Colour bloom at the neuron-zoom's crossover moment (see the zoom effect) — tinted
+          to the selected move and centred on the neuron itself. */}
+      {bxScene === "glide" && (
+        <div className="bw-move-bloom" ref={moveBloomRef} aria-hidden="true"
+          style={{ "--move-colour": bxColor(selectedMove), "--bxbx": zoomOriginRef.current.xPct, "--bxby": zoomOriginRef.current.yPct }} />
+      )}
+
+      {(bxScene === "chamber" || (bxScene === "glide" && glideDir === "out")) && selectedMoveObj && (
         // chamber.png backdrop under a dim veil, with a halo ring in the chosen move's colour
         // (--move-colour) glowing behind the tool panel. The tool is lifted above the backdrop.
-        <div className="bw-chamber" style={{ "--bwt": bwTint(selectedMove), "--move-colour": bxColor(selectedMove) }}>
+        // Stays mounted (not fading to a pop) through the closing glide so "All moves" reverses
+        // the zoom-in crossfade instead of just vanishing; selectedMove is only cleared once
+        // leaveChamber's timeout lands back on "inside" (see leaveChamber).
+        <div className="bw-chamber" style={{
+            "--bwt": bwTint(selectedMove), "--move-colour": bxColor(selectedMove),
+            ...(bxScene === "glide" ? { opacity: 0, pointerEvents: "none", transition: prefersReducedMotion ? "none" : "opacity .3s ease" } : null),
+          }}>
           <div className="bx-stage bx-stage--chamber" aria-hidden="true">
             <img className="bx-stage-media" src={BX_ASSETS.base + BX_ASSETS.chamber} alt="" />
             <div className="bx-chamber-veil" />
