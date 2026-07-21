@@ -2345,13 +2345,16 @@ const bwTint = (name) => BW_TINT[name] || "#e6e6ee";
 // brainstem, facing left) and return `count` normalized points [x,y] in roughly [-1,1]
 // (aspect preserved, centred). The side profile is the shape everyone recognises as
 // "a brain". Returns [] on any failure. Paths live in a 0..24 box.
-function sampleBrainSilhouette(count) {
-  const BRAIN_D = [
-    // cerebrum outline: front lower-left, up over the dome, down the back
+function sampleBrainSilhouette(countOutline, countDetail) {
+  // the contour that MAKES it read as a brain: dome, underside, cerebellum bulb, stem
+  const OUTLINE_D = [
     "M3.2 12.2 C2.6 8.4 5 4.6 9 3.4 C13 2.2 17.8 2.8 20.4 5.4 C22.6 7.6 22.8 11 21.6 13.6 C20.9 15.1 19.8 16.2 18.2 16.8",
-    // front + underside of the cerebrum (temporal lobe line)
     "M3.2 12.2 C3.4 14.6 4.8 16.4 7.2 17 C9.8 17.6 12.8 17.4 15.2 16.6",
-    // gyri: wavy folds filling the dome
+    "M16.2 16.4 C15.2 18.2 16 20.2 18 20.7 C20.1 21.2 21.9 19.8 21.8 17.8 C21.7 16.3 20.6 15.3 19 15.5",
+    "M16.6 19.8 C16 21 15 22 13.6 22.6",
+  ];
+  // interior texture: gyri folds + cerebellum striations (lighter, never louder than the contour)
+  const DETAIL_D = [
     "M5 11 C5.2 8.2 7.4 6 10.2 5.4 C11.6 5.1 13 5.1 14.3 5.5",
     "M6.4 13.6 C5.8 10.2 8.2 7.2 11.8 6.7 C14.8 6.3 17.8 7.3 19.3 9.3",
     "M8.8 15.6 C7.8 12.6 9.6 9.6 13 9.1 C15.9 8.7 18.6 10 19.7 12.2",
@@ -2359,27 +2362,28 @@ function sampleBrainSilhouette(count) {
     "M6.8 8.8 C7.8 7.8 9.4 7.4 10.8 7.8",
     "M15.5 6.2 C16.9 6.3 18.2 7 19 8.1",
     "M10.5 13.2 C11 11.4 12.7 10.2 14.6 10.4",
-    // cerebellum: crenellated bulb at the lower back, with striations
-    "M16.2 16.4 C15.2 18.2 16 20.2 18 20.7 C20.1 21.2 21.9 19.8 21.8 17.8 C21.7 16.3 20.6 15.3 19 15.5",
     "M16.9 17.6 C18 17.2 19.8 17.1 21.1 17.6",
     "M16.8 19 C18 18.6 19.9 18.6 21.2 19.1",
-    // brainstem dropping from under the cerebellum
-    "M16.6 19.8 C16 21 15 22 13.6 22.6",
   ];
   const S = 600, pad = 96;
-  let g; try { const oc = document.createElement("canvas"); oc.width = oc.height = S; g = oc.getContext("2d", { willReadFrequently: true }); } catch (e) { return []; }
-  g.strokeStyle = "#000"; g.lineJoin = g.lineCap = "round";
-  const sc = (S - pad * 2) / 24; g.setTransform(sc, 0, 0, sc, pad, pad); g.lineWidth = 1.7;
-  for (const d of BRAIN_D) { try { g.stroke(new Path2D(d)); } catch (e) {} }
-  let data; try { data = g.getImageData(0, 0, S, S).data; } catch (e) { return []; }
-  const raw = [];
-  for (let y = 0; y < S; y += 2) for (let x = 0; x < S; x += 2) if (data[(y * S + x) * 4 + 3] > 40) raw.push([x, y]);
-  if (!raw.length) return [];
-  for (let i = raw.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; const t = raw[i]; raw[i] = raw[j]; raw[j] = t; }
+  const rasterise = (paths, lw, count) => {
+    let g; try { const oc = document.createElement("canvas"); oc.width = oc.height = S; g = oc.getContext("2d", { willReadFrequently: true }); } catch (e) { return []; }
+    g.strokeStyle = "#000"; g.lineJoin = g.lineCap = "round";
+    const sc = (S - pad * 2) / 24; g.setTransform(sc, 0, 0, sc, pad, pad); g.lineWidth = lw;
+    for (const d of paths) { try { g.stroke(new Path2D(d)); } catch (e) {} }
+    let data; try { data = g.getImageData(0, 0, S, S).data; } catch (e) { return []; }
+    const raw = [];
+    for (let y = 0; y < S; y += 2) for (let x = 0; x < S; x += 2) if (data[(y * S + x) * 4 + 3] > 40) raw.push([x, y]);
+    for (let i = raw.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; const t = raw[i]; raw[i] = raw[j]; raw[j] = t; }
+    return raw.slice(0, Math.min(count, raw.length));
+  };
+  const o = rasterise(OUTLINE_D, 2.1, countOutline), d = rasterise(DETAIL_D, 1.4, countDetail);
+  const all = o.concat(d); if (!all.length) return { o: [], d: [] };
   let minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
-  for (const p of raw) { if (p[0] < minx) minx = p[0]; if (p[0] > maxx) maxx = p[0]; if (p[1] < miny) miny = p[1]; if (p[1] > maxy) maxy = p[1]; }
+  for (const p of all) { if (p[0] < minx) minx = p[0]; if (p[0] > maxx) maxx = p[0]; if (p[1] < miny) miny = p[1]; if (p[1] > maxy) maxy = p[1]; }
   const cx = (minx + maxx) / 2, cy = (miny + maxy) / 2, half = Math.max(maxx - minx, maxy - miny) / 2 || 1;
-  return raw.slice(0, Math.min(count, raw.length)).map(p => [(p[0] - cx) / half, -(p[1] - cy) / half]);
+  const norm = (arr) => arr.map(p => [(p[0] - cx) / half, -(p[1] - cy) / half]);
+  return { o: norm(o), d: norm(d) };
 }
 
 function App() {
@@ -3211,21 +3215,27 @@ function App() {
     renderer.setClearColor(0x000000, 0); // transparent: porcelain page shows through on the cover
     const scene = new T.Scene();
     const camera = new T.PerspectiveCamera(55, 1, 0.1, 120);
-    if (mobile) camera.position.set(0, -0.25, 6.2); else camera.position.set(0, -0.02, 3.55); // portrait FOV is narrow: stand further back
-    const N_PTS = mobile ? 2200 : 6000;
-    const flat = sampleBrainSilhouette(N_PTS);
+    if (mobile) camera.position.set(0, -0.25, 6.2); else camera.position.set(0, 0.26, 3.85); // desktop: brain sits low so its crown clears the headline; portrait stands further back
+    const NO = mobile ? 1000 : 2600, ND = mobile ? 1200 : 3400;
+    const samp = sampleBrainSilhouette(NO, ND);
+    const flat = samp.o.concat(samp.d), EDGE_N = samp.o.length;
     if (!flat.length) { setGlOk(false); renderer.dispose(); return; }
-    // give the silhouette volume: depth budget shrinks toward the rim
+    // outline points stay near-flat and ink-dark so the contour reads; detail points get
+    // more depth, more jitter and the colour glints
     const pos = new Float32Array(flat.length * 3), inkCol = new Float32Array(flat.length * 3), glowCol = new Float32Array(flat.length * 3);
-    const ink = new T.Color("#17171d"), glow = new T.Color("#8f93b4"), white = new T.Color("#ffffff"), tmp = new T.Color();
+    const tiers = new Uint8Array(flat.length);
+    const ink = new T.Color("#17171d"), edgeInk = new T.Color("#101014"), glow = new T.Color("#8f93b4"), white = new T.Color("#ffffff"), tmp = new T.Color();
     const moveCols = Object.values(BX_COLOR).map(c => new T.Color(c));
     for (let i = 0; i < flat.length; i++) {
+      const edge = i < EDGE_N;
       const x = flat[i][0] * 1.6, y = flat[i][1] * 1.6;
-      const r = Math.min(1, Math.hypot(flat[i][0], flat[i][1]));
-      const z = (Math.random() * 2 - 1) * Math.sqrt(Math.max(0.02, 1 - r * r)) * 0.55; // shallow: keeps the silhouette readable in the sway
-      pos.set([x + (Math.random() - .5) * .03, y + (Math.random() - .5) * .03, z], i * 3);
-      const accent = Math.random() < 0.1 ? moveCols[(Math.random() * moveCols.length) | 0] : null;
-      tmp.copy(accent || ink); inkCol.set([tmp.r, tmp.g, tmp.b], i * 3);
+      const depth = edge ? 0.10 : 0.30, jit = edge ? 0.015 : 0.03;
+      const z = (Math.random() * 2 - 1) * depth;
+      pos.set([x + (Math.random() - .5) * jit, y + (Math.random() - .5) * jit, z], i * 3);
+      const rr2 = Math.random();
+      tiers[i] = edge ? (rr2 < 0.5 ? 1 : (rr2 < 0.88 ? 0 : 2)) : (rr2 < 0.82 ? 0 : (rr2 < 0.98 ? 1 : 2));
+      const accent = (!edge && Math.random() < 0.14) ? moveCols[(Math.random() * moveCols.length) | 0] : null;
+      tmp.copy(accent || (edge ? edgeInk : ink)); inkCol.set([tmp.r, tmp.g, tmp.b], i * 3);
       if (accent) { tmp.copy(accent).lerp(white, 0.25); } else { tmp.copy(glow); }
       glowCol.set([tmp.r, tmp.g, tmp.b], i * 3);
     }
@@ -3239,7 +3249,7 @@ function App() {
     // three size tiers so the cloud reads organic, not uniform: fine mist / neurons / soma nodes
     const TIER_W = [0.02, 0.036, 0.062], TIER_PX = [2.2, 3.8, 6.5];
     const tierGeos = [], tp = [[], [], []], tInk = [[], [], []], tGlow = [[], [], []];
-    for (let i = 0; i < flat.length; i++) { const rr2 = Math.random(); const t3 = rr2 < 0.7 ? 0 : (rr2 < 0.95 ? 1 : 2);
+    for (let i = 0; i < flat.length; i++) { const t3 = tiers[i];
       tp[t3].push(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]);
       tInk[t3].push(inkCol[i * 3], inkCol[i * 3 + 1], inkCol[i * 3 + 2]);
       tGlow[t3].push(glowCol[i * 3], glowCol[i * 3 + 1], glowCol[i * 3 + 2]); }
@@ -3257,7 +3267,7 @@ function App() {
     }
     // synapse lines: short LOCAL filaments only (long chords scribble over the silhouette)
     const L = mobile ? 700 : 1600, lpArr = [];
-    const LIM2 = 0.12; // max filament length^2 in world units
+    const LIM2 = 0.06; // max filament length^2 in world units — short, local, quiet
     for (let tries = 0; tries < L * 6 && lpArr.length < L * 6; tries++) {
       const a = (Math.random() * flat.length) | 0; let best = -1, bd = 1e9;
       for (let t2 = 0; t2 < 24; t2++) { const b = (Math.random() * flat.length) | 0; if (b === a) continue;
@@ -3268,7 +3278,7 @@ function App() {
     }
     const lp = new Float32Array(lpArr);
     const lgeo = new T.BufferGeometry(); lgeo.setAttribute("position", new T.BufferAttribute(lp, 3));
-    const inkLines = new T.LineSegments(lgeo, new T.LineBasicMaterial({ color: 0x1c1c22, transparent: true, opacity: 0.22, depthWrite: false }));
+    const inkLines = new T.LineSegments(lgeo, new T.LineBasicMaterial({ color: 0x1c1c22, transparent: true, opacity: 0.16, depthWrite: false }));
     const glowLines = new T.LineSegments(lgeo.clone(), new T.LineBasicMaterial({ color: 0x6f74a0, transparent: true, opacity: 0, depthWrite: false, blending: T.AdditiveBlending }));
     const brainGroup = new T.Group(); inkPts.forEach(p => brainGroup.add(p)); glowPts.forEach(p => brainGroup.add(p)); brainGroup.add(inkLines, glowLines); scene.add(brainGroup);
     // far specks: depth parallax once inside
@@ -3357,7 +3367,7 @@ function App() {
     const frame = (now) => {
       raf = requestAnimationFrame(frame); if (document.hidden) return;
       const dt = Math.min(0.05, (now - tPrev) / 1000 || 0.016); tPrev = now;
-      if (!reduce && sceneRef.current === "cover") brainGroup.rotation.y = Math.sin(now * 0.00035) * 0.34; // gentle sway keeps the profile readable
+      if (!reduce && sceneRef.current === "cover") brainGroup.rotation.y = Math.sin(now * 0.00035) * 0.12; // barely-there sway: the near-flat profile must stay crisp
       if (sceneRef.current === "inside" || sceneRef.current === "chamber" || sceneRef.current === "glide") {
         if (!reduce && sceneRef.current === "inside") camera.rotation.y = Math.sin(now * 0.00013) * 0.035;
         const els = labelEls.current;
@@ -3395,7 +3405,7 @@ function App() {
     const r = c.getBoundingClientRect(), DPR = Math.min(window.devicePixelRatio || 1, 2);
     c.width = Math.max(1, (r.width * DPR) | 0); c.height = Math.max(1, (r.height * DPR) | 0);
     const g = c.getContext("2d"); if (!g) return;
-    const pts = sampleBrainSilhouette(900), S = Math.min(r.width, r.height) * 0.42;
+    const samp2 = sampleBrainSilhouette(500, 500), pts = samp2.o.concat(samp2.d), S = Math.min(r.width, r.height) * 0.42;
     g.setTransform(DPR, 0, 0, DPR, 0, 0); g.clearRect(0, 0, r.width, r.height);
     g.fillStyle = "#17171d"; g.globalAlpha = 0.85;
     for (const p of pts) { g.beginPath(); g.arc(r.width / 2 + p[0] * S, r.height / 2 - 40 - p[1] * S, 1.6, 0, 6.283); g.fill(); }
