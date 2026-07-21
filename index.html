@@ -790,9 +790,10 @@
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   /* inside the mind: constellation labels (projected from 3D each frame) */
   .bw-inside { position: fixed; inset: 0; z-index: 2; }
-  .bw-label { position: absolute; left: 0; top: 0; visibility: hidden; background: none; border: 0; cursor: pointer; text-align: center; color: var(--bwt); font: inherit; padding: 10px 14px; transition: opacity .3s; will-change: transform; }
-  .bw-label-name { display: block; font-family: var(--bx-display); font-weight: 400; font-size: clamp(19px, 2vw, 27px); letter-spacing: -.01em; white-space: nowrap; text-shadow: 0 0 24px rgba(0,0,0,.9); }
-  .bw-label-q { display: block; font-size: 12.5px; color: #b9bac9; margin-top: 4px; white-space: nowrap; }
+  .bw-label { position: absolute; left: 0; top: 0; visibility: hidden; border: 0; cursor: pointer; text-align: center; color: var(--bwt); font: inherit; padding: 8px 16px; transition: opacity .3s; will-change: transform;
+    background: rgba(16,16,23,.6); backdrop-filter: blur(3px); border-radius: 12px; }
+  .bw-label-name { display: block; font-family: var(--bx-display); font-weight: 400; font-size: clamp(17px, 1.7vw, 22px); letter-spacing: -.01em; white-space: nowrap; }
+  .bw-label-q { display: block; font-size: 12px; color: #b9bac9; margin-top: 3px; white-space: nowrap; }
   .bw-label:hover .bw-label-name, .bw-label:focus-visible .bw-label-name { text-decoration: underline; text-underline-offset: 5px; }
   .bw-label:focus-visible { outline: 2px solid var(--bwt); outline-offset: 2px; border-radius: 6px; }
   .bw-listbtn { position: fixed; right: clamp(20px,4vw,52px); bottom: 26px; background: none; border: 1px solid rgba(255,255,255,.3); color: #d9d9e3; font: inherit; font-size: 12.5px; padding: 8px 16px; border-radius: 999px; cursor: pointer; }
@@ -807,9 +808,11 @@
   /* the chamber: the working tool restyled for the night world */
   .bw-chamber { position: fixed; inset: 0; z-index: 2; overflow: auto; }
   .bw-chamber .bx-tool { padding-top: 92px; min-height: 100%; }
+  .bw-chamber .bx-tool-head { display: block; }
   .bw-chamber .bx-tool-head h2 { color: var(--bwt); }
-  .bw-chamber .bx-tool-head .bx-back { color: #b9bac9; } .bw-chamber .bx-tool-head .bx-back:hover { color: #fff; }
-  .bw-chamber .bx-tool-sub { color: #b9bac9; }
+  .bw-chamber .bx-tool-head .bx-back { display: block; margin-bottom: 14px; color: #b9bac9; } .bw-chamber .bx-tool-head .bx-back:hover { color: #fff; }
+  .bw-chamber .bx-tool-sub { color: #b9bac9; max-width: none; }
+  .bw-chamber .bx-btn.mv { background: var(--bwt); color: #101017; }
   .bw-chamber .bx-panel { border-top-color: rgba(255,255,255,.5); background: rgba(22,22,30,.78); backdrop-filter: blur(6px); border-radius: 6px; padding: 18px 18px 22px; }
   .bw-chamber .bx-panel > h3 { color: #ececf1; }
   .bw-chamber .bx-panel > .bx-note, .bw-chamber .bx-panel .bx-step-n, .bw-chamber .bx-field label { color: #a9aabb; }
@@ -2321,15 +2324,16 @@ async function addPlayBadge(dataUrl) {
 
 // Editorial "Thinking Brain" experience (sandbox): the 8 move colours, muted to jewel tones
 // so a single dot/name reads refined on porcelain. Keys match MOVES[].name exactly.
+// Move colours from the official Wesley College palette (primary + secondary strong).
 const BX_COLOR = {
-  "Reason with Evidence": "#b0871f",
-  "Make Connections": "#c0592a",
-  "Uncovering Complexity": "#b23346",
-  "Capture the Heart & Form Conclusions": "#823a9e",
-  "Build Explanations": "#177a68",
-  "Describe What's There": "#1c7d94",
-  "Wondering": "#34508f",
-  "Consider Different Viewpoints": "#3f7a34",
+  "Reason with Evidence": "#c59f40",                    // Wesley Gold
+  "Make Connections": "#ffa245",                        // Wesley Orange
+  "Uncovering Complexity": "#4f2759",                   // Wesley Purple
+  "Capture the Heart & Form Conclusions": "#fa3859",    // Wesley Red — the heart
+  "Build Explanations": "#86c791",                      // Wesley Green
+  "Describe What's There": "#cec3cf",                   // Wesley Grey Purple
+  "Wondering": "#7ca3ff",                               // Wesley Blue
+  "Consider Different Viewpoints": "#ffd157",           // Wesley Yellow
 };
 const bxColor = (name) => BX_COLOR[name] || "#17171b";
 
@@ -2353,7 +2357,8 @@ function sampleBrainSilhouette(countOutline, countDetail) {
     "M16.2 16.4 C15.2 18.2 16 20.2 18 20.7 C20.1 21.2 21.9 19.8 21.8 17.8 C21.7 16.3 20.6 15.3 19 15.5",
     "M16.6 19.8 C16 21 15 22 13.6 22.6",
   ];
-  // interior texture: gyri folds + cerebellum striations (lighter, never louder than the contour)
+  // interior texture: the dome is FULL of meandering gyri folds (that density is what
+  // makes it read as brain tissue, like the reference images) + cerebellum striations
   const DETAIL_D = [
     "M5 11 C5.2 8.2 7.4 6 10.2 5.4 C11.6 5.1 13 5.1 14.3 5.5",
     "M6.4 13.6 C5.8 10.2 8.2 7.2 11.8 6.7 C14.8 6.3 17.8 7.3 19.3 9.3",
@@ -2362,6 +2367,14 @@ function sampleBrainSilhouette(countOutline, countDetail) {
     "M6.8 8.8 C7.8 7.8 9.4 7.4 10.8 7.8",
     "M15.5 6.2 C16.9 6.3 18.2 7 19 8.1",
     "M10.5 13.2 C11 11.4 12.7 10.2 14.6 10.4",
+    "M4.6 9.6 C5.4 7.4 7.4 5.8 9.8 5.6 C11.2 5.5 12.4 5.9 13.2 6.7",
+    "M5.6 12.6 C5 10.6 6 8.4 8 7.6 C9.6 6.9 11.4 7.2 12.6 8.3",
+    "M7.2 14.8 C6.4 13 7 10.8 8.8 9.9 C10.4 9.1 12.3 9.5 13.4 10.8",
+    "M10 16 C9.2 14.4 9.6 12.4 11.1 11.4 C12.6 10.4 14.5 10.7 15.6 12",
+    "M13.4 16.2 C13 14.7 13.7 13.1 15.1 12.5 C16.6 11.9 18.2 12.4 19.1 13.7",
+    "M14.9 8.9 C15.9 7.9 17.4 7.7 18.6 8.4 C19.6 9 20.2 10 20.2 11.1",
+    "M16.6 5 C17.9 5.1 19.1 5.8 19.8 6.9",
+    "M8.4 4.7 C9.9 4 11.7 3.9 13.2 4.4",
     "M16.9 17.6 C18 17.2 19.8 17.1 21.1 17.6",
     "M16.8 19 C18 18.6 19.9 18.6 21.2 19.1",
   ];
@@ -3216,15 +3229,15 @@ function App() {
     const scene = new T.Scene();
     const camera = new T.PerspectiveCamera(55, 1, 0.1, 120);
     if (mobile) camera.position.set(0, -0.25, 6.2); else camera.position.set(0, 0.26, 3.85); // desktop: brain sits low so its crown clears the headline; portrait stands further back
-    const NO = mobile ? 1000 : 2600, ND = mobile ? 1200 : 3400;
+    const NO = mobile ? 1100 : 2800, ND = mobile ? 1700 : 4600;
     const samp = sampleBrainSilhouette(NO, ND);
     const flat = samp.o.concat(samp.d), EDGE_N = samp.o.length;
     if (!flat.length) { setGlOk(false); renderer.dispose(); return; }
     // outline points stay near-flat and ink-dark so the contour reads; detail points get
-    // more depth, more jitter and the colour glints
+    // more depth, more jitter and the colour glints. Ink is Wesley purple.
     const pos = new Float32Array(flat.length * 3), inkCol = new Float32Array(flat.length * 3), glowCol = new Float32Array(flat.length * 3);
     const tiers = new Uint8Array(flat.length);
-    const ink = new T.Color("#17171d"), edgeInk = new T.Color("#101014"), glow = new T.Color("#8f93b4"), white = new T.Color("#ffffff"), tmp = new T.Color();
+    const ink = new T.Color("#4f2759"), edgeInk = new T.Color("#331740"), glow = new T.Color("#a99fc2"), white = new T.Color("#ffffff"), tmp = new T.Color();
     const moveCols = Object.values(BX_COLOR).map(c => new T.Color(c));
     for (let i = 0; i < flat.length; i++) {
       const edge = i < EDGE_N;
@@ -3291,7 +3304,7 @@ function App() {
     // eight constellations in a frontal fan inside the camera's view cone
     const clusters = [];
     const FANH = mobile ? 11 : 28; // portrait FOV is narrow, so mobile stacks the fan vertically instead
-    const YS = mobile ? [2.6, -1.8, 1.2, -3.0, 2.0, -0.6, 3.2, -2.4] : [1.4, -0.6, 0.7, -1.2, 1.1, -0.2, 1.7, -0.9];
+    const YS = mobile ? [2.6, -1.8, 1.2, -3.0, 2.0, -0.6, 3.2, -2.4] : [1.9, -1.5, 0.9, -2.3, 1.5, -0.7, 2.4, -1.7];
     MOVES.map(m => m.name).forEach((name, i) => {
       const az = (-FANH + (2 * FANH / 7) * i) * Math.PI / 180;
       const R = 7 + [0, 1.6, 0.6, 2.4, 0.2, 2.0, 0.9, 1.4][i], Y = YS[i];
@@ -3328,34 +3341,45 @@ function App() {
           p.material.opacity = t3 === 0 ? 0.55 : 0.75; p.material.needsUpdate = true; });
         glowLines.material.opacity = 0.22;
       },
-      enter(onArrived) { // the transport: dive through the core into the night
+      enter(onArrived) { // the transport: dive INTO the brain and stop at its heart while it grows around you
         const api = this;
         const done = () => { camera.position.set(0, 0, 0.001); camera.lookAt(0, 0, -1);
-          brainGroup.rotation.set(0, 0, 0); api.setNight(1); api.settleInside(); onArrived(); };
+          brainGroup.rotation.set(0, 0, 0); brainGroup.scale.setScalar(2.4); api.setNight(1); api.settleInside(); onArrived(); };
         if (reduce) { done(); return; }
-        const st = { z: camera.position.z, n: 0, k: 1 };
-        api._tw = gsap.to(st, { z: -2.6, n: 1, k: 1.9, duration: 3.4, ease: "power2.inOut",
-          onUpdate: () => { camera.position.z = st.z; api.setNight(st.n);
-            glowPts.forEach((p, t3) => { p.material.size = TIER_W[t3] * st.k; }); camera.lookAt(0, 0, Math.min(0, st.z - 1)); },
+        const st = { z: camera.position.z, y: camera.position.y, n: 0, k: 1, s: 1 };
+        api._tw = gsap.to(st, { z: 0.001, y: 0, n: 1, k: 1.9, s: 2.4, duration: 3.4, ease: "power2.inOut",
+          onUpdate: () => { camera.position.z = st.z; camera.position.y = st.y; api.setNight(st.n); brainGroup.scale.setScalar(st.s);
+            glowPts.forEach((p, t3) => { p.material.size = TIER_W[t3] * st.k; }); camera.lookAt(0, st.y, st.z - 1.5); },
           onComplete: () => { glowPts.forEach((p, t3) => { p.material.size = TIER_W[t3]; }); done(); } });
       },
       skipToInside() { if (this._tw) this._tw.kill();
-        camera.position.set(0, 0, 0.001); camera.lookAt(0, 0, -1); brainGroup.rotation.set(0, 0, 0); this.setNight(1); this.settleInside(); },
-      toChamber(i, onArrived) { // glide toward the chosen constellation; dim the rest
+        camera.position.set(0, 0, 0.001); camera.lookAt(0, 0, -1); brainGroup.rotation.set(0, 0, 0); brainGroup.scale.setScalar(2.4);
+        glowPts.forEach((p, t3) => { p.material.size = TIER_PX[t3]; }); this.setNight(1); this.settleInside(); },
+      toChamber(i, onArrived) { // glide toward the chosen constellation; dim the rest.
+        // Position AND view direction tween together — snapping lookAt is what felt jagged.
         const c = clusters[i], p = c.center.clone().multiplyScalar(0.45);
         const go = () => { clusters.forEach((k, j) => { const on = j === i;
             gsap.to(k.ptsMat, { opacity: on ? 0.95 : 0.12, duration: reduce ? 0 : 0.8 });
             gsap.to(k.lineMat, { opacity: on ? 0.4 : 0.05, duration: reduce ? 0 : 0.8 }); });
           onArrived(); };
         if (reduce) { camera.position.copy(p); camera.lookAt(c.center); go(); return; }
-        this._tw = gsap.to(camera.position, { x: p.x, y: p.y, z: p.z, duration: 1.2, ease: "power3.inOut",
-          onUpdate: () => camera.lookAt(c.center), onComplete: go });
+        const dir = new T.Vector3(); camera.getWorldDirection(dir);
+        const look0 = camera.position.clone().add(dir.multiplyScalar(8));
+        const st = { px: camera.position.x, py: camera.position.y, pz: camera.position.z, lx: look0.x, ly: look0.y, lz: look0.z };
+        this._tw = gsap.to(st, { px: p.x, py: p.y, pz: p.z, lx: c.center.x, ly: c.center.y, lz: c.center.z,
+          duration: 1.4, ease: "power3.inOut",
+          onUpdate: () => { camera.position.set(st.px, st.py, st.pz); camera.lookAt(st.lx, st.ly, st.lz); }, onComplete: go });
       },
-      toInside() { // back out to the constellation space
+      toInside() { // back out to the constellation space, view direction easing home too
         clusters.forEach(k => { gsap.to(k.ptsMat, { opacity: 0.9, duration: reduce ? 0 : 0.6 });
           gsap.to(k.lineMat, { opacity: 0.35, duration: reduce ? 0 : 0.6 }); });
         if (reduce) { camera.position.set(0, 0, 0.001); camera.rotation.set(0, 0, 0); camera.lookAt(0, 0, -1); return; }
-        this._tw = gsap.to(camera.position, { x: 0, y: 0, z: 0.001, duration: 1, ease: "power3.inOut",
+        const dir = new T.Vector3(); camera.getWorldDirection(dir);
+        const look0 = camera.position.clone().add(dir.multiplyScalar(8));
+        const st = { px: camera.position.x, py: camera.position.y, pz: camera.position.z, lx: look0.x, ly: look0.y, lz: look0.z };
+        this._tw = gsap.to(st, { px: 0, py: 0, pz: 0.001, lx: 0, ly: 0, lz: -8,
+          duration: 1.1, ease: "power3.inOut",
+          onUpdate: () => { camera.position.set(st.px, st.py, st.pz); camera.lookAt(st.lx, st.ly, st.lz); },
           onComplete: () => { camera.rotation.set(0, 0, 0); camera.lookAt(0, 0, -1); } });
       },
     };
@@ -3379,7 +3403,8 @@ function App() {
           const off = frameV3.z > 1 || Math.abs(frameV3.x) > 1.1 || Math.abs(frameV3.y) > 1.1;
           el.style.visibility = "visible";
           el.style.opacity = off ? "0" : "1"; el.style.pointerEvents = off ? "none" : "";
-          el.style.transform = "translate(-50%,-46%) translate(" + ((frameV3.x * 0.5 + 0.5) * canvas.clientWidth).toFixed(1) + "px," + ((-frameV3.y * 0.5 + 0.5) * canvas.clientHeight).toFixed(1) + "px)";
+          // hang the label BELOW its constellation so text never sits on the glow
+          el.style.transform = "translate(-50%,0) translate(" + ((frameV3.x * 0.5 + 0.5) * canvas.clientWidth).toFixed(1) + "px," + (((-frameV3.y * 0.5 + 0.5) * canvas.clientHeight) + (mobile ? 30 : 44)).toFixed(1) + "px)";
         });
       }
       renderer.render(scene, camera);
