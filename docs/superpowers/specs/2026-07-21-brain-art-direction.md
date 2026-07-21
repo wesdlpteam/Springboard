@@ -5,6 +5,14 @@ Date: 2026-07-21. Chosen by Nathan from AI-generated concept images
 Reference images live in `docs/superpowers/inspiration/2026-07-21-brain-journey/north-star/`
 (git-ignored, local only): `cover.png`, `cover-living.mp4`, `inside.png`, `chamber.png`.
 
+**STATUS: IMPLEMENTED in sandbox build 14 — assets load from the git-ignored inspiration folder. Three.js engine fully removed; experience is image/CSS/GSAP only. Owner-requested refinements landed (continuous match-dissolve dive, pulsing neuron glows, zoom-into-neuron move selection). Living-cover clip being upscaled (still queued at Higgsfield, swap into north-star pending).**
+
+**PRE-MERGE BLOCKERS:**
+1. commit or host the three PNGs + MP4 properly and repoint `BX_ASSETS.base`;
+2. compress assets for web (target <400 KB per image, poster for the clip);
+3. mobile calibration sign-off;
+4. re-verify reduced-motion and real-time motion feel in a live human browser pass.
+
 ## The look in one sentence
 
 A brain made of starlight in deep space: silver-white particle dust forms real anatomy,
