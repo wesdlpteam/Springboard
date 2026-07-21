@@ -783,6 +783,15 @@
   .bw-enter { display: inline-flex; align-items: center; gap: 12px; border: 1px solid var(--ink); background: var(--ink); color: var(--paper); font: inherit; font-size: 15px; letter-spacing: .02em; padding: 14px 30px; border-radius: 999px; cursor: pointer; transition: transform .15s, box-shadow .2s; }
   .bw-enter:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(16,16,23,.25); }
   .bw-enter:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+  /* night cover: the brain glows out of deep dark (reference look), so the cover text flips light */
+  .bw-on-night .bw-cover .bw-top { background: radial-gradient(closest-side, rgba(16,16,23,.94) 45%, rgba(16,16,23,.72) 72%, transparent 100%); }
+  .bw-on-night .bw-cover .bw-bottom { background: radial-gradient(closest-side, rgba(16,16,23,.92) 40%, rgba(16,16,23,.68) 70%, transparent 100%); }
+  .bw-on-night .bw-cover h1 { color: #ececf1; }
+  .bw-on-night .bw-cover .bw-sub { color: #b9bac9; }
+  .bw-on-night .bw-cover .bx-kicker { color: #9fa0b2; }
+  .bw-on-night .bw-enter { background: #ececf1; color: #101017; border-color: #ececf1; }
+  .bw-on-night .bw-enter:hover { box-shadow: 0 6px 26px rgba(140,155,255,.4); }
+  .bw-on-night .bw-enter:focus-visible { outline-color: #ececf1; }
   .bw-on-night .bx-mast { background: linear-gradient(to bottom, rgba(16,16,23,.9) 55%, transparent); }
   .bw-on-night .bx-mast .bx-word, .bw-on-night .bx-mast .bx-nav a, .bw-on-night .bx-mast .bx-nav button { color: #d9d9e3; }
   .bw-on-night .bx-mast .bx-nav a:hover, .bw-on-night .bx-mast .bx-nav button:hover { color: #fff; }
@@ -3386,20 +3395,22 @@ function App() {
         const a = samp.norm24(pl[k - 1]), b = samp.norm24(pl[k]);
         segs.push(a[0] * 1.6, a[1] * 1.6 + dy, 0, b[0] * 1.6, b[1] * 1.6 + dy, 0); } });
       const g3 = new T.BufferGeometry(); g3.setAttribute("position", new T.BufferAttribute(new Float32Array(segs), 3)); return g3; };
+    // glowing brain (the reference look: luminous folds out of deep night):
+    // hot near-white core strokes + blue halo passes, all additive so overlaps bloom
     const outlineInk = [], outlineGlow = [], extraGeos = [];
+    const addGlowLines = (geo, color, base) => {
+      const l = new T.LineSegments(geo, new T.LineBasicMaterial({ color, transparent: true, opacity: base, depthWrite: false, blending: T.AdditiveBlending }));
+      l.userData.base = base; brainGroup.add(l); outlineInk.push(l); };
     if (samp.drawing) {
       [0, 0.008, -0.008].forEach(dy => {
         const g3 = mkStripGeo(samp.drawing.contours, dy); extraGeos.push(g3);
-        const li = new T.LineSegments(g3, new T.LineBasicMaterial({ color: 0x331740, transparent: true, opacity: 0.95, depthWrite: false }));
-        li.userData.base = 0.95;
-        const lo = new T.LineSegments(g3, new T.LineBasicMaterial({ color: 0x8f84ad, transparent: true, opacity: 0, depthWrite: false, blending: T.AdditiveBlending }));
-        brainGroup.add(li, lo); outlineInk.push(li); outlineGlow.push(lo);
+        addGlowLines(g3, 0xdfe6ff, 0.85); // hot core of the contour
+        addGlowLines(g3, 0x5d7fe0, 0.35); // blue halo on the same stroke
       });
       if (samp.drawing.gyri.length) {
         const gg3 = mkStripGeo(samp.drawing.gyri, 0); extraGeos.push(gg3);
-        const gi = new T.LineSegments(gg3, new T.LineBasicMaterial({ color: 0x4f2759, transparent: true, opacity: 0.52, depthWrite: false }));
-        gi.userData.base = 0.52;
-        brainGroup.add(gi); outlineInk.push(gi);
+        addGlowLines(gg3, 0xaebcff, 0.7);  // folds: bright but under the contour
+        addGlowLines(gg3, 0x4a6ad0, 0.35); // fold halo
       }
     }
     // the eight thinking moves live IN the brain: coloured dots on the cover — the very
@@ -3412,7 +3423,7 @@ function App() {
       tmp.set(BX_COLOR[m.name] || "#4f2759"); dotCol.set([tmp.r, tmp.g, tmp.b], i * 3);
     });
     const dotGeo = new T.BufferGeometry(); dotGeo.setAttribute("position", new T.BufferAttribute(dotArr, 3)); dotGeo.setAttribute("color", new T.BufferAttribute(dotCol, 3)); extraGeos.push(dotGeo);
-    const moveDots = new T.Points(dotGeo, new T.PointsMaterial({ size: 0.14, map: dotTex, vertexColors: true, transparent: true, opacity: 0.95, depthWrite: false, sizeAttenuation: true }));
+    const moveDots = new T.Points(dotGeo, new T.PointsMaterial({ size: 0.17, map: glowTex, vertexColors: true, transparent: true, opacity: 0.95, depthWrite: false, sizeAttenuation: true }));
     moveDots.renderOrder = 5; brainGroup.add(moveDots);
     brainGroup.scale.setScalar(mobile ? 1 : 0.7); // desktop cover: small enough that the full silhouette sits clear of the headline
     // far specks: depth parallax once inside
@@ -3458,8 +3469,8 @@ function App() {
       world,
       setNight(v) { // 0 = porcelain cover (CLEAN line-drawn brain, no stipple), 1 = deep night
         inkPts.forEach(p => { p.material.opacity = 0; }); inkLines.material.opacity = 0; // stipple never shows on the cover
-        glowPts.forEach(p => { p.material.opacity = 0.95 * v; }); glowLines.material.opacity = 0.45 * v; // neurons ignite as you dive
-        specks.material.opacity = 0.6 * v;
+        glowPts.forEach(p => { p.material.opacity = 0.30 * (1 - v) + 0.95 * v; }); glowLines.material.opacity = 0.45 * v; // cover: soft mist hugging the folds; dive: full neuron dust
+        specks.material.opacity = 0.2 + 0.4 * v;
         outlineInk.forEach(l => { l.material.opacity = l.userData.base * (1 - v); });
         outlineGlow.forEach(l => { l.material.opacity = 1.4 * v * (1 - v); }); // flares mid-dive, gone once inside
         moveDots.material.opacity = 0.95 * (1 - v);
@@ -3495,9 +3506,9 @@ function App() {
         const p = c.center.clone().multiplyScalar(Math.max(0, 1 - D / len)); // stop D short of the heart of the cluster
         world.active = i;
         const go = () => { world.camTween = false; onArrived(); };
-        clusters.forEach((k, j) => { const on = j === i;
-          gsap.to(k.ptsMat, { opacity: on ? 0.95 : 0.10, duration: reduce ? 0 : 0.8 });
-          gsap.to(k.lineMat, { opacity: on ? 0.4 : 0.04, duration: reduce ? 0 : 0.8 });
+        clusters.forEach((k, j) => { const on = j === i; // chosen cluster = calm muted ring of dots, lines nearly off
+          gsap.to(k.ptsMat, { opacity: on ? 0.55 : 0.10, duration: reduce ? 0 : 0.8 });
+          gsap.to(k.lineMat, { opacity: on ? 0.08 : 0.04, duration: reduce ? 0 : 0.8 });
           gsap.to(k.group.scale, { x: on ? 2.1 : 1, y: on ? 2.1 : 1, z: on ? 2.1 : 1, duration: reduce ? 0 : 1.4, ease: "power3.inOut" }); });
         if (reduce) { camera.position.copy(p); camera.lookAt(c.center); go(); return; }
         world.camTween = true;
@@ -3508,13 +3519,15 @@ function App() {
           duration: 1.4, ease: "power3.inOut",
           onUpdate: () => { camera.position.set(st.px, st.py, st.pz); camera.lookAt(st.lx, st.ly, st.lz); }, onComplete: go });
       },
-      toInside() { // back out to the constellation space, view direction easing home too
+      toInside(onArrived) { // back out to the constellation space, view direction easing home too.
+        // The labels stay hidden until arrival (scene = glide) — projected text swinging
+        // across the frame during the ride home is what read as "jumping".
         if (this._tw) this._tw.kill();
         world.active = -1;
         clusters.forEach(k => { gsap.to(k.ptsMat, { opacity: 0.9, duration: reduce ? 0 : 0.6 });
           gsap.to(k.lineMat, { opacity: 0.35, duration: reduce ? 0 : 0.6 });
           gsap.to(k.group.scale, { x: 1, y: 1, z: 1, duration: reduce ? 0 : 0.9, ease: "power3.inOut" }); });
-        if (reduce) { camera.position.set(0, 0, 0.001); camera.rotation.set(0, 0, 0); camera.lookAt(0, 0, -1); return; }
+        if (reduce) { camera.position.set(0, 0, 0.001); camera.rotation.set(0, 0, 0); camera.lookAt(0, 0, -1); if (onArrived) onArrived(); return; }
         world.camTween = true;
         const dir = new T.Vector3(); camera.getWorldDirection(dir);
         const look0 = camera.position.clone().add(dir.multiplyScalar(8));
@@ -3522,7 +3535,7 @@ function App() {
         this._tw = gsap.to(st, { px: 0, py: 0, pz: 0.001, lx: 0, ly: 0, lz: -8,
           duration: 1.1, ease: "power3.inOut",
           onUpdate: () => { camera.position.set(st.px, st.py, st.pz); camera.lookAt(st.lx, st.ly, st.lz); },
-          onComplete: () => { camera.rotation.set(0, 0, 0); camera.lookAt(0, 0, -1); world.camTween = false; } });
+          onComplete: () => { camera.rotation.set(0, 0, 0); camera.lookAt(0, 0, -1); world.camTween = false; if (onArrived) onArrived(); } });
       },
     };
     brainApi.current.setNight(0); // materials start in cover state: clean linework, no stipple
@@ -3550,14 +3563,6 @@ function App() {
           // hang the label BELOW its constellation so text never sits on the glow
           el.style.transform = "translate(-50%,0) translate(" + ((frameV3.x * 0.5 + 0.5) * canvas.clientWidth).toFixed(1) + "px," + (((-frameV3.y * 0.5 + 0.5) * canvas.clientHeight) + (mobile ? 30 : 56)).toFixed(1) + "px)";
         });
-        const ai = world.active; // the chosen constellation fires: slow breath x fast sparks
-        if (!reduce && ai >= 0 && sceneRef.current !== "inside") {
-          const c = clusters[ai];
-          const breath = 0.5 + 0.5 * Math.sin(now * 0.0021 + c.drift);
-          const spark = Math.pow(0.5 + 0.5 * Math.sin(now * 0.0093 + c.drift * 3), 4);
-          c.lineMat.opacity = 0.16 + 0.55 * breath * spark + 0.14 * spark;
-          c.ptsMat.opacity = 0.7 + 0.3 * (0.4 * breath + 0.6 * spark);
-        }
       }
       renderer.render(scene, camera);
     };
@@ -3585,11 +3590,12 @@ function App() {
     const samp2 = sampleBrainSilhouette(220, 220), S = Math.min(r.width, r.height) * 0.42;
     g.setTransform(DPR, 0, 0, DPR, 0, 0); g.clearRect(0, 0, r.width, r.height);
     if (!samp2.drawing) return;
-    const draw = (stripsArr, w, alpha) => { g.lineWidth = w; g.globalAlpha = alpha; g.lineJoin = g.lineCap = "round"; g.strokeStyle = "#2d1b3a";
+    g.shadowColor = "#5d7fe0"; g.shadowBlur = 10; // cheap halo: the still poster glows like the live one
+    const draw = (stripsArr, w, alpha, col) => { g.lineWidth = w; g.globalAlpha = alpha; g.lineJoin = g.lineCap = "round"; g.strokeStyle = col;
       stripsArr.forEach(pl => { g.beginPath(); pl.forEach((p, i) => { const q = samp2.norm24(p);
         const x = r.width / 2 + q[0] * S, y = r.height / 2 - 40 - q[1] * S;
         i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); }); };
-    draw(samp2.drawing.gyri, 1.4, 0.55); draw(samp2.drawing.contours, 2.4, 0.95);
+    draw(samp2.drawing.gyri, 1.4, 0.8, "#aebcff"); draw(samp2.drawing.contours, 2.4, 0.95, "#dfe6ff");
   }, [brainView, glOk]);
   const chooseMove = (name) => {
     pickMove(name);
@@ -3601,8 +3607,10 @@ function App() {
   };
   const leaveChamber = () => {
     pickMove("");
-    if (brainApi.current && brainApi.current.toInside) brainApi.current.toInside();
-    setBxScene("inside");
+    if (brainApi.current && brainApi.current.toInside) {
+      setBxScene("glide"); // labels hidden for the ride home — nothing on screen can jump
+      brainApi.current.toInside(() => setBxScene("inside"));
+    } else setBxScene("inside");
   };
   const leaveChamberRef = useRef(leaveChamber); leaveChamberRef.current = leaveChamber;
   useEffect(() => {
@@ -3746,7 +3754,7 @@ function App() {
   );
 
   const renderBrain = () => (
-    <div className={"bx" + (bxScene !== "cover" ? " bw-on-night" : "")} ref={brainRootRef}>
+    <div className="bx bw-on-night" ref={brainRootRef}>
       <div className="bx-grain" aria-hidden="true" />
       <div className="bw-night" ref={nightRef} aria-hidden="true" />
       <canvas className="bw-gl" ref={brainGlRef} aria-hidden="true" />
@@ -3773,7 +3781,7 @@ function App() {
           </div>
           <div className="bw-bottom">
             <button className="bw-enter" autoFocus onClick={enterMind}>Enter the mind →</button>
-            <p className="bw-sub" style={{ fontSize: 12.5, opacity: .8, marginTop: 14 }}>Eight thinking moves · Cultures of Thinking · <a href="https://pz.harvard.edu/thinking-routines" target="_blank" rel="noopener">Harvard Project Zero</a> · build 9</p>
+            <p className="bw-sub" style={{ fontSize: 12.5, opacity: .8, marginTop: 14 }}>Eight thinking moves · Cultures of Thinking · <a href="https://pz.harvard.edu/thinking-routines" target="_blank" rel="noopener">Harvard Project Zero</a> · build 10</p>
           </div>
         </div>
       )}
