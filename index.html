@@ -822,16 +822,31 @@
   .bw-on-night .bx-mast .bx-nav a:hover, .bw-on-night .bx-mast .bx-nav button:hover { color: #fff; }
   .bw-on-night .bx-tog { border-color: rgba(255,255,255,.35); }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  /* inside the mind: constellation labels (projected from 3D each frame) */
+  /* inside the mind: the neuron artwork (inside.png) backs the scene; each move label is
+     pinned to its colour-matched neuron by bxImagePoint (no per-frame 3D projection). */
   .bw-inside { position: fixed; inset: 0; z-index: 2; }
-  .bw-label { position: absolute; left: 0; top: 0; visibility: hidden; border: 0; cursor: pointer; text-align: center; color: var(--bwt); font: inherit; padding: 8px 16px; transition: opacity .3s; will-change: transform;
-    background: none; text-shadow: 0 1px 3px rgba(8,8,14,.95), 0 2px 16px rgba(8,8,14,.85); }
+  /* the .bx-stage image is the first child so the labels (later siblings) paint above it */
+  .bx-stage--inside { z-index: 0; }
+  /* faint even scrim: lifts label contrast over stray bright dendrites without dimming the
+     neuron cores enough to matter (labels already carry a heavy text-shadow). */
+  .bx-inside-scrim { position: absolute; inset: 0; pointer-events: none; z-index: 1;
+    background: radial-gradient(120% 90% at 50% 45%, rgba(9,9,15,.10) 0%, rgba(9,9,15,.42) 100%); }
+  .bw-label { position: absolute; left: 0; top: 0; z-index: 2; visibility: hidden; border: 0; cursor: pointer; text-align: center; color: var(--bwt); font: inherit; padding: 8px 16px; transition: opacity .3s;
+    background: none; text-shadow: 0 1px 3px rgba(8,8,14,.98), 0 2px 16px rgba(8,8,14,.92), 0 0 30px rgba(8,8,14,.8); }
   .bw-label-name { display: block; font-family: var(--bx-display); font-weight: 400; font-size: clamp(17px, 1.7vw, 22px); letter-spacing: -.01em; white-space: nowrap; }
   .bw-label-q { display: block; font-size: 12px; color: #b9bac9; margin-top: 3px; white-space: nowrap; }
   .bw-label:hover .bw-label-name { text-decoration: underline; text-underline-offset: 5px; } /* hover only: the focus ring marks keyboard focus, so autofocus can't leave a stuck underline */
   .bw-label:focus-visible { outline: 2px solid var(--bwt); outline-offset: 2px; border-radius: 6px; }
   .bw-listbtn { position: fixed; right: clamp(20px,4vw,52px); bottom: 26px; background: none; border: 1px solid rgba(255,255,255,.3); color: #d9d9e3; font: inherit; font-size: 12.5px; padding: 8px 16px; border-radius: 999px; cursor: pointer; }
   .bw-listbtn:hover { border-color: #fff; color: #fff; }
+  /* Very narrow screens: the neurons crop past both viewport edges, so scattered labels
+     can't be laid out without overlaps. Hide them and route the moves through the always-
+     present "See as a list" overlay (the mobile path). Placed AFTER the base rules so the
+     centring/size overrides win cleanly. */
+  @media (max-width: 479px) {
+    .bw-inside .bw-label { display: none; }
+    .bw-listbtn { left: 50%; right: auto; transform: translateX(-50%); font-size: 14px; padding: 11px 22px; }
+  }
   .bw-list { position: fixed; inset: 0; z-index: 5; background: rgba(16,16,23,.92); display: flex; flex-direction: column; justify-content: center; padding: 8vh clamp(24px,10vw,180px); gap: 2px; overflow: auto; }
   .bw-list-row { display: grid; grid-template-columns: 14px 1fr; column-gap: 14px; align-items: baseline; text-align: left; background: none; border: 0; border-bottom: 1px solid rgba(255,255,255,.12); padding: 13px 4px; cursor: pointer; font: inherit; }
   .bw-list-row i { width: 10px; height: 10px; border-radius: 50%; background: var(--bwt); align-self: center; }
@@ -873,7 +888,7 @@
 </style>
 
 <script type="text/babel" data-presets="react-classic">
-const { useState, useRef, useMemo, useEffect } = React;
+const { useState, useRef, useMemo, useEffect, useLayoutEffect } = React;
 
 // Backend base URL: local `vercel dev` while developing on this machine, the
 // deployed API everywhere else (real URL substituted in Task 16).
@@ -2382,6 +2397,30 @@ const BX_ASSETS = {
 };
 const BX_AR = { cover: 2752 / 1536, inside: 2720 / 1536 }; // image aspect ratios
 
+// Inside view: each move sits in a dark pocket beside its colour-matched neuron on
+// inside.png. fx/fy are fractions of the SOURCE image (0..1), not the viewport; keys
+// match MOVES[].name exactly. Calibrated (Task 3) at 1440x900 / 1280x720 so every
+// label lands clear of the glowing cores with no overlaps. bxImagePoint replays the
+// same cover-fit math the .bx-stage-media CSS does, turning fx/fy into stage px.
+const IMG_MOVE_POS = {
+  "Capture the Heart & Form Conclusions": { fx: 0.195, fy: 0.290 }, // red neuron (0.159,0.197), label below-right
+  "Uncovering Complexity":                { fx: 0.340, fy: 0.375 }, // purple neuron (~0.30,0.22), label below
+  "Reason with Evidence":                 { fx: 0.630, fy: 0.305 }, // gold neuron (0.667,0.194), label below
+  "Wondering":                            { fx: 0.845, fy: 0.275 }, // blue neuron (0.830,0.153), label below
+  "Build Explanations":                   { fx: 0.800, fy: 0.545 }, // green neuron (0.764,0.430), label below-right
+  "Consider Different Viewpoints":        { fx: 0.195, fy: 0.655 }, // yellow neuron (0.200,0.772), label above
+  "Make Connections":                     { fx: 0.635, fy: 0.755 }, // orange neuron (0.631,0.633), label below
+  "Describe What's There":                { fx: 0.835, fy: 0.720 }, // violet-grey neuron (0.857,0.820), label above-left
+};
+// Cover-fit an image of aspect `ar` into the stage, then return the px position of the
+// image-space fraction (fx, fy). Mirrors object-fit:cover + centred translate exactly.
+function bxImagePoint(stage, fx, fy, ar) {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  const scale = Math.max(w / ar, h);          // cover-fit: rendered image height
+  const iw = scale * ar, ih = scale;          // rendered image size
+  return { left: (w - iw) / 2 + fx * iw, top: (h - ih) / 2 + fy * ih };
+}
+
 // Night-world text tint: move colour lifted toward white for AA on #101017.
 const BW_TINT = Object.fromEntries(Object.entries(BX_COLOR).map(([k, v]) => {
   const c = parseInt(v.slice(1), 16), r = c >> 16, g = (c >> 8) & 255, b = c & 255;
@@ -2577,7 +2616,8 @@ function App() {
   const brainApi = useRef(null);                      // imperative camera/world API
   const diveTl = useRef(null);                        // GSAP timeline driving the cover -> inside dive
   const posterRef = useRef(null);                     // static 2D brain when WebGL is unavailable
-  const labelEls = useRef([]);                        // constellation label buttons, positioned per-frame
+  const labelEls = useRef([]);                        // move label buttons, positioned from the artwork
+  const insideStageRef = useRef(null);                // .bx-stage holding inside.png (anchors the labels)
   const hoveredRef = useRef(-1);                      // which constellation the pointer is near
   const [listOpen, setListOpen] = useState(false);    // "See as a list" overlay
   const brainRootRef = useRef(null);
@@ -3616,21 +3656,9 @@ function App() {
       raf = requestAnimationFrame(frame); if (document.hidden) return;
       const dt = Math.min(0.05, (now - tPrev) / 1000 || 0.016); tPrev = now;
       if (!reduce && sceneRef.current === "cover") brainGroup.rotation.y = Math.sin(now * 0.00035) * 0.12; // barely-there sway: the near-flat profile must stay crisp
-      if (sceneRef.current === "inside" || sceneRef.current === "chamber" || sceneRef.current === "glide") {
-        // no idle sway, no float bob: the moves are PINNED to the brain so their labels
-        // hold perfectly still (drifting label text kept reading as jumps/overlaps)
-        const els = labelEls.current;
-        clusters.forEach((c, i) => {
-          if (!reduce && sceneRef.current === "inside") { const target = hoveredRef.current === i ? 1.14 : 1; const s = c.group.scale.x + (target - c.group.scale.x) * 0.08; c.group.scale.setScalar(s); }
-          const el = els[i]; if (!el) return;
-          c.group.getWorldPosition(frameV3); frameV3.project(camera);
-          const off = frameV3.z > 1 || Math.abs(frameV3.x) > 1.1 || Math.abs(frameV3.y) > 1.1;
-          el.style.visibility = "visible";
-          el.style.opacity = off ? "0" : "1"; el.style.pointerEvents = off ? "none" : "";
-          // hang the label BELOW its constellation so text never sits on the glow
-          el.style.transform = "translate(-50%,0) translate(" + ((frameV3.x * 0.5 + 0.5) * canvas.clientWidth).toFixed(1) + "px," + (((-frameV3.y * 0.5 + 0.5) * canvas.clientHeight) + (mobile ? 30 : 56)).toFixed(1) + "px)";
-        });
-      }
+      // Task 3: the inside/chamber move labels are now anchored to inside.png via a
+      // useLayoutEffect (bxImagePoint), not projected from the 3D clusters each frame.
+      // The engine keeps rendering into a hidden canvas until Task 4 removes it.
       renderer.render(scene, camera);
     };
     raf = requestAnimationFrame(frame);
@@ -3705,8 +3733,35 @@ function App() {
     window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey);
   }, []);
   useEffect(() => { // scene changes hand focus to the scene's first control
-    if (bxScene === "inside") setTimeout(() => { if (labelEls.current[0]) labelEls.current[0].focus(); }, 80);
+    if (bxScene === "inside") setTimeout(() => {
+      const first = labelEls.current[0];
+      // labels are hidden on very narrow screens (see CSS) — offsetParent is null then, so
+      // fall back to the "See as a list" button, which is the mobile way into the moves.
+      if (first && first.offsetParent) first.focus();
+      else { const lb = document.querySelector(".bw-listbtn"); if (lb) lb.focus(); }
+    }, 80);
     if (bxScene === "chamber") setTimeout(() => { const b = document.querySelector(".bw-chamber .bx-back"); if (b) b.focus(); }, 80);
+  }, [bxScene]);
+  // Position each move label in a dark pocket beside its colour-matched neuron on
+  // inside.png. Runs after layout (pre-paint, no flash) and on resize; the scene's own
+  // opacity transition handles show/hide, so we only compute geometry here.
+  useLayoutEffect(() => {
+    if (bxScene !== "inside" && bxScene !== "chamber" && bxScene !== "glide") return;
+    const stage = insideStageRef.current; if (!stage) return;
+    const place = () => {
+      MOVES.forEach((m, i) => {
+        const el = labelEls.current[i]; if (!el) return;
+        const pos = IMG_MOVE_POS[m.name]; if (!pos) return;
+        const p = bxImagePoint(stage, pos.fx, pos.fy, BX_AR.inside);
+        el.style.left = p.left.toFixed(1) + "px";
+        el.style.top = p.top.toFixed(1) + "px";
+        el.style.transform = "translate(-50%, -50%)";
+        el.style.visibility = "visible";
+      });
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
   }, [bxScene]);
 
   const scrollToId = (id) => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); };
@@ -3838,11 +3893,11 @@ function App() {
     <div className={"bx" + (bxScene !== "cover" ? " bw-on-night" : "")} ref={brainRootRef}>
       <div className="bx-grain" aria-hidden="true" />
       <div className="bw-night" ref={nightRef} aria-hidden="true" />
-      {/* Three canvas stays mounted (ref/effect run once on brainView) but is visually
-          hidden on the cover now that the north-star image is the cover backdrop —
-          unmounting it here would null brainGlRef before the engine's one-time setup
-          effect runs and permanently break the dive/inside/chamber scenes. */}
-      <canvas className="bw-gl" ref={brainGlRef} aria-hidden="true" style={bxScene === "cover" ? { opacity: 0 } : undefined} />
+      {/* Three canvas stays mounted (ref/effect run once on brainView) but is now visually
+          hidden in EVERY scene: the north-star images back the cover and the inside view,
+          so the engine renders invisibly (opacity 0) until Task 4 deletes it. Unmounting
+          here would null brainGlRef before the engine's one-time setup effect runs. */}
+      <canvas className="bw-gl" ref={brainGlRef} aria-hidden="true" style={{ opacity: 0 }} />
       {/* bw-poster (no-WebGL fallback) retired on the cover: the north-star <img> below
           renders unconditionally, so it is now the fallback too. Task 4 removes the
           glOk/posterRef machinery outright.
@@ -3888,6 +3943,13 @@ function App() {
 
       {(bxScene === "inside" || bxScene === "chamber" || bxScene === "glide") && (
         <div className="bw-inside" style={bxScene !== "inside" ? { pointerEvents: "none", opacity: 0, transition: "opacity .4s" } : { opacity: 1, transition: "opacity .4s" }}>
+          {/* Neuron artwork backdrop: cover-fit still, no video. Sits under the move labels
+              (same absolute layer, earlier in the DOM). bxImagePoint reads this stage's box
+              to anchor each label to its colour-matched neuron. */}
+          <div className="bx-stage bx-stage--inside" aria-hidden="true" ref={insideStageRef}>
+            <img className="bx-stage-media" src={BX_ASSETS.base + BX_ASSETS.inside} alt="" />
+            <div className="bx-inside-scrim" />
+          </div>
           {MOVES.map((m, i) => (
             <button key={m.name} ref={el => { labelEls.current[i] = el; }} className="bw-label" style={{ "--bwt": bwTint(m.name) }}
               onMouseEnter={() => { hoveredRef.current = i; }} onMouseLeave={() => { hoveredRef.current = -1; }}
