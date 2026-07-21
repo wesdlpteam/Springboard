@@ -837,6 +837,11 @@
      carries the ride (GSAP push on .bx-stage--inside, see the bxScene effect); only the
      interactive bits fade out so nothing is clickable or seems to jump mid-flight. */
   .bw-inside--glide .bw-label, .bw-inside--glide .bw-listbtn { opacity: 0; pointer-events: none; }
+  /* dive crossfade bloom: a pale glow pulse standing in for "passing through the brain's own
+     light" at the moment the cover dissolves into the inside artwork — never a bare/black
+     frame. Sits above both stages (z 2) but well below the fixed masthead (z 30/40). */
+  .bw-dive-bloom { position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: 0;
+    background: radial-gradient(55% 55% at 62% 45%, #dfe6ff 0%, rgba(223,230,255,0) 72%); }
   .bw-listbtn { position: fixed; right: clamp(20px,4vw,52px); bottom: 26px; background: none; border: 1px solid rgba(255,255,255,.3); color: #d9d9e3; font: inherit; font-size: 12.5px; padding: 8px 16px; border-radius: 999px; cursor: pointer; transition: opacity .3s; }
   .bw-listbtn:hover { border-color: #fff; color: #fff; }
   /* Very narrow screens: the neurons crop past both viewport edges, so scattered labels
@@ -2458,6 +2463,7 @@ function App() {
   const glideTimer = useRef(0);                       // setTimeout id: glide -> chamber / glide -> inside
   const labelEls = useRef([]);                        // move label buttons, positioned from the artwork
   const insideStageRef = useRef(null);                // .bx-stage holding inside.png (anchors the labels)
+  const bloomRef = useRef(null);                      // full-viewport glow pulse at the dive's crossfade moment
   const [listOpen, setListOpen] = useState(false);    // "See as a list" overlay
   const brainRootRef = useRef(null);
   // North-star cover media: video off, still image only, when the OS asks for less motion.
@@ -3262,22 +3268,46 @@ function App() {
   const liveRef = useRef(null);
   const announce = (msg) => { if (liveRef.current) liveRef.current.textContent = msg; };
   const enterMind = () => diveToInside();
-  // Image-based dive: the cover art zooms + crossfades to black via GSAP, then the inside
-  // scene (inside.png + anchored labels) takes over. Reduced motion: instant switch, no dive.
-  const diveToInside = () => {
-    const finishDive = () => {
-      gsap.set(".bw-cover .bx-stage", { clearProps: "all" });
-      gsap.set(".bw-cover", { clearProps: "all" }); // reset scale/opacity so a later cover visit isn't broken
-      setBxScene("inside");
-      announce("Inside the mind. Eight thinking moves around you.");
-    };
-    if (prefersReducedMotion) { finishDive(); return; } // no dive animation: instant switch
-    setBxScene("transport");
-    const tl = gsap.timeline({ onComplete: finishDive });
-    tl.to(".bw-cover .bx-stage", { scale: 2.4, transformOrigin: "62% 45%", duration: 1.7, ease: "power2.in" }, 0)
-      .to(".bw-cover", { opacity: 0, duration: 0.6 }, 1.4);
-    diveTl.current = tl;
+  // Image-based dive: the cover art zooms in while the inside artwork (already mounted
+  // beneath it, see render + the effect below) rises out of a dim/small starting point, then
+  // the cover crossfades away over a soft light bloom — one continuous plunge, never a bare/
+  // black frame. Reduced motion: instant switch, no dive, no bloom.
+  const finishDive = () => {
+    gsap.set(".bw-cover .bx-stage", { clearProps: "all" });
+    gsap.set(".bw-cover", { clearProps: "all" }); // reset scale/opacity so a later cover visit isn't broken
+    if (insideStageRef.current) gsap.set(insideStageRef.current, { clearProps: "all" });
+    if (bloomRef.current) gsap.set(bloomRef.current, { clearProps: "all" });
+    setBxScene("inside");
+    announce("Inside the mind. Eight thinking moves around you.");
   };
+  const diveToInside = () => {
+    if (prefersReducedMotion) { finishDive(); return; } // no dive animation: instant switch
+    setBxScene("transport"); // mounts the inside layer NOW (see render) — the timeline effect below picks it up once it exists
+  };
+  // Builds the dive timeline once "transport" has actually mounted the inside stage (this
+  // effect fires after the DOM commit but before paint, so there is no frame where the inside
+  // artwork sits at its default full-scale/full-bright look before we pin it to the dive's
+  // starting point — see useLayoutEffect timing). One timeline drives both stages plus the
+  // bloom so Esc/skip (.progress(1)) settles everything in one shot.
+  useLayoutEffect(() => {
+    if (bxScene !== "transport" || typeof gsap === "undefined") return;
+    const insideStage = insideStageRef.current;
+    // starting point: small + dim, "already rising" the moment the plunge begins
+    if (insideStage) gsap.set(insideStage, { scale: 0.72, filter: "brightness(0.55)", transformOrigin: "50% 50%" });
+    const ZOOM = 1.7, CROSS = 0.5, CROSS_START = ZOOM - CROSS, RISE = 2.2, BLOOM_PEAK = CROSS_START + CROSS / 2;
+    const tl = gsap.timeline({ onComplete: finishDive });
+    tl.to(".bw-cover .bx-stage", { scale: 2.4, transformOrigin: "62% 45%", duration: ZOOM, ease: "power2.in" }, 0)
+      // crossfade replaces the old fade-to-black: cover dissolves over the LAST 0.5s of the
+      // zoom while the zoom keeps accelerating underneath it — motion never pauses.
+      .to(".bw-cover", { opacity: 0, duration: CROSS, ease: "power1.in" }, CROSS_START);
+    if (insideStage) tl.to(insideStage, { scale: 1, filter: "brightness(1)", duration: RISE, ease: "power2.out" }, 0);
+    if (bloomRef.current) {
+      tl.fromTo(bloomRef.current, { opacity: 0 }, { opacity: 0.35, duration: 0.3, ease: "sine.out" }, BLOOM_PEAK - 0.3)
+        .to(bloomRef.current, { opacity: 0, duration: 0.3, ease: "sine.in" }, BLOOM_PEAK);
+    }
+    diveTl.current = tl;
+    return () => { tl.kill(); diveTl.current = null; };
+  }, [bxScene]);
   // Move select -> glide -> chamber. With the engine gone, plain timing runs the handoff:
   // play the glide (the inside stage pushes in, see the glide effect), then after ~0.5s cross
   // to the chamber. Reduced motion: skip the glide and land on the chamber immediately.
@@ -3519,14 +3549,19 @@ function App() {
         <button className="bw-scene" style={{ background: "none", border: 0, cursor: "default" }} aria-label="Skip the flight"
           onClick={() => { if (diveTl.current) diveTl.current.progress(1); else setBxScene("inside"); }} />
       )}
+      {/* Light bloom (not black) at the dive's crossfade moment — see the timeline effect. */}
+      {bxScene === "transport" && <div className="bw-dive-bloom" ref={bloomRef} aria-hidden="true" />}
 
-      {(bxScene === "inside" || bxScene === "chamber" || bxScene === "glide") && (
-        // Visible through BOTH inside and glide (the artwork carries the ride — fading this
-        // layer out during glide would leave a dead black screen); only the chamber scene
-        // fades the whole layer away under the chamber's own fade-in.
-        <div className={"bw-inside" + (bxScene === "glide" ? " bw-inside--glide" : "")}
+      {(bxScene === "inside" || bxScene === "chamber" || bxScene === "glide" || bxScene === "transport") && (
+        // Visible through inside/glide/transport (the artwork carries the ride — fading this
+        // layer out would leave a dead black screen); only the chamber scene fades the whole
+        // layer away under the chamber's own fade-in. During transport it mounts UNDER the
+        // still-visible cover (zIndex 1 < the cover's 2) so the dive is a genuine crossfade,
+        // not a pop — see diveToInside/the dive-timeline effect for how it rises into view.
+        <div className={"bw-inside" + ((bxScene === "glide" || bxScene === "transport") ? " bw-inside--glide" : "")}
           style={bxScene === "chamber" ? { pointerEvents: "none", opacity: 0, transition: prefersReducedMotion ? "none" : "opacity .4s" }
             : bxScene === "glide" ? { pointerEvents: "none", opacity: 1, transition: prefersReducedMotion ? "none" : "opacity .4s" }
+            : bxScene === "transport" ? { pointerEvents: "none", opacity: 1, zIndex: 1 }
             : { opacity: 1, transition: prefersReducedMotion ? "none" : "opacity .4s" }}>
           {/* Neuron artwork backdrop: cover-fit still, no video. Sits under the move labels
               (same absolute layer, earlier in the DOM). bxImagePoint reads this stage's box
