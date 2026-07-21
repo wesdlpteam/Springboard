@@ -15,13 +15,12 @@ and thinking appears as eight coloured points of light that fire and connect.
 - Anatomically believable side-profile brain (gyri, cerebellum, stem) formed entirely
   from thousands of tiny silver-white star particles; denser particle bands trace the folds.
 - Deep near-black space background with the faintest blue-green nebula hints, sparse specks.
-- The 8 move colours appear as SOFT SIMPLE GLOWING ORBS inside the brain — no
-  constellation lines on the cover (Nathan's revision; lines planted "star sign" before
-  the neuron reveal inside). Reference images show ~10 orbs because image models can't
-  count; the app renders exactly 8 in code.
+- The 8 move colours appear as small, delicate star-clusters INSIDE the brain (the
+  original image-7 look). Soft-glow orb version was tried and REJECTED by Nathan
+  ("hate the glowing orbs") — keep the tiny crisp star-points, not big soft glows.
+  The app renders exactly 8 in code regardless of what reference images show.
 - Brain sits in the right two-thirds; left third is clear dark space for the headline.
 - Motion (Seedance Mini reference): stars twinkle gently, dust drifts very slowly,
-  the coloured orbs PULSE softly like breathing at slightly different rhythms,
   near-static camera with an extremely slow push-in. The brain never morphs or rotates.
 
 ## Inside view (`inside.png`)
