@@ -2423,15 +2423,15 @@ function buildBrainDrawing() {
     mg.setTransform(sc, 0, 0, sc, pad, pad); mg.fillStyle = "#000";
     fillPoly(mg, domeS.concat(underS.slice().reverse()));
     fillPoly(mg, cerebS);
-    mg.globalCompositeOperation = "destination-out"; // erode: keep the worms off the contour line
-    mg.strokeStyle = "#000"; mg.lineCap = "round"; mg.lineWidth = 0.7;
+    mg.globalCompositeOperation = "destination-out"; // erode: keep the folds off the contour line
+    mg.strokeStyle = "#000"; mg.lineCap = "round"; mg.lineWidth = 1.2;
     contours.forEach(c2 => strokePl(mg, c2));
     const mdata = mg.getImageData(0, 0, S, S).data;
     const inside = (x, y) => { const px = (x * sc + pad) | 0, py = (y * sc + pad) | 0;
       return px >= 0 && py >= 0 && px < S && py < S && mdata[(py * S + px) * 4 + 3] > 40; };
     // territory canvas: each stroke reserves a corridor so the next packs BESIDE it
     const tg = mk().getContext("2d", { willReadFrequently: true });
-    tg.setTransform(sc, 0, 0, sc, pad, pad); tg.strokeStyle = "#000"; tg.lineCap = "round"; tg.lineWidth = 0.8;
+    tg.setTransform(sc, 0, 0, sc, pad, pad); tg.strokeStyle = "#000"; tg.lineCap = "round"; tg.lineWidth = 1.35;
     // cerebellum striations first: nested arcs of the cerebellum contour — its signature texture
     const cc = strips.cereb.reduce((a, p) => [a[0] + p[0], a[1] + p[1]], [0, 0]).map(v => v / strips.cereb.length);
     [0.74, 0.52, 0.30].forEach(t => {
@@ -2442,20 +2442,20 @@ function buildBrainDrawing() {
     let tdata = tg.getImageData(0, 0, S, S).data;
     const free = (x, y) => { const px = (x * sc + pad) | 0, py = (y * sc + pad) | 0;
       return !(px >= 0 && py >= 0 && px < S && py < S && tdata[(py * S + px) * 4 + 3] > 30); };
-    let worms = 0;
-    for (let tries = 0; tries < 12000 && worms < 420; tries++) {
+    let worms = 0; // fewer, LONGER, smoother worms: they render as FAT fold tubes, so they need room
+    for (let tries = 0; tries < 12000 && worms < 200; tries++) {
       let x = 2 + Math.random() * 20, y = 2 + Math.random() * 20;
       if (!inside(x, y) || !free(x, y)) continue;
       let h = Math.random() * 6.283, curv = 0;
       const pts = [[x, y]];
-      for (let stp = 0; stp < 90; stp++) {
-        curv = Math.max(-0.45, Math.min(0.45, curv + (Math.random() - 0.5) * 0.35));
-        h += curv * 0.5;
-        const nx2 = x + Math.cos(h) * 0.3, ny2 = y + Math.sin(h) * 0.3;
+      for (let stp = 0; stp < 120; stp++) {
+        curv = Math.max(-0.32, Math.min(0.32, curv + (Math.random() - 0.5) * 0.26));
+        h += curv * 0.45;
+        const nx2 = x + Math.cos(h) * 0.34, ny2 = y + Math.sin(h) * 0.34;
         if (!inside(nx2, ny2) || !free(nx2, ny2)) break;
         x = nx2; y = ny2; pts.push([x, y]);
       }
-      if (pts.length < 6) continue;
+      if (pts.length < 10) continue; // short stubs read as sticks, not folds
       gyri.push(pts); worms++;
       strokePl(tg, pts);
       if ((worms & 7) === 0) tdata = tg.getImageData(0, 0, S, S).data;
@@ -2484,13 +2484,32 @@ function sampleBrainSilhouette(countOutline, countDetail) {
     return raw.slice(0, Math.min(count, raw.length));
   };
   const o = rasterise(drawing.contours, 2.1, countOutline), d = rasterise(drawing.gyri, 1.5, countDetail);
-  const all = o.concat(d); if (!all.length) return { o: [], d: [], norm24: (p) => p, drawing };
+  const all = o.concat(d); if (!all.length) return { o: [], d: [], norm24: (p) => p, unit: 10, drawing };
   let minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
   for (const p of all) { if (p[0] < minx) minx = p[0]; if (p[0] > maxx) maxx = p[0]; if (p[1] < miny) miny = p[1]; if (p[1] > maxy) maxy = p[1]; }
   const cx = (minx + maxx) / 2, cy = (miny + maxy) / 2, half = Math.max(maxx - minx, maxy - miny) / 2 || 1;
   const norm = (arr) => arr.map(p => [(p[0] - cx) / half, -(p[1] - cy) / half]);
   const norm24 = (p) => [(p[0] * sc + pad - cx) / half, -((p[1] * sc + pad) - cy) / half];
-  return { o: norm(o), d: norm(d), norm24, drawing };
+  return { o: norm(o), d: norm(d), norm24, unit: half / sc, drawing };
+}
+
+// Paint the glowing reference-style brain: fat smooth fold tubes (deep blue body ->
+// mid blue -> hot near-white core) with dark sulci gaps between them, and an aura'd
+// bright rim. Shared by the WebGL cover texture and the no-WebGL poster.
+// mapPt: 24-box point -> canvas px. u: canvas px per 24-box unit (scales stroke widths).
+function paintGlowBrain(g, drawing, mapPt, u) {
+  const strokeSet = (strips, w, col, blur, alpha) => {
+    g.strokeStyle = col; g.lineWidth = w * u; g.shadowColor = col; g.shadowBlur = blur * u; g.globalAlpha = alpha;
+    g.lineJoin = g.lineCap = "round";
+    strips.forEach(pl => { g.beginPath(); pl.forEach((p, i) => { const q = mapPt(p); i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }); g.stroke(); });
+  };
+  strokeSet(drawing.contours, 0.9, "rgba(45,95,225,0.6)", 1.1, 1); // outer aura
+  strokeSet(drawing.gyri, 0.72, "#1e4fc4", 0.5, 0.95);            // fold body
+  strokeSet(drawing.gyri, 0.42, "#3f7ae8", 0.32, 0.95);           // fold mid
+  strokeSet(drawing.gyri, 0.15, "#ddefff", 0.18, 0.92);           // fold hot core
+  strokeSet(drawing.contours, 0.5, "#3f7ae8", 0.4, 1);            // rim body
+  strokeSet(drawing.contours, 0.2, "#ecf6ff", 0.22, 1);           // rim highlight
+  g.shadowBlur = 0; g.globalAlpha = 1;
 }
 
 function App() {
@@ -3388,38 +3407,30 @@ function App() {
     const inkLines = new T.LineSegments(lgeo, new T.LineBasicMaterial({ color: 0x1c1c22, transparent: true, opacity: 0.16, depthWrite: false }));
     const glowLines = new T.LineSegments(lgeo.clone(), new T.LineBasicMaterial({ color: 0x6f74a0, transparent: true, opacity: 0, depthWrite: false, blending: T.AdditiveBlending }));
     const brainGroup = new T.Group(); inkPts.forEach(p => brainGroup.add(p)); glowPts.forEach(p => brainGroup.add(p)); brainGroup.add(inkLines, glowLines); scene.add(brainGroup);
-    // continuous hand-drawn linework over the stipple: the scalloped contour (two
-    // offset passes fake a ~2px pen stroke) + every gyri worm, each set one batch
-    const mkStripGeo = (stripsArr, dy) => { const segs = [];
-      stripsArr.forEach(pl => { for (let k = 1; k < pl.length; k++) {
-        const a = samp.norm24(pl[k - 1]), b = samp.norm24(pl[k]);
-        segs.push(a[0] * 1.6, a[1] * 1.6 + dy, 0, b[0] * 1.6, b[1] * 1.6 + dy, 0); } });
-      const g3 = new T.BufferGeometry(); g3.setAttribute("position", new T.BufferAttribute(new Float32Array(segs), 3)); return g3; };
-    // glowing brain (the reference look: luminous folds out of deep night):
-    // hot near-white core strokes + blue halo passes, all additive so overlaps bloom
-    const outlineInk = [], outlineGlow = [], extraGeos = [];
-    const addGlowLines = (geo, color, base) => {
-      const l = new T.LineSegments(geo, new T.LineBasicMaterial({ color, transparent: true, opacity: base, depthWrite: false, blending: T.AdditiveBlending }));
-      l.userData.base = base; brainGroup.add(l); outlineInk.push(l); };
+    // the brain itself: a PAINTED glow texture (the reference look — fat luminous fold
+    // tubes, dark sulci, hot rim) on a plane that grows as you approach and stays as a
+    // ghost inside so the thinking moves always sit ON the brain
+    const extraGeos = [];
+    let brainPlane = null;
     if (samp.drawing) {
-      [0, 0.008, -0.008].forEach(dy => {
-        const g3 = mkStripGeo(samp.drawing.contours, dy); extraGeos.push(g3);
-        addGlowLines(g3, 0xdfe6ff, 0.85); // hot core of the contour
-        addGlowLines(g3, 0x5d7fe0, 0.35); // blue halo on the same stroke
-      });
-      if (samp.drawing.gyri.length) {
-        const gg3 = mkStripGeo(samp.drawing.gyri, 0); extraGeos.push(gg3);
-        addGlowLines(gg3, 0xaebcff, 0.7);  // folds: bright but under the contour
-        addGlowLines(gg3, 0x4a6ad0, 0.35); // fold halo
-      }
+      const TEXS = 1024, MARGIN = 1.12;
+      const tcv = document.createElement("canvas"); tcv.width = tcv.height = TEXS;
+      const tctx = tcv.getContext("2d");
+      const mapPt = (p) => { const n = samp.norm24(p);
+        return [(n[0] / MARGIN * 0.5 + 0.5) * TEXS, (0.5 - n[1] / MARGIN * 0.5) * TEXS]; };
+      paintGlowBrain(tctx, samp.drawing, mapPt, (TEXS / 2) / (MARGIN * (samp.unit || 10)));
+      const tex = new T.CanvasTexture(tcv);
+      const pg = new T.PlaneGeometry(2 * MARGIN * 1.6, 2 * MARGIN * 1.6); extraGeos.push(pg);
+      brainPlane = new T.Mesh(pg, new T.MeshBasicMaterial({ map: tex, transparent: true, opacity: 1, depthWrite: false }));
+      brainPlane.renderOrder = 1; brainGroup.add(brainPlane);
     }
     // the eight thinking moves live IN the brain: coloured dots on the cover — the very
     // dots the dive lands among (they fade out as the constellations fade in)
-    const DOT_POS = [[-0.62, 0.30], [-0.22, 0.62], [0.20, 0.60], [0.58, 0.34], [-0.38, -0.02], [0.05, 0.16], [0.44, -0.10], [0.66, -0.52]];
+    const DOT_POS = [[-0.66, 0.28], [-0.35, 0.60], [0.06, 0.44], [0.45, 0.62], [-0.30, 0.02], [0.14, -0.14], [0.52, 0.16], [0.60, -0.40]];
     const dotArr = new Float32Array(MOVES.length * 3), dotCol = new Float32Array(MOVES.length * 3);
     MOVES.forEach((m, i) => {
       const dp = DOT_POS[i % DOT_POS.length];
-      dotArr.set([dp[0] * 1.6, dp[1] * 1.6, 0.12 * ((i % 3) - 1)], i * 3);
+      dotArr.set([dp[0] * 1.6, dp[1] * 1.6, 0.1], i * 3); // just in front of the brain plane
       tmp.set(BX_COLOR[m.name] || "#4f2759"); dotCol.set([tmp.r, tmp.g, tmp.b], i * 3);
     });
     const dotGeo = new T.BufferGeometry(); dotGeo.setAttribute("position", new T.BufferAttribute(dotArr, 3)); dotGeo.setAttribute("color", new T.BufferAttribute(dotCol, 3)); extraGeos.push(dotGeo);
@@ -3433,19 +3444,17 @@ function App() {
     const sgeo = new T.BufferGeometry(); sgeo.setAttribute("position", new T.BufferAttribute(sp, 3));
     const specks = new T.Points(sgeo, new T.PointsMaterial({ color: 0x50546e, size: 0.35, map: glowTex, transparent: true, opacity: 0, depthWrite: false, sizeAttenuation: true }));
     scene.add(specks);
-    // eight constellations in a frontal fan — CLOSE, so they sit among the brain dust
-    // rather than beyond it (the dust slab is stretched in z once inside; see enter()).
-    // Geometry is CENTRED and the group carries the position, so scale = grow-in-place.
+    // the eight thinking moves LIVE ON THE BRAIN: each constellation blooms exactly
+    // where its cover dot sits, at the brain's final (inside) scale. The camera never
+    // flies past them — it stops in front of the brain and they grow to meet you.
+    const S2 = mobile ? 1.4 : 1.5, HOMEZ = mobile ? 6.2 : 3.85; // whole brain in frame, every label on screen
     const clusters = [];
-    const FANH = mobile ? 11 : 31; // portrait FOV is narrow, so mobile stacks the fan vertically instead
-    const YS = mobile ? [1.0, -0.7, 0.45, -1.15, 0.75, -0.25, 1.2, -0.9] : [0.95, -0.8, 0.35, -1.05, 1.0, -0.45, 1.2, -0.8];
     MOVES.map(m => m.name).forEach((name, i) => {
-      const az = (-FANH + (2 * FANH / 7) * i) * Math.PI / 180;
-      const R = 3.0 + [0, 0.55, 0.2, 0.85, 0.05, 0.7, 0.3, 0.45][i], Y = YS[i];
-      const center = new T.Vector3(Math.sin(az) * R, Y, -Math.cos(az) * R);
+      const dp = DOT_POS[i % DOT_POS.length];
+      const center = new T.Vector3(dp[0] * 1.6 * S2, dp[1] * 1.6 * S2, 0.3);
       const n = 80, cp = new Float32Array(n * 3);
       for (let k = 0; k < n; k++) {
-        const th = Math.random() * 6.283, ph = Math.acos(2 * Math.random() - 1), rr = Math.pow(Math.random(), 0.6) * 0.6;
+        const th = Math.random() * 6.283, ph = Math.acos(2 * Math.random() - 1), rr = Math.pow(Math.random(), 0.6) * 0.45;
         cp.set([rr * Math.sin(ph) * Math.cos(th), rr * Math.cos(ph), rr * Math.sin(ph) * Math.sin(th)], k * 3);
       }
       const cg = new T.BufferGeometry(); cg.setAttribute("position", new T.BufferAttribute(cp, 3));
@@ -3467,13 +3476,12 @@ function App() {
       active: -1 };     // which cluster is firing (chamber), -1 = none
     brainApi.current = {
       world,
-      setNight(v) { // 0 = porcelain cover (CLEAN line-drawn brain, no stipple), 1 = deep night
-        inkPts.forEach(p => { p.material.opacity = 0; }); inkLines.material.opacity = 0; // stipple never shows on the cover
-        glowPts.forEach(p => { p.material.opacity = 0.30 * (1 - v) + 0.95 * v; }); glowLines.material.opacity = 0.45 * v; // cover: soft mist hugging the folds; dive: full neuron dust
+      setNight(v) { // 0 = night cover (painted glowing brain), 1 = inside (ghost brain + living moves)
+        inkPts.forEach(p => { p.material.opacity = 0; }); inkLines.material.opacity = 0;
+        glowPts.forEach(p => { p.material.opacity = 0.75 * v; }); glowLines.material.opacity = 0.3 * v; // neuron dust ignites as you approach
         specks.material.opacity = 0.2 + 0.4 * v;
-        outlineInk.forEach(l => { l.material.opacity = l.userData.base * (1 - v); });
-        outlineGlow.forEach(l => { l.material.opacity = 1.4 * v * (1 - v); }); // flares mid-dive, gone once inside
-        moveDots.material.opacity = 0.95 * (1 - v);
+        if (brainPlane) brainPlane.material.opacity = 1 - 0.78 * v; // stays as a ghost: the moves always sit ON the brain
+        moveDots.material.opacity = 0.95 * (1 - v); // each dot hands over to its constellation
         clusters.forEach(c => { c.ptsMat.opacity = 0.9 * v; c.lineMat.opacity = 0.35 * v; });
       },
       clusters,
@@ -3482,33 +3490,32 @@ function App() {
           p.material.opacity = t3 === 0 ? 0.55 : 0.75; p.material.needsUpdate = true; });
         glowLines.material.opacity = 0.22;
       },
-      enter(onArrived) { // the transport: dive INTO the brain and stop at its heart while it grows around you.
-        // z-scale stretches the flat profile into a deep slab so the constellations sit IN the dust, not beyond it.
+      enter(onArrived) { // the approach: the brain swells to meet you and its thinking lights bloom in place
         const api = this;
-        const done = () => { camera.position.set(0, 0, 0.001); camera.lookAt(0, 0, -1);
-          brainGroup.rotation.set(0, 0, 0); brainGroup.scale.set(2.4, 2.4, 8); world.camTween = false;
+        const done = () => { camera.position.set(0, 0, HOMEZ); camera.lookAt(0, 0, 0);
+          brainGroup.rotation.set(0, 0, 0); brainGroup.scale.setScalar(S2); world.camTween = false;
           api.setNight(1); api.settleInside(); onArrived(); };
         if (reduce) { done(); return; }
         world.camTween = true;
-        const st = { z: camera.position.z, y: camera.position.y, n: 0, k: 1, s: brainGroup.scale.x, zs: 1 };
-        api._tw = gsap.to(st, { z: 0.001, y: 0, n: 1, k: 1.9, s: 2.4, zs: 8, duration: 3.4, ease: "power2.inOut",
-          onUpdate: () => { camera.position.z = st.z; camera.position.y = st.y; api.setNight(st.n); brainGroup.scale.set(st.s, st.s, st.zs);
-            glowPts.forEach((p, t3) => { p.material.size = TIER_W[t3] * st.k; }); camera.lookAt(0, st.y, st.z - 1.5); },
-          onComplete: () => { glowPts.forEach((p, t3) => { p.material.size = TIER_W[t3]; }); done(); } });
+        const st = { y: camera.position.y, n: 0, s: brainGroup.scale.x };
+        api._tw = gsap.to(st, { y: 0, n: 1, s: S2, duration: 3.0, ease: "power2.inOut",
+          onUpdate: () => { camera.position.y = st.y; api.setNight(st.n); brainGroup.scale.setScalar(st.s); camera.lookAt(0, 0, 0); },
+          onComplete: done });
       },
       skipToInside() { if (this._tw) this._tw.kill(); world.camTween = false;
-        camera.position.set(0, 0, 0.001); camera.lookAt(0, 0, -1); brainGroup.rotation.set(0, 0, 0); brainGroup.scale.set(2.4, 2.4, 8);
-        glowPts.forEach((p, t3) => { p.material.size = TIER_PX[t3]; }); this.setNight(1); this.settleInside(); },
-      toChamber(i, onArrived) { // fly INTO the chosen constellation so its neurons ring the tool; dim the rest.
+        camera.position.set(0, 0, HOMEZ); camera.lookAt(0, 0, 0); brainGroup.rotation.set(0, 0, 0); brainGroup.scale.setScalar(S2);
+        this.setNight(1); this.settleInside(); },
+      toChamber(i, onArrived) { // move in on the chosen constellation; ONLY its colour survives.
         // Position AND view direction tween together — snapping lookAt is what felt jagged.
         if (this._tw) this._tw.kill();
-        const c = clusters[i], len = c.center.length(), D = Math.min(2.2, len * 0.7);
-        const p = c.center.clone().multiplyScalar(Math.max(0, 1 - D / len)); // stop D short of the heart of the cluster
+        const c = clusters[i];
+        const dirV = c.center.clone().sub(new T.Vector3(0, 0, HOMEZ)).normalize();
+        const p = c.center.clone().sub(dirV.multiplyScalar(2.0)); // stop just short: its dots ring the tool
         world.active = i;
         const go = () => { world.camTween = false; onArrived(); };
-        clusters.forEach((k, j) => { const on = j === i; // chosen cluster = calm muted ring of dots, lines nearly off
-          gsap.to(k.ptsMat, { opacity: on ? 0.55 : 0.10, duration: reduce ? 0 : 0.8 });
-          gsap.to(k.lineMat, { opacity: on ? 0.08 : 0.04, duration: reduce ? 0 : 0.8 });
+        clusters.forEach((k, j) => { const on = j === i; // chosen = calm muted ring; every other move fully dark
+          gsap.to(k.ptsMat, { opacity: on ? 0.55 : 0, duration: reduce ? 0 : 0.8 });
+          gsap.to(k.lineMat, { opacity: on ? 0.08 : 0, duration: reduce ? 0 : 0.8 });
           gsap.to(k.group.scale, { x: on ? 2.1 : 1, y: on ? 2.1 : 1, z: on ? 2.1 : 1, duration: reduce ? 0 : 1.4, ease: "power3.inOut" }); });
         if (reduce) { camera.position.copy(p); camera.lookAt(c.center); go(); return; }
         world.camTween = true;
@@ -3527,15 +3534,15 @@ function App() {
         clusters.forEach(k => { gsap.to(k.ptsMat, { opacity: 0.9, duration: reduce ? 0 : 0.6 });
           gsap.to(k.lineMat, { opacity: 0.35, duration: reduce ? 0 : 0.6 });
           gsap.to(k.group.scale, { x: 1, y: 1, z: 1, duration: reduce ? 0 : 0.9, ease: "power3.inOut" }); });
-        if (reduce) { camera.position.set(0, 0, 0.001); camera.rotation.set(0, 0, 0); camera.lookAt(0, 0, -1); if (onArrived) onArrived(); return; }
+        if (reduce) { camera.position.set(0, 0, HOMEZ); camera.lookAt(0, 0, 0); if (onArrived) onArrived(); return; }
         world.camTween = true;
         const dir = new T.Vector3(); camera.getWorldDirection(dir);
         const look0 = camera.position.clone().add(dir.multiplyScalar(8));
         const st = { px: camera.position.x, py: camera.position.y, pz: camera.position.z, lx: look0.x, ly: look0.y, lz: look0.z };
-        this._tw = gsap.to(st, { px: 0, py: 0, pz: 0.001, lx: 0, ly: 0, lz: -8,
+        this._tw = gsap.to(st, { px: 0, py: 0, pz: HOMEZ, lx: 0, ly: 0, lz: 0,
           duration: 1.1, ease: "power3.inOut",
           onUpdate: () => { camera.position.set(st.px, st.py, st.pz); camera.lookAt(st.lx, st.ly, st.lz); },
-          onComplete: () => { camera.rotation.set(0, 0, 0); camera.lookAt(0, 0, -1); world.camTween = false; if (onArrived) onArrived(); } });
+          onComplete: () => { camera.lookAt(0, 0, 0); world.camTween = false; if (onArrived) onArrived(); } });
       },
     };
     brainApi.current.setNight(0); // materials start in cover state: clean linework, no stipple
@@ -3549,12 +3556,11 @@ function App() {
       const dt = Math.min(0.05, (now - tPrev) / 1000 || 0.016); tPrev = now;
       if (!reduce && sceneRef.current === "cover") brainGroup.rotation.y = Math.sin(now * 0.00035) * 0.12; // barely-there sway: the near-flat profile must stay crisp
       if (sceneRef.current === "inside" || sceneRef.current === "chamber" || sceneRef.current === "glide") {
-        // idle sway must never fight a camera tween — that fight was the "All moves" jerk
-        if (!reduce && sceneRef.current === "inside" && !world.camTween) camera.rotation.y = Math.sin(now * 0.00013) * 0.035;
+        // no idle sway, no float bob: the moves are PINNED to the brain so their labels
+        // hold perfectly still (drifting label text kept reading as jumps/overlaps)
         const els = labelEls.current;
         clusters.forEach((c, i) => {
-          if (!reduce) { c.group.position.y = c.center.y + Math.sin(now * 0.0004 + c.drift) * 0.18;
-            if (sceneRef.current === "inside") { const target = hoveredRef.current === i ? 1.14 : 1; const s = c.group.scale.x + (target - c.group.scale.x) * 0.08; c.group.scale.setScalar(s); } }
+          if (!reduce && sceneRef.current === "inside") { const target = hoveredRef.current === i ? 1.14 : 1; const s = c.group.scale.x + (target - c.group.scale.x) * 0.08; c.group.scale.setScalar(s); }
           const el = els[i]; if (!el) return;
           frameV3.copy(c.group.position); frameV3.project(camera);
           const off = frameV3.z > 1 || Math.abs(frameV3.x) > 1.1 || Math.abs(frameV3.y) > 1.1;
@@ -3568,7 +3574,8 @@ function App() {
     };
     raf = requestAnimationFrame(frame);
     return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", resize);
-      renderer.dispose(); tierGeos.forEach(g3 => g3.dispose()); extraGeos.forEach(g3 => g3.dispose()); lgeo.dispose(); sgeo.dispose(); brainApi.current = null; };
+      renderer.dispose(); tierGeos.forEach(g3 => g3.dispose()); extraGeos.forEach(g3 => g3.dispose()); lgeo.dispose(); sgeo.dispose();
+      if (brainPlane) brainPlane.material.map.dispose(); brainApi.current = null; };
   }, [brainView]);
   const liveRef = useRef(null);
   const announce = (msg) => { if (liveRef.current) liveRef.current.textContent = msg; };
@@ -3590,12 +3597,8 @@ function App() {
     const samp2 = sampleBrainSilhouette(220, 220), S = Math.min(r.width, r.height) * 0.42;
     g.setTransform(DPR, 0, 0, DPR, 0, 0); g.clearRect(0, 0, r.width, r.height);
     if (!samp2.drawing) return;
-    g.shadowColor = "#5d7fe0"; g.shadowBlur = 10; // cheap halo: the still poster glows like the live one
-    const draw = (stripsArr, w, alpha, col) => { g.lineWidth = w; g.globalAlpha = alpha; g.lineJoin = g.lineCap = "round"; g.strokeStyle = col;
-      stripsArr.forEach(pl => { g.beginPath(); pl.forEach((p, i) => { const q = samp2.norm24(p);
-        const x = r.width / 2 + q[0] * S, y = r.height / 2 - 40 - q[1] * S;
-        i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); }); };
-    draw(samp2.drawing.gyri, 1.4, 0.8, "#aebcff"); draw(samp2.drawing.contours, 2.4, 0.95, "#dfe6ff");
+    const mapPt = (p) => { const q = samp2.norm24(p); return [r.width / 2 + q[0] * S, r.height / 2 - 40 - q[1] * S]; };
+    paintGlowBrain(g, samp2.drawing, mapPt, S / (samp2.unit || 10)); // same painter as the live texture
   }, [brainView, glOk]);
   const chooseMove = (name) => {
     pickMove(name);
@@ -3781,13 +3784,13 @@ function App() {
           </div>
           <div className="bw-bottom">
             <button className="bw-enter" autoFocus onClick={enterMind}>Enter the mind →</button>
-            <p className="bw-sub" style={{ fontSize: 12.5, opacity: .8, marginTop: 14 }}>Eight thinking moves · Cultures of Thinking · <a href="https://pz.harvard.edu/thinking-routines" target="_blank" rel="noopener">Harvard Project Zero</a> · build 10</p>
+            <p className="bw-sub" style={{ fontSize: 12.5, opacity: .8, marginTop: 14 }}>Eight thinking moves · Cultures of Thinking · <a href="https://pz.harvard.edu/thinking-routines" target="_blank" rel="noopener">Harvard Project Zero</a> · build 11</p>
           </div>
         </div>
       )}
 
       {(bxScene === "inside" || bxScene === "chamber" || bxScene === "glide") && (
-        <div className="bw-inside" style={bxScene !== "inside" ? { pointerEvents: "none", opacity: 0, transition: "opacity .4s" } : null}>
+        <div className="bw-inside" style={bxScene !== "inside" ? { pointerEvents: "none", opacity: 0, transition: "opacity .4s" } : { opacity: 1, transition: "opacity .4s" }}>
           {MOVES.map((m, i) => (
             <button key={m.name} ref={el => { labelEls.current[i] = el; }} className="bw-label" style={{ "--bwt": bwTint(m.name) }}
               onMouseEnter={() => { hoveredRef.current = i; }} onMouseLeave={() => { hoveredRef.current = -1; }}
