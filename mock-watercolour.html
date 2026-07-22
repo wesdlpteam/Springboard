@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Springboard — watercolour direction mock</title>
+<style>
+  :root {
+    --wes-purple: #4F2759; --wes-gold: #C59F40; --wes-ink: #2B281F;
+    --wes-paper: #F7F4EE; --wes-paper-deep: #EFEAE0;
+    --wes-yellow: #DFAB57; --wes-orange: #F37024; --wes-red: #DC3859;
+    --wes-blue: #2F60C7; --wes-green: #6E9D60;
+    --wes-red-dark: #983859; --wes-blue-dark: #4242A1; --wes-green-dark: #636656;
+    --wes-yellow-dark: #A2814A; --wes-orange-dark: #A35333;
+    --font-ui: "Graphik", "Segoe UI", system-ui, sans-serif;
+    /* Wesley kit display tier (Avenir Black for large headlines only; Graphik elsewhere) */
+    --font-display: "Avenir Black", "Avenir", "Graphik", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body { font-family: var(--font-ui); background: var(--wes-paper); color: var(--wes-ink); }
+
+  /* ---- paper grain over everything ---- */
+  .grain { position: fixed; inset: 0; pointer-events: none; opacity: .5; z-index: 40;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 .43 0 0 0 0 .40 0 0 0 0 .34 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E"); }
+
+  header.mast { position: fixed; inset: 0 0 auto 0; z-index: 30; display: flex; justify-content: space-between; align-items: center;
+    padding: 22px clamp(24px, 4vw, 56px); }
+  .word { font-size: 21px; font-weight: 600; letter-spacing: -.01em; color: var(--wes-purple); }
+  .word i { font-style: normal; font-weight: 400; color: var(--wes-gold); }
+  .mast nav { display: flex; gap: 26px; font-size: 14px; }
+  .mast a { color: var(--wes-ink); text-decoration: none; opacity: .75; }
+
+  /* ================= COVER ================= */
+  .cover { position: relative; min-height: 100vh; display: flex; flex-direction: column;
+    justify-content: center; padding: 96px clamp(24px, 5vw, 72px) 64px; overflow: hidden; }
+  .cover-art { position: absolute; inset: 0; z-index: 0; }
+  .cover-art svg { position: absolute; right: -4vw; top: 50%; transform: translateY(-50%);
+    height: min(92vh, 118vw); width: auto; }
+  .cover-copy { position: relative; z-index: 1; max-width: 640px; }
+  .kicker { font-size: 12.5px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--wes-purple); margin-bottom: 22px; }
+  h1 { font-family: var(--font-display); font-size: clamp(40px, 5.2vw, 74px); line-height: 1.02;
+    letter-spacing: -.02em; font-weight: 800; color: var(--wes-gold); text-wrap: balance; }
+  h1 .pu { color: var(--wes-purple); }
+  .sub { margin-top: 26px; font-size: clamp(15px, 1.35vw, 17.5px); line-height: 1.6; max-width: 44ch; color: #4b473d; }
+  .enter { margin-top: 40px; display: inline-flex; align-items: center; gap: 10px;
+    background: var(--wes-purple); color: #fff; border: 0; border-radius: 999px;
+    font: 600 16px var(--font-ui); padding: 15px 30px; cursor: pointer;
+    transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s; }
+  .enter:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(79,39,89,.28); }
+  .credit { margin-top: 16px; font-size: 12.5px; color: #6f6a5d; }
+  .credit a { color: inherit; }
+
+  /* ================= MAP ================= */
+  .map { position: relative; min-height: 100vh; overflow: hidden;
+    background: linear-gradient(180deg, var(--wes-paper) 0%, var(--wes-paper-deep) 100%); }
+  .map-inner { position: relative; height: 100vh; }
+  .map svg.scene { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  .map-title { position: absolute; left: 50%; top: 12%; transform: translate(-50%, -50%);
+    text-align: left; z-index: 3; pointer-events: none; }
+  .map-title .k { font-size: 11.5px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: var(--wes-gold); }
+  .map-title .n { font-size: clamp(26px, 2.6vw, 38px); font-weight: 600; letter-spacing: -.015em; color: var(--wes-purple); margin-top: 6px; }
+
+  .label { position: absolute; transform: translate(-50%, -50%); z-index: 2;
+    display: inline-flex; align-items: center; gap: 9px;
+    background: rgba(255,255,255,.82); border: 1px solid rgba(43,40,31,.14);
+    border-radius: 999px; padding: 8px 16px; font: 500 13.5px var(--font-ui); color: var(--wes-ink);
+    cursor: pointer; transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s;
+    box-shadow: 0 2px 10px rgba(43,40,31,.07); white-space: nowrap; }
+  .label:hover { transform: translate(-50%, -50%) translateY(-2px); box-shadow: 0 8px 22px rgba(43,40,31,.14); }
+  .label i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 22%, transparent); }
+
+  /* wash blobs breathe very slowly */
+  .breathe { animation: breathe 14s ease-in-out infinite alternate; transform-origin: center; transform-box: fill-box; }
+  @keyframes breathe { from { transform: scale(1); } to { transform: scale(1.025); } }
+  @media (prefers-reduced-motion: reduce) { .breathe { animation: none; } }
+</style>
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+<header class="mast">
+  <div class="word">Spring<i>board</i></div>
+  <nav><a href="#">About</a><a href="#">Classic view</a></nav>
+</header>
+
+<!-- ============ COVER ============ -->
+<section class="cover">
+  <div class="cover-art" aria-hidden="true">
+    <svg viewBox="0 0 900 760">
+      <defs>
+        <filter id="wash" x="-30%" y="-30%" width="160%" height="160%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.012 0.02" numOctaves="3" seed="7" result="n"/>
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="46"/>
+          <feGaussianBlur stdDeviation="1.1"/>
+        </filter>
+        <filter id="washSoft" x="-40%" y="-40%" width="180%" height="180%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.02 0.03" numOctaves="3" seed="11" result="n"/>
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="70"/>
+          <feGaussianBlur stdDeviation="7"/>
+        </filter>
+        <filter id="inkline" x="-20%" y="-20%" width="140%" height="140%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="2" seed="4" result="n"/>
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="6"/>
+        </filter>
+      </defs>
+
+      <!-- pale halo wash behind (gold, like the reference's sun-cloud) -->
+      <g class="breathe">
+        <ellipse cx="470" cy="330" rx="330" ry="270" fill="#C59F40" opacity="0.16" filter="url(#washSoft)"/>
+        <ellipse cx="560" cy="270" rx="230" ry="180" fill="#DFAB57" opacity="0.18" filter="url(#washSoft)"/>
+      </g>
+
+      <!-- brain, side profile facing left. The INK carries the drawing (like the reference's
+           mountain); the wash is loose colour beneath it. -->
+      <!-- wash: the brain outline itself, displaced gently so it bleeds past the line -->
+      <g filter="url(#wash)">
+        <path id="brainShape" d="M 205 380
+                 C 200 300, 260 210, 360 180
+                 C 430 155, 540 150, 620 185
+                 C 700 215, 750 280, 755 350
+                 C 800 380, 795 445, 745 470
+                 C 735 520, 690 555, 640 550
+                 C 610 590, 545 605, 490 585
+                 C 420 610, 330 595, 290 545
+                 C 235 520, 210 460, 205 380 Z"
+              fill="#4F2759" opacity="0.26"/>
+        <path d="M 225 380 C 222 310, 275 228, 368 200 C 434 178, 534 173, 606 205
+                 C 678 233, 722 290, 728 352 C 765 380, 760 435, 718 456
+                 C 708 500, 668 532, 625 528 C 598 562, 542 576, 494 558
+                 C 430 580, 348 566, 312 522 C 262 500, 228 448, 225 380 Z"
+              fill="#4F2759" opacity="0.28"/>
+        <!-- cerebellum + stem washes -->
+        <path d="M 640 540 C 690 530, 730 555, 728 585 C 725 615, 675 628, 640 615 C 615 605, 612 555, 640 540 Z"
+              fill="#4F2759" opacity="0.4"/>
+        <path d="M 660 620 C 668 640, 672 660, 664 685 L 640 676 C 646 655, 644 638, 638 625 Z"
+              fill="#4F2759" opacity="0.42"/>
+      </g>
+
+      <!-- gold sun-moment: the hub, like the red sun in the reference -->
+      <g class="breathe">
+        <circle cx="470" cy="400" r="54" fill="#C59F40" opacity="0.45" filter="url(#washSoft)"/>
+        <circle cx="470" cy="400" r="26" fill="#C59F40" opacity="0.6" filter="url(#wash)"/>
+      </g>
+
+      <!-- ink drawing: confident outline (two breaks), cerebellum, stem, and the folds -->
+      <g filter="url(#inkline)" fill="none" stroke="#2B281F" stroke-linecap="round">
+        <path d="M 205 380 C 200 300, 260 210, 360 180 C 430 155, 540 150, 620 185 C 700 215, 750 280, 755 350"
+              stroke-width="2.8" opacity=".8"/>
+        <path d="M 755 350 C 800 380, 795 445, 745 470 C 735 520, 690 555, 640 550"
+              stroke-width="2.5" opacity=".7"/>
+        <path d="M 628 552 C 600 588, 542 602, 490 585 C 420 610, 330 595, 290 545 C 235 520, 210 460, 205 380"
+              stroke-width="2.6" opacity=".75"/>
+        <!-- cerebellum + stem -->
+        <path d="M 642 542 C 692 532, 730 556, 727 586 C 723 614, 676 626, 642 613" stroke-width="2.2" opacity=".7"/>
+        <path d="M 660 622 C 668 641, 671 660, 664 683" stroke-width="2.2" opacity=".65"/>
+        <!-- the deep lateral fold (temporal), the drawing's strongest inner line -->
+        <path d="M 262 442 C 340 420, 432 424, 502 458 C 552 482, 602 488, 640 468" stroke-width="2.4" opacity=".6"/>
+        <!-- gyri: loose confident curls -->
+        <path d="M 252 340 C 292 282, 352 242, 420 236" stroke-width="1.9" opacity=".5"/>
+        <path d="M 382 202 C 460 187, 540 192, 598 222" stroke-width="1.8" opacity=".45"/>
+        <path d="M 522 252 C 590 262, 648 302, 678 350" stroke-width="1.9" opacity=".5"/>
+        <path d="M 300 300 C 332 284, 358 284, 378 296" stroke-width="1.6" opacity=".4"/>
+        <path d="M 688 398 C 718 404, 732 428, 728 452" stroke-width="1.8" opacity=".5"/>
+        <path d="M 330 500 C 380 516, 430 518, 470 505" stroke-width="1.6" opacity=".4"/>
+      </g>
+
+      <!-- tiny ink birds, from the reference -->
+      <g stroke="#2B281F" stroke-width="2" fill="none" stroke-linecap="round" opacity=".7">
+        <path d="M 300 140 q 8 -9 16 0 q 8 -9 16 0"/>
+        <path d="M 350 118 q 6 -7 12 0 q 6 -7 12 0"/>
+        <path d="M 262 170 q 5 -6 10 0 q 5 -6 10 0"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="cover-copy">
+    <div class="kicker">A thinking tool for Wesley teachers</div>
+    <h1>Start with the <span class="pu">thinking</span>, not the topic.</h1>
+    <p class="sub">Pick one of eight thinking moves from the Map of Understanding, add a photograph, a film or an article, and Springboard builds a lesson that moves your class beyond remembering into understanding.</p>
+    <button class="enter">Enter the mind →</button>
+    <p class="credit">Eight thinking moves · Cultures of Thinking · <a href="#">Harvard Project Zero</a> · watercolour mock</p>
+  </div>
+</section>
+
+<!-- ============ MAP ============ -->
+<section class="map">
+  <div class="map-inner">
+    <svg class="scene" viewBox="0 0 1446 651" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs>
+        <filter id="wash2" x="-40%" y="-40%" width="180%" height="180%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.016 0.025" numOctaves="3" seed="9" result="n"/>
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="40"/>
+          <feGaussianBlur stdDeviation="1.3"/>
+        </filter>
+        <filter id="washSoft2" x="-60%" y="-60%" width="220%" height="220%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="3" seed="13" result="n"/>
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="60"/>
+          <feGaussianBlur stdDeviation="9"/>
+        </filter>
+        <filter id="inkline2" x="-20%" y="-20%" width="140%" height="140%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="2" seed="5" result="n"/>
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="5"/>
+        </filter>
+      </defs>
+
+      <!-- hub: gold sun -->
+      <g class="breathe">
+        <circle cx="723" cy="345" r="64" fill="#C59F40" opacity="0.38" filter="url(#washSoft2)"/>
+        <circle cx="723" cy="345" r="34" fill="#C59F40" opacity="0.6" filter="url(#wash2)"/>
+        <circle cx="723" cy="345" r="13" fill="#A2814A" opacity="0.75" filter="url(#wash2)"/>
+      </g>
+
+      <!-- eight watercolour move-blooms + hand-inked connectors to the hub -->
+      <!-- positions roughly mirror the current map's eight-around-one -->
+      <g filter="url(#inkline2)" fill="none" stroke="#2B281F" stroke-linecap="round" opacity=".55">
+        <path d="M 250 140 C 380 190, 540 260, 690 330" stroke-width="1.7"/>
+        <path d="M 520 105 C 590 175, 655 255, 706 315" stroke-width="1.6"/>
+        <path d="M 905 110 C 855 180, 795 260, 740 316" stroke-width="1.6"/>
+        <path d="M 1190 150 C 1060 210, 890 285, 757 332" stroke-width="1.7"/>
+        <path d="M 230 520 C 380 480, 550 415, 688 362" stroke-width="1.7"/>
+        <path d="M 560 585 C 620 520, 675 440, 712 378" stroke-width="1.6"/>
+        <path d="M 900 580 C 850 505, 790 425, 737 377" stroke-width="1.6"/>
+        <path d="M 1215 505 C 1080 460, 905 400, 760 358" stroke-width="1.7"/>
+      </g>
+
+      <g filter="url(#wash2)">
+        <circle cx="250" cy="140" r="34" fill="#DC3859" opacity=".34"/>
+        <circle cx="250" cy="140" r="16" fill="#983859" opacity=".5"/>
+        <circle cx="520" cy="105" r="30" fill="#4F2759" opacity=".34"/>
+        <circle cx="520" cy="105" r="14" fill="#4F2759" opacity=".55"/>
+        <circle cx="905" cy="110" r="31" fill="#DFAB57" opacity=".42"/>
+        <circle cx="905" cy="110" r="14" fill="#A2814A" opacity=".55"/>
+        <circle cx="1190" cy="150" r="34" fill="#2F60C7" opacity=".3"/>
+        <circle cx="1190" cy="150" r="15" fill="#4242A1" opacity=".5"/>
+        <circle cx="230" cy="520" r="34" fill="#6E9D60" opacity=".36"/>
+        <circle cx="230" cy="520" r="15" fill="#636656" opacity=".52"/>
+        <circle cx="560" cy="585" r="30" fill="#FFD157" opacity=".5"/>
+        <circle cx="560" cy="585" r="14" fill="#A2814A" opacity=".5"/>
+        <circle cx="900" cy="580" r="31" fill="#F37024" opacity=".34"/>
+        <circle cx="900" cy="580" r="14" fill="#A35333" opacity=".5"/>
+        <circle cx="1215" cy="505" r="33" fill="#4F2759" opacity=".26"/>
+        <circle cx="1215" cy="505" r="14" fill="#4F2759" opacity=".42"/>
+      </g>
+    </svg>
+
+    <div class="map-title">
+      <div class="k">The Map of Understanding</div>
+      <div class="n">Thinking Moves</div>
+    </div>
+
+    <button class="label" style="--c:#983859; left:17.3%; top:29.5%">
+      <i></i>Capture the Heart &amp; Form Conclusions</button>
+    <button class="label" style="--c:#4F2759; left:36%; top:24%"><i></i>Uncovering Complexity</button>
+    <button class="label" style="--c:#A2814A; left:62.6%; top:25.5%"><i></i>Reason with Evidence</button>
+    <button class="label" style="--c:#4242A1; left:82.3%; top:32%"><i></i>Wondering</button>
+    <button class="label" style="--c:#636656; left:15.9%; top:71%"><i></i>Build Explanations</button>
+    <button class="label" style="--c:#A2814A; left:38.7%; top:81%"><i></i>Consider Different Viewpoints</button>
+    <button class="label" style="--c:#A35333; left:62.3%; top:80.5%"><i></i>Make Connections</button>
+    <button class="label" style="--c:#4F2759; left:84%; top:68.5%"><i></i>Describe What's There</button>
+  </div>
+</section>
+</body>
+</html>
