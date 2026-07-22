@@ -1013,8 +1013,8 @@
   .bw-chamber .bx-ring--interior { opacity: .18; }
   /* over the tinted interior the overlay blend can lift mid-tones, so nudge the panel/card
      backgrounds a touch darker to keep their light text comfortably >=4.5:1. */
-  .bw-chamber--interior .bx-panel { background: rgba(16,16,24,.86); }
-  .bw-chamber--interior .bx-card { background: rgba(16,16,24,.9); }
+  .bw-chamber.bw-chamber--interior .bx-panel { background: rgba(16,16,24,.86); }
+  .bw-chamber.bw-chamber--interior .bx-card { background: rgba(16,16,24,.9); }
   .bw-chamber .bx-tool { position: relative; z-index: 1; padding-top: 92px; min-height: 100%; }
   .bw-chamber .bx-tool-head { display: block; }
   .bw-chamber .bx-tool-head h2 { color: var(--bwt); }
@@ -3453,7 +3453,7 @@ function App() {
     // <html> (via .bx-lock) and <body> so a scaled dive stage / mounting video can't briefly
     // overflow the document and flash the browser scrollbars. Classic view (brainView false)
     // never gets the lock, so its scrolling is untouched.
-    if (!brainView) return;
+    if (!brainView) { stopAllHoverPulses(); return; } // classic view: kill any pulse interval a keyboard-focused move left running
     const prev = document.body.style.overflow; document.body.style.overflow = "hidden";
     document.documentElement.classList.add("bx-lock");
     return () => { document.body.style.overflow = prev; document.documentElement.classList.remove("bx-lock"); };
@@ -3741,7 +3741,11 @@ function App() {
         // fade in over the first 15% of the trip, hold, fade out over the last 15% (arrival)
         dot.style.opacity = t < 0.15 ? (t / 0.15) : t > 0.85 ? ((1 - t) / 0.15) : 1;
       },
-      onComplete: () => { dot.style.opacity = 0; },
+      onComplete: () => {
+        dot.style.opacity = 0;
+        const arr = pulseTweensRef.current[i]; // drop this tween once it finishes — a long hover
+        if (arr) { const idx = arr.indexOf(tw); if (idx !== -1) arr.splice(idx, 1); } // must not accumulate dead refs
+      },
     });
     (pulseTweensRef.current[i] || (pulseTweensRef.current[i] = [])).push(tw);
   };
