@@ -889,9 +889,35 @@
     filter: drop-shadow(0 0 16px var(--bwg)) drop-shadow(0 0 34px var(--bwg)); }
   @media (prefers-reduced-motion: reduce) { .bw-glow--hot { transition: none; } } /* instant brighten, no ease */
   /* Signal pulses: 3 dots per move (reused round-robin — see firePulse/startPulses),
-     travelling neuron -> hub along the same line the connector draws. cx/cy/opacity are
-     written every frame by a GSAP tween (onUpdate), never by CSS — idle state is just off. */
+     riding the curved axon path (a hidden quadratic-Bézier <path> per move, sampled with
+     getPointAtLength) from the neuron into the hub at a slow, calm pace. cx/cy/opacity are
+     written every frame by a GSAP tween (onUpdate), never by CSS — idle state is just off.
+     The path itself is pure geometry, never painted (fill/stroke none via attributes). */
   .bw-pulse-dot { pointer-events: none; opacity: 0; }
+  /* Centre title lockup — the artwork's hub neuron is deliberately pale/unlit, which left the
+     middle feeling empty; this names the map. A REAL h2 (the inside scene has no other
+     heading: the cover's h1 and the chamber's h2 are unmounted here), but never interactive.
+     Positioned by place() at BX_TITLE (image-space, just above the hub soma) so it rides
+     resizes with everything else; visibility toggled per scene like the labels; fades with
+     them during glide (rule below). The kicker's padding-left rebalances the trailing
+     letter-spacing gap after its last character so it reads optically centred. */
+  .bw-centre-title { position: absolute; left: 0; top: 0; z-index: 1; margin: 0; visibility: hidden;
+    transform: translate(-50%, -50%); pointer-events: none; text-align: center; white-space: nowrap;
+    display: flex; flex-direction: column; align-items: center; gap: 7px; transition: opacity .3s; }
+  .bw-centre-kicker { font-family: var(--bx-ui); font-weight: 500; font-size: 11px;
+    letter-spacing: .24em; padding-left: .24em; text-transform: uppercase; color: #9fa0b2;
+    text-shadow: 0 1px 8px rgba(8,8,14,.9), 0 0 18px rgba(8,8,14,.8); }
+  .bw-centre-name { font-family: var(--bx-display); font-style: italic; font-weight: 400;
+    font-size: 26px; line-height: 1; letter-spacing: .01em; color: #e8e9f2;
+    text-shadow: 0 2px 14px rgba(8,8,14,.95), 0 0 34px rgba(8,8,14,.75); }
+  @media (prefers-reduced-motion: reduce) { .bw-centre-title { transition: none; } }
+  /* narrower stages compress the artwork while the label pills keep their px size, squeezing
+     the dark pocket the title sits in — shrink the lockup a step so it stays clear of the
+     "Reason with Evidence" / "Uncovering Complexity" pills either side. */
+  @media (max-width: 1100px) {
+    .bw-centre-kicker { font-size: 9.5px; }
+    .bw-centre-name { font-size: 21px; }
+  }
   /* Central hub neuron's faint "receiving" glow: one shared node (not per-move), tinted to
      whichever move is currently signalling it (--bwg set inline in startMoveHover). Off by
      default; .on starts the breathing loop and its removal lets the opacity transition below
@@ -919,6 +945,7 @@
   .bw-inside--glide .bw-label, .bw-inside--glide .bw-listbtn, .bw-inside--glide .bw-links { opacity: 0; pointer-events: none; }
   .bw-inside--glide .bw-glow { animation-play-state: paused; opacity: 0 !important; }
   .bw-inside--glide .bw-centre-glow { opacity: 0 !important; } /* pulses live inside .bw-links, already faded above */
+  .bw-inside--glide .bw-centre-title { opacity: 0; }
   /* dive crossfade bloom: a pale glow pulse standing in for "passing through the brain's own
      light" at the moment the cover dissolves into the inside artwork — never a bare/black
      frame. Sits above both stages (z 2) but well below the fixed masthead (z 30/40). */
@@ -1119,7 +1146,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.7.3 · 2026-07-22";
+const APP_VERSION = "v0.7.4 · 2026-07-22";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2539,15 +2566,20 @@ const BX_AR = { cover: 2752 / 1536, inside: 2752 / 1536 }; // image aspect ratio
 // move-select zoom origin (computeMoveOrigin) so the camera dives INTO the cell body.
 // Calibrated at 1440x900 / 1280x720; bxImagePoint replays the same cover-fit math the
 // .bx-stage-media CSS does, turning any fraction into stage px.
+// `c` = signed curvature of the hover signal-pulse path (quadratic Bézier, neuron -> hub):
+// the control point sits at the segment midpoint, offset perpendicular by c * segment-length.
+// Positive c bows toward the (-dy, dx) side of the neuron->hub vector (90° CW on screen,
+// where +y is down). Tuned in the browser against inside.png so each path hugs that neuron's
+// drawn axon as closely as a single quadratic allows (see the pulse-path maths in place()).
 const IMG_MOVE_POS = {
-  "Capture the Heart & Form Conclusions": { fx: 0.128, fy: 0.224, lx: 0.205, ly: 0.352 }, // crimson red — top-left
-  "Uncovering Complexity":                { fx: 0.345, fy: 0.161, lx: 0.345, ly: 0.298 }, // royal purple — top-centre-left
-  "Reason with Evidence":                 { fx: 0.618, fy: 0.184, lx: 0.610, ly: 0.322 }, // warm gold — top-centre-right
-  "Wondering":                            { fx: 0.860, fy: 0.211, lx: 0.845, ly: 0.352 }, // sky blue — top-right
-  "Build Explanations":                   { fx: 0.143, fy: 0.784, lx: 0.170, ly: 0.650 }, // leaf green — lower-left
-  "Consider Different Viewpoints":        { fx: 0.383, fy: 0.820, lx: 0.383, ly: 0.678 }, // bright yellow — bottom-centre-left
-  "Make Connections":                     { fx: 0.658, fy: 0.802, lx: 0.668, ly: 0.662 }, // orange — bottom-centre-right
-  "Describe What's There":                { fx: 0.895, fy: 0.739, lx: 0.862, ly: 0.605 }, // muted violet-grey — mid/bottom-right
+  "Capture the Heart & Form Conclusions": { fx: 0.128, fy: 0.224, lx: 0.205, ly: 0.352, c: 0.08 },  // crimson red — top-left
+  "Uncovering Complexity":                { fx: 0.345, fy: 0.161, lx: 0.345, ly: 0.298, c: -0.08 }, // royal purple — top-centre-left
+  "Reason with Evidence":                 { fx: 0.618, fy: 0.184, lx: 0.610, ly: 0.322, c: -0.12 }, // warm gold — top-centre-right
+  "Wondering":                            { fx: 0.860, fy: 0.211, lx: 0.845, ly: 0.352, c: -0.18 }, // sky blue — top-right
+  "Build Explanations":                   { fx: 0.143, fy: 0.784, lx: 0.170, ly: 0.650, c: -0.16 }, // leaf green — lower-left
+  "Consider Different Viewpoints":        { fx: 0.383, fy: 0.820, lx: 0.383, ly: 0.678, c: 0.08 },  // bright yellow — bottom-centre-left
+  "Make Connections":                     { fx: 0.658, fy: 0.802, lx: 0.668, ly: 0.662, c: 0.10 },  // orange — bottom-centre-right
+  "Describe What's There":                { fx: 0.895, fy: 0.739, lx: 0.862, ly: 0.605, c: -0.10 }, // muted violet-grey — mid/bottom-right
 };
 // The central PALE/UNLIT neuron every other neuron's axon runs into (see inside.png — it's
 // already drawn as the artwork's hub, wired to all eight). Same fx/fy fraction convention as
@@ -2556,6 +2588,10 @@ const IMG_MOVE_POS = {
 // a live render — re-check visually if inside.png is ever swapped. Feeds the hover signal-
 // pulse endpoint (neuron -> here) and the hub's own faint "receiving" glow.
 const BX_CENTER = { fx: 0.505, fy: 0.48 };
+// Anchor for the centre "Thinking Moves" title lockup: same x as the hub, lifted into the
+// dark pocket just above the hub neuron's soma (clears the breathing hub glow AND the
+// "Uncovering Complexity" / "Reason with Evidence" label pills either side). Tuned visually.
+const BX_TITLE = { fx: 0.505, fy: 0.38 };
 // Cover-fit an image of aspect `ar` into the stage, then return the px position of the
 // image-space fraction (fx, fy). Mirrors object-fit:cover + centred translate exactly.
 function bxImagePoint(stage, fx, fy, ar) {
@@ -2605,10 +2641,12 @@ function App() {
   const linkLineEls = useRef([]);                     // connector <line>s: label edge -> neuron
   const linkDotEls = useRef([]);                      // connector end dots at the neuron
   const pulseDotEls = useRef([]);                     // per move: [3 <circle>s] reused round-robin for hover signal pulses
-  const pulseEndpointsRef = useRef([]);               // per move: {x1,y1,x2,y2} stage-px, kept fresh by the place() effect
+  const pulsePathEls = useRef([]);                    // per move: hidden Bézier <path> the pulses ride (never painted, pure geometry)
+  const pulseGeomRef = useRef([]);                    // per move: {path, len} cached by place(); firePulse samples getPointAtLength
   const pulseSpawnerRef = useRef([]);                 // per move: setInterval id spawning pulses while hovered/focused
   const pulseTweensRef = useRef([]);                  // per move: in-flight GSAP pulse tweens (for clean kill)
   const centreGlowRef = useRef(null);                 // shared "receiving" glow at BX_CENTER, tinted to whichever move is signalling it
+  const centreTitleRef = useRef(null);                // "Thinking Moves" h2 lockup pinned at BX_TITLE
   const hoveredMovesRef = useRef(new Set());          // move indices currently hovered/focused (mouse + keyboard can overlap)
   const insideStageRef = useRef(null);                // .bx-stage holding inside.png (anchors the labels)
   const bloomRef = useRef(null);                      // full-viewport glow pulse at the dive's crossfade moment
@@ -3603,18 +3641,40 @@ function App() {
     const stage = insideStageRef.current; if (!stage) return;
     const vis = bxScene === "inside" ? "visible" : "hidden";
     const place = () => {
-      // hub neuron (BX_CENTER): positions the shared "receiving" glow div + feeds every move's
-      // pulse-endpoint below, so hovering keeps streaming to the right spot through a resize.
+      // hub neuron (BX_CENTER): positions the shared "receiving" glow div + anchors every
+      // move's pulse path below, so hovering keeps streaming to the right spot through a resize.
       const pC = bxImagePoint(stage, BX_CENTER.fx, BX_CENTER.fy, BX_AR.inside);
       const cg = centreGlowRef.current;
       if (cg) { cg.style.left = pC.left.toFixed(1) + "px"; cg.style.top = pC.top.toFixed(1) + "px"; }
+      // centre "Thinking Moves" lockup: pinned just above the hub soma (BX_TITLE), shown and
+      // hidden with the labels (same visibility toggle — it's an h2, keep it out of the
+      // accessibility tree while glide/chamber cover the scene).
+      const title = centreTitleRef.current;
+      if (title) {
+        const pT = bxImagePoint(stage, BX_TITLE.fx, BX_TITLE.fy, BX_AR.inside);
+        title.style.left = pT.left.toFixed(1) + "px";
+        title.style.top = pT.top.toFixed(1) + "px";
+        title.style.visibility = vis;
+      }
       MOVES.forEach((m, i) => {
         const pos = IMG_MOVE_POS[m.name]; if (!pos) return;
         const pN = bxImagePoint(stage, pos.fx, pos.fy, BX_AR.inside);          // neuron cell body
         const pL = bxImagePoint(stage, pos.lx, pos.ly, BX_AR.inside);          // label centre (dark pocket)
-        // hover signal pulse endpoints (neuron -> hub); read live by firePulse's onUpdate, so a
-        // resize mid-pulse just changes where the next animation frame draws, no restart needed.
-        pulseEndpointsRef.current[i] = { x1: pN.left, y1: pN.top, x2: pC.left, y2: pC.top };
+        // hover signal-pulse path (neuron -> hub): quadratic Bézier whose control point is the
+        // segment midpoint pushed perpendicular by c * segment-length, so the pulse rides the
+        // artwork's gently curved axon rather than cutting straight across. The perp offset is
+        // (-dy, dx) * c — see the IMG_MOVE_POS comment for the sign convention. firePulse
+        // samples this path element live every frame, so a resize mid-flight just redraws the
+        // next frame on the fresh geometry, no restart needed.
+        const ppath = pulsePathEls.current[i];
+        if (ppath) {
+          const dx = pC.left - pN.left, dy = pC.top - pN.top, ccurve = pos.c || 0;
+          const qx = pN.left + dx / 2 - dy * ccurve, qy = pN.top + dy / 2 + dx * ccurve;
+          ppath.setAttribute("d", "M " + pN.left.toFixed(1) + " " + pN.top.toFixed(1) +
+            " Q " + qx.toFixed(1) + " " + qy.toFixed(1) +
+            " " + pC.left.toFixed(1) + " " + pC.top.toFixed(1));
+          pulseGeomRef.current[i] = { path: ppath, len: ppath.getTotalLength() };
+        }
         const el = labelEls.current[i];
         if (el) {
           el.style.left = pL.left.toFixed(1) + "px";
@@ -3656,23 +3716,28 @@ function App() {
     window.addEventListener("resize", place);
     return () => window.removeEventListener("resize", place);
   }, [bxScene]);
-  // Hover/focus signal: while a move's label is hovered/focused, stream 3 small dots one after
-  // another from its neuron into the hub (BX_CENTER), reusing the same 3 <circle>s round-robin
-  // (firePulse kills+restarts whichever slot is due next rather than pooling unlimited dots).
-  // Endpoints are read live from pulseEndpointsRef every frame, so a resize mid-flight just
-  // changes where the next frame draws — no restart needed (see the place() effect above).
+  // Hover/focus signal: while a move's label is hovered/focused, stream small dots one after
+  // another from its neuron into the hub (BX_CENTER), riding that move's curved axon path
+  // (the hidden Bézier <path> built in place(), sampled via getPointAtLength) at a slow,
+  // calm pace — 2.2s per trip, one dot every 0.9s. The same 3 <circle>s are reused
+  // round-robin (3 slots x 0.9s = 2.7s cadence > 2.2s travel, so a slot is always free
+  // again before its turn comes back — no mid-flight steals in steady state). Geometry is
+  // read live from pulseGeomRef every frame, so a resize mid-flight just draws the next
+  // frame on the fresh path — no restart needed (see the place() effect above).
+  const PULSE_S = 2.2, PULSE_GAP_MS = 900;
   const firePulse = (i, slot) => {
     const dots = pulseDotEls.current[i], dot = dots && dots[slot];
     if (!dot) return;
-    gsap.killTweensOf(dot); // in case the round-robin reuse caught a slot mid-flight (~50ms overlap at worst)
+    gsap.killTweensOf(dot); // safety net if a slot is somehow still in flight when reused
     const proxy = { t: 0 };
     const tw = gsap.to(proxy, {
-      t: 1, duration: 1.1, ease: "none",
+      t: 1, duration: PULSE_S, ease: "none",
       onUpdate: () => {
-        const ep = pulseEndpointsRef.current[i]; if (!ep) return;
+        const g = pulseGeomRef.current[i]; if (!g) return;
         const t = proxy.t;
-        dot.setAttribute("cx", (ep.x1 + (ep.x2 - ep.x1) * t).toFixed(1));
-        dot.setAttribute("cy", (ep.y1 + (ep.y2 - ep.y1) * t).toFixed(1));
+        const pt = g.path.getPointAtLength(t * g.len); // arc-length sampling: constant speed along the curve
+        dot.setAttribute("cx", pt.x.toFixed(1));
+        dot.setAttribute("cy", pt.y.toFixed(1));
         // fade in over the first 15% of the trip, hold, fade out over the last 15% (arrival)
         dot.style.opacity = t < 0.15 ? (t / 0.15) : t > 0.85 ? ((1 - t) / 0.15) : 1;
       },
@@ -3691,7 +3756,7 @@ function App() {
     stopPulses(i); // clean slate — no leftover tween from a previous hover fighting the new one
     let slot = 0;
     firePulse(i, slot); slot = (slot + 1) % 3;
-    pulseSpawnerRef.current[i] = setInterval(() => { firePulse(i, slot); slot = (slot + 1) % 3; }, 350);
+    pulseSpawnerRef.current[i] = setInterval(() => { firePulse(i, slot); slot = (slot + 1) % 3; }, PULSE_GAP_MS);
   };
   // Stops every move's pulses/brighten + the hub glow in one go — called on scene changes away
   // from "inside" and on unmount so nothing keeps animating once the scene isn't showing it.
@@ -4002,12 +4067,14 @@ function App() {
           {/* connector overlay: one thin line from each label's nearest edge to its neuron,
               with a colour dot at the neuron end (endpoints computed in the place() effect).
               Non-interactive + aria-hidden; sits under the labels and fades with them. Also
-              carries each move's 3 hover signal-pulse dots (idle/off — see firePulse). */}
+              carries each move's hidden pulse path (the curved axon the hover dots ride —
+              geometry only, never painted) + its 3 signal-pulse dots (idle/off, see firePulse). */}
           <svg className="bw-links" aria-hidden="true" preserveAspectRatio="none">
             {MOVES.map((m, i) => (
               <React.Fragment key={m.name}>
                 <line ref={el => { linkLineEls.current[i] = el; }} />
                 <circle ref={el => { linkDotEls.current[i] = el; }} r="3" fill={bxColor(m.name)} />
+                <path ref={el => { pulsePathEls.current[i] = el; }} fill="none" stroke="none" />
                 {[0, 1, 2].map((slot) => (
                   <circle key={slot} r="4" fill={bxColor(m.name)} className="bw-pulse-dot"
                     style={{ filter: "drop-shadow(0 0 3px " + bxColor(m.name) + ") drop-shadow(0 0 7px " + bxColor(m.name) + ")" }}
@@ -4016,6 +4083,13 @@ function App() {
               </React.Fragment>
             ))}
           </svg>
+          {/* Centre title lockup naming the map — a real h2 (this scene's only heading; the
+              cover's h1 is unmounted here) but purely presentational to the pointer. Positioned
+              at BX_TITLE + shown/hidden with the labels by place(); fades during glide via CSS. */}
+          <h2 ref={centreTitleRef} className="bw-centre-title">
+            <span className="bw-centre-kicker">The Map of Understanding</span>
+            <span className="bw-centre-name">Thinking Moves</span>
+          </h2>
           {MOVES.map((m, i) => (
             <button key={m.name} ref={el => { labelEls.current[i] = el; }} className="bw-label"
               style={{ "--bwt": bwTint(m.name), "--bwc": bxColor(m.name), "--bwbd": bxColorRGBA(m.name, 0.55) }}
