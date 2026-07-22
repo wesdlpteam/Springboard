@@ -871,12 +871,38 @@
   .bw-glow { position: absolute; left: 0; top: 0; z-index: 1; width: 104px; height: 104px;
     border-radius: 50%; pointer-events: none;
     background: radial-gradient(circle, var(--bwg) 0%, rgba(0,0,0,0) 70%);
-    opacity: .7; animation: bwGlowPulse 3.5s ease-in-out infinite alternate; }
+    opacity: .7; animation: bwGlowPulse 3.5s ease-in-out infinite alternate;
+    transition: transform .4s ease, opacity .4s ease, filter .4s ease; }
   @keyframes bwGlowPulse {
     from { transform: translate(-50%, -50%) scale(1); opacity: .7; }
     to   { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
   }
   @media (prefers-reduced-motion: reduce) { .bw-glow { animation: none; opacity: .85; } }
+  /* Hover/focus signal (the move whose neuron is hovered/focused "shines brighter"): pausing
+     the keyframe first means the scale/opacity/filter below aren't fighting a running
+     animation for the same properties every frame; author-!important then beats the (now
+     frozen, but still technically "animating") transform/opacity, same trick .bw-inside--glide
+     uses below. Un-hovering removes the class, so the base rule's own transition (above) eases
+     the brighten back down before the keyframe animation resumes from its paused frame. */
+  .bw-glow.bw-glow--hot { animation-play-state: paused;
+    opacity: 1 !important; transform: translate(-50%, -50%) scale(1.35) !important;
+    filter: drop-shadow(0 0 16px var(--bwg)) drop-shadow(0 0 34px var(--bwg)); }
+  @media (prefers-reduced-motion: reduce) { .bw-glow--hot { transition: none; } } /* instant brighten, no ease */
+  /* Signal pulses: 3 dots per move (reused round-robin — see firePulse/startPulses),
+     travelling neuron -> hub along the same line the connector draws. cx/cy/opacity are
+     written every frame by a GSAP tween (onUpdate), never by CSS — idle state is just off. */
+  .bw-pulse-dot { pointer-events: none; opacity: 0; }
+  /* Central hub neuron's faint "receiving" glow: one shared node (not per-move), tinted to
+     whichever move is currently signalling it (--bwg set inline in startMoveHover). Off by
+     default; .on starts the breathing loop and its removal lets the opacity transition below
+     ease it back to 0 instead of popping. Reduced motion never adds .on (see startMoveHover),
+     so this never animates for those users. */
+  .bw-centre-glow { position: absolute; left: 0; top: 0; z-index: 1; width: 150px; height: 150px;
+    border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%);
+    background: radial-gradient(circle, var(--bwg, #fff) 0%, rgba(0,0,0,0) 70%);
+    opacity: 0; transition: opacity .3s ease; }
+  .bw-centre-glow.on { animation: bwCentreBreath 1.6s ease-in-out infinite alternate; }
+  @keyframes bwCentreBreath { from { opacity: .1; } to { opacity: .25; } }
   /* connector lines: full-stage SVG under the labels (z 1, above the artwork/glow's own
      stacking context, below the label text at z 2). Non-interactive; endpoints (label edge ->
      neuron) are written per move in the place() effect, the end-dot's fill is the move colour.
@@ -892,6 +918,7 @@
      animation rather than fight it. */
   .bw-inside--glide .bw-label, .bw-inside--glide .bw-listbtn, .bw-inside--glide .bw-links { opacity: 0; pointer-events: none; }
   .bw-inside--glide .bw-glow { animation-play-state: paused; opacity: 0 !important; }
+  .bw-inside--glide .bw-centre-glow { opacity: 0 !important; } /* pulses live inside .bw-links, already faded above */
   /* dive crossfade bloom: a pale glow pulse standing in for "passing through the brain's own
      light" at the moment the cover dissolves into the inside artwork — never a bare/black
      frame. Sits above both stages (z 2) but well below the fixed masthead (z 30/40). */
@@ -1092,7 +1119,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.7.2 · 2026-07-22";
+const APP_VERSION = "v0.7.3 · 2026-07-22";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2522,6 +2549,13 @@ const IMG_MOVE_POS = {
   "Make Connections":                     { fx: 0.658, fy: 0.802, lx: 0.668, ly: 0.662 }, // orange — bottom-centre-right
   "Describe What's There":                { fx: 0.895, fy: 0.739, lx: 0.862, ly: 0.605 }, // muted violet-grey — mid/bottom-right
 };
+// The central PALE/UNLIT neuron every other neuron's axon runs into (see inside.png — it's
+// already drawn as the artwork's hub, wired to all eight). Same fx/fy fraction convention as
+// IMG_MOVE_POS, read with the same bxImagePoint helper. Calibrated by eye against the source
+// artwork (docs/superpowers/inspiration/2026-07-21-brain-journey/north-star/inside.png), not
+// a live render — re-check visually if inside.png is ever swapped. Feeds the hover signal-
+// pulse endpoint (neuron -> here) and the hub's own faint "receiving" glow.
+const BX_CENTER = { fx: 0.505, fy: 0.48 };
 // Cover-fit an image of aspect `ar` into the stage, then return the px position of the
 // image-space fraction (fx, fy). Mirrors object-fit:cover + centred translate exactly.
 function bxImagePoint(stage, fx, fy, ar) {
@@ -2570,6 +2604,12 @@ function App() {
   const glowEls = useRef([]);                         // pulsing neuron glows, positioned same as the labels
   const linkLineEls = useRef([]);                     // connector <line>s: label edge -> neuron
   const linkDotEls = useRef([]);                      // connector end dots at the neuron
+  const pulseDotEls = useRef([]);                     // per move: [3 <circle>s] reused round-robin for hover signal pulses
+  const pulseEndpointsRef = useRef([]);               // per move: {x1,y1,x2,y2} stage-px, kept fresh by the place() effect
+  const pulseSpawnerRef = useRef([]);                 // per move: setInterval id spawning pulses while hovered/focused
+  const pulseTweensRef = useRef([]);                  // per move: in-flight GSAP pulse tweens (for clean kill)
+  const centreGlowRef = useRef(null);                 // shared "receiving" glow at BX_CENTER, tinted to whichever move is signalling it
+  const hoveredMovesRef = useRef(new Set());          // move indices currently hovered/focused (mouse + keyboard can overlap)
   const insideStageRef = useRef(null);                // .bx-stage holding inside.png (anchors the labels)
   const bloomRef = useRef(null);                      // full-viewport glow pulse at the dive's crossfade moment
   const moveBloomRef = useRef(null);                  // colour bloom at the move-select zoom's crossfade moment
@@ -3563,10 +3603,18 @@ function App() {
     const stage = insideStageRef.current; if (!stage) return;
     const vis = bxScene === "inside" ? "visible" : "hidden";
     const place = () => {
+      // hub neuron (BX_CENTER): positions the shared "receiving" glow div + feeds every move's
+      // pulse-endpoint below, so hovering keeps streaming to the right spot through a resize.
+      const pC = bxImagePoint(stage, BX_CENTER.fx, BX_CENTER.fy, BX_AR.inside);
+      const cg = centreGlowRef.current;
+      if (cg) { cg.style.left = pC.left.toFixed(1) + "px"; cg.style.top = pC.top.toFixed(1) + "px"; }
       MOVES.forEach((m, i) => {
         const pos = IMG_MOVE_POS[m.name]; if (!pos) return;
         const pN = bxImagePoint(stage, pos.fx, pos.fy, BX_AR.inside);          // neuron cell body
         const pL = bxImagePoint(stage, pos.lx, pos.ly, BX_AR.inside);          // label centre (dark pocket)
+        // hover signal pulse endpoints (neuron -> hub); read live by firePulse's onUpdate, so a
+        // resize mid-pulse just changes where the next animation frame draws, no restart needed.
+        pulseEndpointsRef.current[i] = { x1: pN.left, y1: pN.top, x2: pC.left, y2: pC.top };
         const el = labelEls.current[i];
         if (el) {
           el.style.left = pL.left.toFixed(1) + "px";
@@ -3608,6 +3656,75 @@ function App() {
     window.addEventListener("resize", place);
     return () => window.removeEventListener("resize", place);
   }, [bxScene]);
+  // Hover/focus signal: while a move's label is hovered/focused, stream 3 small dots one after
+  // another from its neuron into the hub (BX_CENTER), reusing the same 3 <circle>s round-robin
+  // (firePulse kills+restarts whichever slot is due next rather than pooling unlimited dots).
+  // Endpoints are read live from pulseEndpointsRef every frame, so a resize mid-flight just
+  // changes where the next frame draws — no restart needed (see the place() effect above).
+  const firePulse = (i, slot) => {
+    const dots = pulseDotEls.current[i], dot = dots && dots[slot];
+    if (!dot) return;
+    gsap.killTweensOf(dot); // in case the round-robin reuse caught a slot mid-flight (~50ms overlap at worst)
+    const proxy = { t: 0 };
+    const tw = gsap.to(proxy, {
+      t: 1, duration: 1.1, ease: "none",
+      onUpdate: () => {
+        const ep = pulseEndpointsRef.current[i]; if (!ep) return;
+        const t = proxy.t;
+        dot.setAttribute("cx", (ep.x1 + (ep.x2 - ep.x1) * t).toFixed(1));
+        dot.setAttribute("cy", (ep.y1 + (ep.y2 - ep.y1) * t).toFixed(1));
+        // fade in over the first 15% of the trip, hold, fade out over the last 15% (arrival)
+        dot.style.opacity = t < 0.15 ? (t / 0.15) : t > 0.85 ? ((1 - t) / 0.15) : 1;
+      },
+      onComplete: () => { dot.style.opacity = 0; },
+    });
+    (pulseTweensRef.current[i] || (pulseTweensRef.current[i] = [])).push(tw);
+  };
+  const stopPulses = (i) => { // kills the spawner + any in-flight tweens for move i, hides its dots
+    const id = pulseSpawnerRef.current[i];
+    if (id) { clearInterval(id); pulseSpawnerRef.current[i] = null; }
+    const tweens = pulseTweensRef.current[i];
+    if (tweens) { tweens.forEach((tw) => tw.kill()); pulseTweensRef.current[i] = []; }
+    (pulseDotEls.current[i] || []).forEach((d) => { if (d) d.style.opacity = 0; });
+  };
+  const startPulses = (i) => {
+    stopPulses(i); // clean slate — no leftover tween from a previous hover fighting the new one
+    let slot = 0;
+    firePulse(i, slot); slot = (slot + 1) % 3;
+    pulseSpawnerRef.current[i] = setInterval(() => { firePulse(i, slot); slot = (slot + 1) % 3; }, 350);
+  };
+  // Stops every move's pulses/brighten + the hub glow in one go — called on scene changes away
+  // from "inside" and on unmount so nothing keeps animating once the scene isn't showing it.
+  const stopAllHoverPulses = () => {
+    hoveredMovesRef.current.clear();
+    MOVES.forEach((_, i) => stopPulses(i));
+    glowEls.current.forEach((g) => { if (g) g.classList.remove("bw-glow--hot"); });
+    const cg = centreGlowRef.current; if (cg) cg.classList.remove("on");
+  };
+  useEffect(() => {
+    if (bxScene !== "inside") stopAllHoverPulses();
+    return stopAllHoverPulses; // scene change or unmount — always leave clean
+  }, [bxScene]);
+  const startMoveHover = (i) => {
+    hoveredMovesRef.current.add(i);
+    const glow = glowEls.current[i]; if (glow) glow.classList.add("bw-glow--hot"); // shine brighter, always (even reduced motion)
+    if (prefersReducedMotion) return; // no travelling pulses, no breathing hub — static brighten only
+    startPulses(i);
+    const cg = centreGlowRef.current;
+    if (cg) { cg.style.setProperty("--bwg", bxColor(MOVES[i].name)); cg.classList.add("on"); }
+  };
+  const endMoveHover = (i) => {
+    hoveredMovesRef.current.delete(i);
+    const glow = glowEls.current[i]; if (glow) glow.classList.remove("bw-glow--hot");
+    stopPulses(i); // harmless no-op under reduced motion (nothing was started)
+    const cg = centreGlowRef.current; if (!cg) return;
+    if (hoveredMovesRef.current.size === 0) { cg.classList.remove("on"); return; }
+    // mouse + keyboard focus can target two different moves at once (tab to one, then hover
+    // another) — hand the hub glow's colour to a move that's still actually active rather than
+    // leaving it tinted to the one that just ended.
+    const stillIdx = hoveredMovesRef.current.values().next().value;
+    cg.style.setProperty("--bwg", bxColor(MOVES[stillIdx].name));
+  };
   // Zoom into the neuron: on move select, the inside stage's transform-origin is pinned to
   // the chosen neuron's pixel point (computeMoveOrigin, above) and GSAP scales it up so the
   // camera reads as diving INTO that neuron, with a colour bloom (tinted to the move) at the
@@ -3879,21 +3996,32 @@ function App() {
             <div key={m.name} ref={el => { glowEls.current[i] = el; }} className="bw-glow" aria-hidden="true"
               style={{ "--bwg": bxColor(m.name), animationDelay: (i * 0.44) + "s" }} />
           ))}
+          {/* central hub neuron's faint "receiving" glow — one shared node, off until a move is
+              hovered/focused (startMoveHover adds .on + tints --bwg to that move's colour). */}
+          <div ref={centreGlowRef} className="bw-centre-glow" aria-hidden="true" />
           {/* connector overlay: one thin line from each label's nearest edge to its neuron,
               with a colour dot at the neuron end (endpoints computed in the place() effect).
-              Non-interactive + aria-hidden; sits under the labels and fades with them. */}
+              Non-interactive + aria-hidden; sits under the labels and fades with them. Also
+              carries each move's 3 hover signal-pulse dots (idle/off — see firePulse). */}
           <svg className="bw-links" aria-hidden="true" preserveAspectRatio="none">
             {MOVES.map((m, i) => (
               <React.Fragment key={m.name}>
                 <line ref={el => { linkLineEls.current[i] = el; }} />
                 <circle ref={el => { linkDotEls.current[i] = el; }} r="3" fill={bxColor(m.name)} />
+                {[0, 1, 2].map((slot) => (
+                  <circle key={slot} r="4" fill={bxColor(m.name)} className="bw-pulse-dot"
+                    style={{ filter: "drop-shadow(0 0 3px " + bxColor(m.name) + ") drop-shadow(0 0 7px " + bxColor(m.name) + ")" }}
+                    ref={el => { (pulseDotEls.current[i] || (pulseDotEls.current[i] = []))[slot] = el; }} />
+                ))}
               </React.Fragment>
             ))}
           </svg>
           {MOVES.map((m, i) => (
             <button key={m.name} ref={el => { labelEls.current[i] = el; }} className="bw-label"
               style={{ "--bwt": bwTint(m.name), "--bwc": bxColor(m.name), "--bwbd": bxColorRGBA(m.name, 0.55) }}
-              onClick={() => chooseMove(m.name)}>
+              onClick={() => chooseMove(m.name)}
+              onMouseEnter={() => startMoveHover(i)} onMouseLeave={() => endMoveHover(i)}
+              onFocus={() => startMoveHover(i)} onBlur={() => endMoveHover(i)}>
               <i className="bw-label-dot" aria-hidden="true" />
               <span className="bw-label-name">{m.name}</span>
             </button>
