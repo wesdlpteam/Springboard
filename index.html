@@ -890,6 +890,14 @@
      glide -> chamber handoff is a crossfade (inside stage fades out underneath it). */
   .bw-chamber { position: fixed; inset: 0; z-index: 2; overflow: auto; animation: bwChamberIn .45s ease both; }
   @keyframes bwChamberIn { from { opacity: 0; } to { opacity: 1; } }
+  /* Leaving ("All moves"): swapped in via inline style for its own animation (below) rather
+     than a plain opacity transition — bwChamberIn's fill-mode: both holds opacity at 1
+     forever once mounted, which (being a running CSS animation) outranks a later inline
+     opacity+transition in the cascade and silently no-ops it, popping the chamber away
+     instead of fading it. A distinct animation with its own from/to values replaces
+     bwChamberIn outright (only one can apply at a time) and always fades from its own
+     declared start, so it isn't at the mercy of whatever the previous frame happened to be. */
+  @keyframes bwChamberOut { from { opacity: 1; } to { opacity: 0; } }
   @media (prefers-reduced-motion: reduce) { .bw-chamber { animation: none; } }
   /* chamber backdrop: chamber.png under a dim veil, with a colour halo ring (the chosen
      move's colour) glowing behind the tool. The blue reference stays the mood; the ring
@@ -3440,10 +3448,14 @@ function App() {
   // the chosen neuron's pixel point (computeMoveOrigin, above) and GSAP scales it up so the
   // camera reads as diving INTO that neuron, with a colour bloom (tinted to the move) at the
   // crossover moment; the chamber then crossfades in on top once the zoom lands (BX_ZOOM_MS
-  // timeout in chooseMove). Leaving the chamber reverses it: zoom back down to resting scale
-  // from the same origin, clearing transformOrigin once settled so later dives/resizes start
-  // clean. Reduced motion: no zoom, no bloom — scene changes are instant (see chooseMove/
-  // leaveChamber's reduced-motion branches, which skip "glide" entirely).
+  // timeout in chooseMove). Leaving the chamber is the in-leg's mirror, not a repeat: zoom
+  // back down to resting scale from the same origin (same duration, power2.out easing —
+  // the reverse of the in-leg's power2.in) with NO bloom this time — the chamber's own
+  // opacity fade (see renderBrain's .bw-chamber, "glide" branch) is the only crossfade on
+  // the way out, overlapping the zoom so it reads as pulling back out of the neuron rather
+  // than fade-then-teleport. transformOrigin clears once settled so later dives/resizes
+  // start clean. Reduced motion: no zoom, no bloom — scene changes are instant (see
+  // chooseMove/leaveChamber's reduced-motion branches, which skip "glide" entirely).
   useEffect(() => {
     const stage = insideStageRef.current; if (!stage || typeof gsap === "undefined") return;
     if (prefersReducedMotion) { gsap.set(stage, { scale: 1, clearProps: "transformOrigin" }); return; }
@@ -3451,19 +3463,19 @@ function App() {
     if (bxScene === "glide") {
       const origin = (zoomOriginRef.current && zoomOriginRef.current.css) || "50% 50%";
       gsap.set(stage, { transformOrigin: origin });
-      const btl = gsap.timeline();
       if (glideDir === "in") {
         gsap.to(stage, { scale: ZOOM_SCALE, duration: ZOOM_S, ease: "power2.in", overwrite: "auto" });
         if (moveBloomRef.current) {
+          const btl = gsap.timeline();
           btl.fromTo(moveBloomRef.current, { opacity: 0 }, { opacity: 0.4, duration: 0.22, ease: "sine.out" }, ZOOM_S - 0.35)
              .to(moveBloomRef.current, { opacity: 0, duration: 0.22, ease: "sine.in" }, ZOOM_S - 0.13);
         }
       } else {
+        // Return leg: no bloom (the coloured flash the "All moves" path used to fire on
+        // return) — just the mirrored zoom-out. See the .bw-inside render for why this is
+        // now actually visible: that layer no longer fades in from 0 on this leg, so the
+        // full 2.6 -> 1 tween plays on an already-opaque stage under the fading chamber.
         gsap.to(stage, { scale: 1, duration: ZOOM_S, ease: "power2.out", overwrite: "auto" });
-        if (moveBloomRef.current) {
-          btl.fromTo(moveBloomRef.current, { opacity: 0 }, { opacity: 0.4, duration: 0.22, ease: "sine.out" }, 0.05)
-             .to(moveBloomRef.current, { opacity: 0, duration: 0.22, ease: "sine.in" }, 0.3);
-        }
       }
     } else if (bxScene === "inside") {
       // settle back to resting scale + wipe the pinned origin so a later move-select or the
@@ -3651,7 +3663,16 @@ function App() {
         // not a pop — see diveToInside/the dive-timeline effect for how it rises into view.
         <div className={"bw-inside" + ((bxScene === "glide" || bxScene === "transport") ? " bw-inside--glide" : "")}
           style={bxScene === "chamber" ? { pointerEvents: "none", opacity: 0, transition: prefersReducedMotion ? "none" : "opacity .4s" }
-            : bxScene === "glide" ? { pointerEvents: "none", opacity: 1, transition: prefersReducedMotion ? "none" : "opacity .4s" }
+            : bxScene === "glide" ? (glideDir === "out"
+                // Return leg: snap straight to visible, no fade-in. At this instant the
+                // chamber (still opaque) is fully covering it anyway, so the flip is unseen —
+                // but it means the GSAP zoom-out (see the effect above) plays on an already-
+                // opaque layer for its full duration, instead of racing a .4s opacity ramp
+                // and losing its fast/early motion to near-invisibility. Only the chamber's
+                // own fade-out (below) uncovers it, mirroring the in-leg where this layer
+                // never fades and the chamber isn't rendered at all during the zoom.
+                ? { pointerEvents: "none", opacity: 1, transition: "none" }
+                : { pointerEvents: "none", opacity: 1, transition: prefersReducedMotion ? "none" : "opacity .4s" })
             : bxScene === "transport" ? { pointerEvents: "none", opacity: 1, zIndex: 1 }
             : { opacity: 1, transition: prefersReducedMotion ? "none" : "opacity .4s" }}>
           {/* Neuron artwork backdrop: cover-fit still, no video. Sits under the move labels
@@ -3705,10 +3726,13 @@ function App() {
         // (--move-colour) glowing behind the tool panel. The tool is lifted above the backdrop.
         // Stays mounted (not fading to a pop) through the closing glide so "All moves" reverses
         // the zoom-in crossfade instead of just vanishing; selectedMove is only cleared once
-        // leaveChamber's timeout lands back on "inside" (see leaveChamber).
+        // leaveChamber's timeout lands back on "inside" (see leaveChamber). The glide branch
+        // swaps in bwChamberOut (see its CSS, above) in place of the entrance animation, so
+        // the fade-out actually plays instead of silently no-op'ing against the held-open
+        // entrance animation.
         <div className="bw-chamber" style={{
             "--bwt": bwTint(selectedMove), "--move-colour": bxColor(selectedMove),
-            ...(bxScene === "glide" ? { opacity: 0, pointerEvents: "none", transition: prefersReducedMotion ? "none" : "opacity .3s ease" } : null),
+            ...(bxScene === "glide" ? { pointerEvents: "none", animation: prefersReducedMotion ? "none" : "bwChamberOut .3s ease forwards" } : null),
           }}>
           <div className="bx-stage bx-stage--chamber" aria-hidden="true">
             <img className="bx-stage-media" src={BX_ASSETS.base + BX_ASSETS.chamber} alt="" />
