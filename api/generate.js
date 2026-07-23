@@ -61,19 +61,26 @@ export function injectStudyGuide(messages, studyGuide) {
   return out;
 }
 
-// Made to Stick (Chip & Dan Heath) — the SUCCESs frame. Owned server-side so every generated
-// lesson follows the philosophy with no teacher control surface. Appended to the last system
-// message only when the client marks a request as a generation (`stickiness: true`); the
-// analyse call omits the flag, so it is not polluted.
+// Made to Stick (Chip & Dan Heath) — the SUCCESs frame, read from the book and distilled into
+// deck-writing instructions. Owned server-side so every generated lesson follows the philosophy
+// with no teacher control surface. Appended to the last system message only when the client marks
+// a request as a generation (`stickiness: true`); the analyse call omits the flag, so it is not
+// polluted. Two parts: (1) the six principles with their highest-leverage tactics, (2) how they
+// map onto Springboard's four slides. The framing villain is the Curse of Knowledge.
 const STICKINESS_GUIDANCE = [
-  "Make the lesson STICK — apply the Made to Stick (Chip & Dan Heath) SUCCESs principles to every deck:",
-  "- SIMPLE: find the ONE core idea and lead with it; say it as a compact, proverb-like line — not a watered-down one. Cut anything that isn't the core.",
-  "- UNEXPECTED: break the student's 'guessing machine' with a surprise, or open a curiosity gap — pose a question they now NEED answered. The twist should make sense in hindsight, never a random gimmick.",
-  "- CONCRETE: use specific people doing specific things, sensory detail and real examples — never abstract jargon. Give the idea 'hooks' onto what students already know.",
-  "- CREDIBLE: back a claim with a vivid, checkable detail or a human-scale number (not a raw statistic), or let students test it themselves ('see for yourself').",
-  "- EMOTIONAL: make them CARE by focusing on one person or one real stake, not a faceless mass; tap their identity and what matters to them, not shallow rewards.",
-  "- STORY: frame the launch as a small story — a Challenge (overcome the odds), Connection (bridge people), or Creativity (a clever breakthrough) plot — so students mentally rehearse it and feel moved to act.",
-  "Beat the Curse of Knowledge: never assume students already know what you know; build from the concrete up.",
+  "Make this lesson STICK. Apply the Made to Stick (Chip & Dan Heath) SUCCESs principles. Your enemy is the CURSE OF KNOWLEDGE: you and the teacher already grasp this topic, so it is hard to imagine not knowing it. Never assume students know what you know — build every idea up from the concrete, and pressure-test each slide as a student meeting the topic cold.",
+  "- SIMPLE = core + compact (this is prioritising, NOT dumbing down). Find the ONE core idea — finish 'if students remember nothing else today, they must ___' — and lead with it as a compact, proverb-like line. Be a master of exclusion: cut good material that isn't the core, because many priorities means none. Make the core travel by packaging it as a high-concept analogy ('this is X for Y') or by naming something students already know (a schema), so a few words carry a lot of meaning.",
+  "- UNEXPECTED = break the guessing machine, then open a gap. Lead with something that violates what students expect (a counter-intuitive fact or surprising result) to buy attention. To HOLD attention, use the gap theory of curiosity: pose a real question they now NEED answered and withhold the answer; frame the content as a mystery to be solved. Get students to COMMIT to a guess before any reveal (disagreement between guesses is good). The twist must be postdictable (obvious in hindsight) and must serve the core idea — never surprise for its own sake.",
+  "- CONCRETE = picture it with the senses. Use specific people doing specific things, real places and sensory detail — never abstract jargon (abstraction is the expert's luxury; novices need the concrete). Concreteness gives memory more hooks (Velcro). Anchor every abstract term to something students can picture, and build the abstract concept ON a concrete example, not the reverse. Prefer one named case ('work out what Kris should charge') over a faceless prompt ('analyse pricing').",
+  "- CREDIBLE = make it believable, ideally by letting them test it. Strongest is a testable credential — 'see for yourself': let students predict, check, or try it, so the claim proves itself instead of being asserted. Back claims with a vivid, checkable detail and human-scale numbers (translate any statistic into units students can feel, or a relatable comparison — never a bare stat). Where it fits, use a Sinatra-Test exemplar (one case so strong it proves the point) or an anti-authority (someone with real lived experience, not just a title).",
+  "- EMOTIONAL = make them CARE, because belief alone won't move them. Focus on ONE identifiable person or one real stake, not a faceless mass or a pile of statistics (adding numbers to a human story actually kills the feeling). Appeal to IDENTITY — 'what would someone like me do here?' — and to what students already value (mastery, fairness, belonging), not just 'you'll need this for the test'. Invite them to imagine themselves in the situation.",
+  "- STORY = get them to act. Frame the launch as a small, concrete story so students mentally rehearse the ACTION — simulate the process and the steps, not a happy ending. Match the task to one of three plots: CHALLENGE (overcome the odds / underdog), CONNECTION (bridge people or opposing viewpoints), or CREATIVITY (a clever breakthrough / crack the puzzle). Prefer real, spotted stories over invented ones; a good story already carries Concrete, Emotional and Unexpected for free.",
+  "Map the principles onto the four slides:",
+  "- IGNITE: lead with Unexpected + Emotional + Concrete — one concrete, identifiable person or case that breaks the guessing machine and opens a curiosity gap, and invites a first guess. Do not announce the topic flatly.",
+  "- THINK: use the thinking routine to hunt the core (Simple) and to make students commit to a prediction before any reveal (Unexpected); surface disagreement between their guesses where you can.",
+  "- LAUNCH: frame the task as a Story plot (Challenge / Connection / Creativity) set in a specific, picture-able scenario (Concrete) that students can test for themselves (Credible).",
+  "- REFLECT: return to the ONE person or stake and to the student's own identity (Emotional); ask for the one-sentence core (Simple) and a real, spotted moment from the lesson (Story), never an abstract summary.",
+  "Keep the whole deck playful and human, never corporate or abstract: one core idea, built from the concrete up.",
 ].join("\n");
 
 export function injectStickiness(messages, on) {
