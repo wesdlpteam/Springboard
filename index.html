@@ -1228,11 +1228,12 @@
   .ww-label:focus-visible { outline: 3px solid var(--purple); outline-offset: 2px; border-radius: 10px; }
   .ww-label i { display: none; }
   @media (prefers-reduced-motion: reduce) { .ww-label { transition: none; } }
-  /* the map's name sits ON the gold hub bloom — kicker in soft ink (gold-on-gold would sink) */
+  /* the map's name IS the centrepiece — large, dead centre, the blooms orbit it */
   .ww-title { position: absolute; transform: translate(-50%, -50%); z-index: 2; text-align: center;
-    pointer-events: none; margin: 0; }
-  .ww-title .k { display: block; font-size: 10.5px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: #5c5442; }
-  .ww-title .n { display: block; font-size: clamp(22px, 2.2vw, 31px); font-weight: 600; letter-spacing: -.015em; color: var(--purple); margin-top: 4px; }
+    pointer-events: none; margin: 0; max-width: min(46vw, 560px); }
+  .ww-title .k { display: block; font-size: clamp(11px, 1vw, 13px); font-weight: 600; letter-spacing: .22em; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
+  .ww-title .n { display: block; font-family: "Fraunces", Georgia, serif; font-style: italic; font-weight: 600;
+    font-size: clamp(38px, 5.2vw, 76px); line-height: .98; letter-spacing: -.02em; color: var(--purple); }
   .ww-pulse-dot { pointer-events: none; opacity: 0; } /* driven by the pulse engine, ink-droplet style */
   .ww-listbtn { position: absolute; right: 26px; bottom: 22px; z-index: 2;
     background: none; border: 1px solid rgba(43,40,31,.3); border-radius: 999px; color: var(--ink-soft);
@@ -1240,10 +1241,10 @@
   .ww-listbtn:hover { border-color: var(--ink); color: var(--ink); }
 
   /* ---------- chamber (inside a thinking move) — light paper theme ---------- */
-  .ww-chamber { position: fixed; inset: 0; z-index: 2; overflow: auto; animation: wwChamberIn .5s ease both;
+  .ww-chamber { position: fixed; inset: 0; z-index: 2; overflow: auto; animation: wwChamberIn 1s ease both;
     background: var(--paper); }
   @keyframes wwChamberIn { from { opacity: 0; } to { opacity: 1; } }
-  .ww-chamber.out { animation: wwChamberOut .4s ease forwards; }
+  .ww-chamber.out { animation: wwChamberOut 1s ease forwards; }
   @keyframes wwChamberOut { from { opacity: 1; } to { opacity: 0; } }
   @media (prefers-reduced-motion: reduce) { .ww-chamber { animation: none; } .ww-chamber.out { animation: none; opacity: 0; } }
   .ww-chamber-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
@@ -1270,14 +1271,18 @@
   .ww-chamber .bx-btn.mv { background: var(--purple); color: #fff; } /* purple = the only interactive voice */
   .ww-chamber .bx-alert { background: #FDAFBD33; border-color: #8F1D2E55; color: #8F1D2E; }
 
-  /* ---------- ink fades: scenes swap on the same paper ---------- */
-  .ww-cover { transition: opacity .55s ease; }
-  .ww-cover.fading { opacity: 0; }
-  .ww-map.entering { animation: wwFadeIn .6s ease both; }
-  .ww-map.fading { opacity: 0; transition: opacity .5s ease; }
+  /* ---------- calm ink fades: scenes swap slowly on the same paper ---------- */
+  /* Enter = the cover's ink lifts off the paper: a long fade with a breath of blur + a
+     feather up in scale, like colour dispersing into water. */
+  .ww-map { outline: none; } /* focused region (tabindex=-1) — no ring */
+  .ww-cover { transition: opacity 1.3s ease, filter 1.3s ease, transform 1.3s ease; }
+  .ww-cover.fading { opacity: 0; filter: blur(6px); transform: scale(1.015); }
+  .ww-map.entering { animation: wwFadeIn 1.2s ease both; }
+  .ww-map.fading { opacity: 0; transition: opacity 1s ease; }
   @keyframes wwFadeIn { from { opacity: 0; } to { opacity: 1; } }
   @media (prefers-reduced-motion: reduce) {
     .ww-cover, .ww-map.fading { transition: none; }
+    .ww-cover.fading { filter: none; transform: none; }
     .ww-map.entering { animation: none; }
   }
   /* bloom sizing (the map composes them at place()-set positions); the circular feather
@@ -2833,7 +2838,7 @@ const IMG_MOVE_POS = {
 // The central PALE/UNLIT neuron every other neuron's axon runs into (see inside.png — it's
 // Hub (gold bloom) and title lockup — same viewport-fraction convention as IMG_MOVE_POS.
 const BX_CENTER = { bx: 0.5, by: 0.52 };  // the gold hub bloom every cord runs into
-const BX_TITLE = { bx: 0.5, by: 0.52 };   // the map's name sits ON the gold hub bloom — the heart of the map names it, and nothing can ever collide with it
+const BX_TITLE = { bx: 0.5, by: 0.5 };    // the map's name IS the centrepiece — large, dead centre, the eight blooms orbit it (no hub splotch)
 // Viewport-fraction -> stage px (the whole map is composed in code, no artwork mapping).
 function bxStagePoint(stage, bx, by) {
   return { left: bx * stage.clientWidth, top: by * stage.clientHeight };
@@ -3725,16 +3730,17 @@ function App() {
   };
   const diveToInside = () => {
     if (prefersReducedMotion) { finishDive(); return; } // instant switch
-    setBxScene("transport");  // cover ink fading out, map ink fading in (both mounted)
+    setBxScene("transport");  // cover ink dissolving out, map ink fading in (both mounted)
     clearTimeout(diveSafetyTimer.current);
-    diveSafetyTimer.current = setTimeout(finishDive, 650);
+    diveSafetyTimer.current = setTimeout(finishDive, BX_ENTER_MS);
   };
   // Esc mid-fade: land straight on the map.
   const skipDive = () => { clearTimeout(diveSafetyTimer.current); finishDive(); };
   skipDiveRef.current = skipDive;
-  // Move select -> the map's ink fades while the chamber's fades in ("glide" = the overlap
-  // beat, both mounted), then the map unmounts. Reduced motion: instant switch.
-  const BX_FADE_MS = 550;
+  // Calm timings: the enter dissolve and the move crossfade are long and unhurried. Each timer
+  // matches its CSS fade duration so the outgoing scene has fully lifted as the incoming lands.
+  const BX_ENTER_MS = 1300; // cover ink dissolving away into the map
+  const BX_FADE_MS = 1000;  // map <-> chamber crossfade
   const chooseMove = (name) => {
     pickMove(name);
     if (prefersReducedMotion) { setBxScene("chamber"); announce(name + ". Build the lesson here."); return; }
@@ -3745,7 +3751,6 @@ function App() {
   };
   const leaveChamber = () => {
     if (prefersReducedMotion) { pickMove(""); setBxScene("inside"); return; }
-    setGlideDir("out");
     setGlideDir("out");
     setBxScene("glide"); // chamber ink fading out, map ink fading back in
     clearTimeout(glideTimer.current);
@@ -3762,20 +3767,17 @@ function App() {
     };
     window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey);
   }, []);
-  useEffect(() => { // scene changes hand focus to the scene's first control
+  useEffect(() => { // scene changes hand focus to the scene's region (NOT a label — a focused
+    // label showed a persistent box on the map even with no mouse over it). The map div is a
+    // tabindex=-1 region with no focus ring; screen readers announce its aria-label.
     if (bxScene === "inside") setTimeout(() => {
-      const first = labelEls.current[0];
-      // labels are hidden on very narrow screens (see CSS) — offsetParent is null then, so
-      // fall back to the "See as a list" button, which is the mobile way into the moves.
-      if (first && first.offsetParent) first.focus();
-      else { const lb = document.querySelector(".bw-listbtn"); if (lb) lb.focus(); }
+      const map = insideStageRef.current;
+      if (map) map.focus();
     }, 80);
-    if (bxScene === "chamber") setTimeout(() => { const b = document.querySelector(".bw-chamber .bx-back"); if (b) b.focus(); }, 80);
+    if (bxScene === "chamber") setTimeout(() => { const b = document.querySelector(".ww-chamber .bx-back"); if (b) b.focus(); }, 80);
   }, [bxScene]);
-  // Compose the Map of Understanding: hub bloom, eight move blooms, their label pills, and
-  // the hand-inked cords bloom->hub. Everything is placed from viewport fractions (no source
-  // artwork), and each cord's <path> doubles as its move's pulse rail (pulseGeomRef), so the
-  // droplets ride EXACTLY the drawn line at any window size — nothing to calibrate, ever.
+  // Compose the Map of Understanding: the eight move blooms, their captions, and the centre
+  // title — all placed from viewport fractions (no source artwork), so nothing can drift.
   useLayoutEffect(() => {
     if (bxScene !== "inside" && bxScene !== "chamber" && bxScene !== "glide") return;
     const stage = insideStageRef.current; if (!stage) return;
@@ -3783,9 +3785,6 @@ function App() {
     // scene fade) pulls them out of the Tab order while the chamber covers the map.
     const vis = bxScene === "inside" ? "visible" : "hidden";
     const place = () => {
-      const pC = bxStagePoint(stage, BX_CENTER.bx, BX_CENTER.by);
-      const hub = hubBloomRef.current;
-      if (hub) { hub.style.left = pC.left.toFixed(1) + "px"; hub.style.top = pC.top.toFixed(1) + "px"; }
       const title = centreTitleRef.current;
       if (title) {
         const pT = bxStagePoint(stage, BX_TITLE.bx, BX_TITLE.by);
@@ -3857,30 +3856,24 @@ function App() {
     firePulse(i, slot); slot = (slot + 1) % 3;
     pulseSpawnerRef.current[i] = setInterval(() => { firePulse(i, slot); slot = (slot + 1) % 3; }, PULSE_GAP_MS);
   };
-  // Stops every move's pulses + hover swells in one go — called on scene changes away from
-  // "inside" and on unmount so nothing keeps animating once the scene isn't showing it.
+  // Clears every hover swell — called on scene changes away from "inside" and on unmount.
   const stopAllHoverPulses = () => {
     hoveredMovesRef.current.clear();
-    MOVES.forEach((_, i) => stopPulses(i));
     bloomEls.current.forEach((b) => { if (b) b.classList.remove("hot"); });
-    const hub = hubBloomRef.current; if (hub) hub.classList.remove("hub-hot");
   };
   useEffect(() => {
     if (bxScene !== "inside") stopAllHoverPulses();
     return stopAllHoverPulses; // scene change or unmount — always leave clean
   }, [bxScene]);
-  // Hover/focus a move: its watercolour bloom swells and deepens (.hot) and the hub bloom
-  // answers with a small swell of its own. No travelling pulses — quiet, like the medium.
+  // Hover/focus a move: its watercolour bloom quietly swells and deepens (.hot). Nothing else
+  // — no travelling pulses, no centre answer. Calm, like the medium.
   const startMoveHover = (i) => {
     hoveredMovesRef.current.add(i);
     const bloom = bloomEls.current[i]; if (bloom) bloom.classList.add("hot");
-    const hub = hubBloomRef.current; if (hub) hub.classList.add("hub-hot");
   };
   const endMoveHover = (i) => {
     hoveredMovesRef.current.delete(i);
     const bloom = bloomEls.current[i]; if (bloom) bloom.classList.remove("hot");
-    const hub = hubBloomRef.current;
-    if (hub && hoveredMovesRef.current.size === 0) hub.classList.remove("hub-hot");
   };
   // (The GSAP camera-zoom and chamber-settle effects died with the space theme: watercolour
   // scene changes are pure ink fades — see chooseMove/leaveChamber and the .ww-* CSS.)
@@ -4025,13 +4018,14 @@ function App() {
       {(bxScene === "cover" || bxScene === "transport") && (
         <section className={"ww-cover" + (bxScene === "transport" ? " fading" : "")}>
           <div className="ww-cover-art" aria-hidden="true">
-            {/* the approved still is ALWAYS underneath; the paint-in clip plays over it once
-                per visit and dissolves away on its final frame (.done), so slow networks and
-                video failures simply show the finished painting */}
+            {/* the approved still sits underneath as the fallback (return visits, reduced
+                motion, video error). On a first visit the paint-in clip plays over it and
+                FREEZES on its last painted frame — no crossfade to the still, because swapping
+                two slightly different paintings read as a "flash". The frozen frame just stays. */}
             <img src={BX_ASSETS.base + BX_ASSETS.cover} alt="" />
             {!prefersReducedMotion && !paintSeenRef.current && (
               <video src={BX_ASSETS.base + BX_ASSETS.coverPaint} muted playsInline autoPlay preload="auto"
-                onEnded={(e) => { paintSeenRef.current = true; e.currentTarget.classList.add("done"); }}
+                onEnded={() => { paintSeenRef.current = true; }}
                 onError={(e) => { paintSeenRef.current = true; e.currentTarget.classList.add("done"); }} />
             )}
           </div>
@@ -4040,7 +4034,7 @@ function App() {
             <h1>Start with the <span className="pu">thinking</span>, not the topic.</h1>
             <p className="ww-sub">Pick one of eight thinking moves from the Map of Understanding, add a photograph, a film or an article, and Springboard builds a lesson that moves your class beyond remembering into understanding.</p>
             <button className="ww-enter" autoFocus onClick={enterMind}>Enter the mind →</button>
-            <p className="ww-credit">Eight thinking moves · Cultures of Thinking · <a href="https://pz.harvard.edu/thinking-routines" target="_blank" rel="noopener">Harvard Project Zero</a> · build 20</p>
+            <p className="ww-credit">Eight thinking moves · Cultures of Thinking · <a href="https://pz.harvard.edu/thinking-routines" target="_blank" rel="noopener">Harvard Project Zero</a> · build 21</p>
           </div>
           {/* the paint clip's calm score, off by default (autoplay must stay muted) */}
           <audio ref={musicRef} src={BX_ASSETS.base + BX_ASSETS.coverMusic} loop preload="none" />
@@ -4055,12 +4049,9 @@ function App() {
         // under (or behind) the outgoing scene; glide-in = fading away beneath the chamber.
         <div className={"ww-map" + ((bxScene === "transport" || (bxScene === "glide" && glideDir === "out")) ? " entering"
               : (bxScene === "glide" && glideDir === "in") ? " fading" : "")}
-          ref={insideStageRef}>
-          {/* (No cords, no light pulses — Nathan's call: they belonged to the neon world.
-              The blooms and their captions carry the map alone; hover is a quiet swell.) */}
-          {/* the gold hub bloom at the centre of the map */}
-          <img className="ww-bloom ww-bloom--hub" ref={hubBloomRef} aria-hidden="true"
-            src={BX_ASSETS.base + BX_ASSETS.bloom("gold")} alt="" />
+          ref={insideStageRef} tabIndex={-1} aria-label="The Map of Understanding — eight thinking moves">
+          {/* (No cords, no light pulses, no centre splotch — Nathan's call. The eight blooms
+              orbit the title, which is the centrepiece; hover is a quiet bloom swell.) */}
           {/* eight watercolour move-blooms (multiply melts their white paper into ours) */}
           {MOVES.map((m, i) => (
             <img key={m.name} className="ww-bloom" ref={el => { bloomEls.current[i] = el; }} aria-hidden="true"
