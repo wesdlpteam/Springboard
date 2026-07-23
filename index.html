@@ -896,26 +896,33 @@
     .ww-cover h1 { font-size: clamp(30px, 4.4vw, 52px); }
     .ww-sub { margin-top: 16px; } .ww-enter { margin-top: 22px; } .ww-credit { margin-top: 12px; }
   }
-  /* the right-biased brain only crosses into the copy on TALL / squarish windows (a wide-short
-     window has room beside the text). So key the watermark fallback off window SHAPE, not width:
-     at aspect <=7/5 the brain becomes a soft full-bleed watermark centred behind the copy with a
-     full-width paper veil; wide-short desktops (incl. Nathan's ~2:1) keep the vivid brain beside
-     the text. (keeps the edge-feather mask so the watermark rectangle never shows a rim either.) */
+  /* Tall / squarish windows (phones, portrait tablets, aspect <=7/5): the right-biased brain
+     would cross into the copy, so we STACK instead — copy on top, the brain video in FULL COLOUR
+     below it. Wide-short desktops (incl. Nathan's ~2:1) keep the vivid brain beside the text. */
   @media (max-aspect-ratio: 7/5) {
-    /* centre + enlarge the art as a soft watermark, but do NOT force opacity on the OFF-state
-       still — only the visible layer (on-still, or the video) carries .4, so the finished still
-       and the mid-paint video can never show at once (that overlap was the "two brains"). */
-    .ww-cover-still, .ww-cover-art video { right: 50%; transform: translate(50%, -50%);
-      height: auto; width: 118vw; max-width: 118vw; animation: none; }
-    .ww-cover-still.on, .ww-cover-art video { opacity: .4; }
-    .ww-cover::before { background: rgba(244,239,230,.66); }
-    .ww-cover-copy { max-width: 640px; }
+    /* copy first, then the brain drops out of its absolute layer into normal flow BELOW it (flex
+       `order` reverses the DOM order); auto top-margins float the brain into the middle of the
+       space under the copy while the footer stays pinned at the bottom. The hidden OFF-state still
+       is pulled out of flow (display:none), so it neither leaves a gap nor stacks a second brain. */
+    .ww-cover { justify-content: flex-start; }
+    .ww-cover::before { display: none; }                       /* no veil — nothing sits behind the text now */
+    .ww-cover-copy { order: 1; max-width: 640px; }
+    .ww-cover-art { position: static; order: 2; width: 100%; margin: auto 0 0; }
+    .ww-cover-art .ww-cover-still:not(.on) { display: none; }  /* off-still: no flow space, no ghost brain */
+    .ww-cover-art img, .ww-cover-art video { position: static; right: auto; top: auto; transform: none;
+      display: block; margin: 0 auto; width: auto; max-width: 100%; height: auto; max-height: 52vh; }
+    .ww-cover-still.on, .ww-cover-art video { opacity: 1; }     /* full colour, single brain */
+    .ww-foot { position: static; order: 3; margin-top: auto; padding-top: 18px; }
   }
   @media (max-width: 520px) {
-    .ww-cover { padding: 92px 20px 36px; justify-content: flex-start; padding-top: 24vh; }
+    /* copy sits near the top; the brain video goes below it (see the aspect-ratio block above) */
+    .ww-cover { padding: 100px 20px 30px; justify-content: flex-start; }
     .ww-cover h1 { font-size: clamp(32px, 9vw, 44px); }
     .ww-sub { font-size: 15px; max-width: none; }
-    .ww-enter { font-size: 18px; padding: 13px 26px; }
+    /* the Blackrush brush CTA needs real size to fill the pill — 18px left it a tiny speck; the
+       desktop 66px is too wide for a phone, so 40px is the phone sweet spot (tight line-box + snug
+       padding come from the base .ww-enter rule). */
+    .ww-enter { font-size: 40px; padding: 8px 26px 4px; }
     .ww-credit { font-size: 11.5px; }
   }
 
@@ -1188,7 +1195,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.8 · 2026-07-23";
+const APP_VERSION = "v0.9.9 · 2026-07-23";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
