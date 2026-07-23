@@ -257,5 +257,48 @@
     });
   })();
   </script>
+
+  <!-- Keep the home page's dreamy soundtrack playing on About too, resumed from where it left
+       off, so stepping in here no longer cuts the music. Same browser rule as the app: sound
+       cannot auto-start until the visitor has interacted once, so we try immediately and, if
+       blocked, start on the first gesture. Position is shared with index.html via
+       sessionStorage('sb_music_t'). Muted-friendly, loops, soft fade-in — never blares. -->
+  <audio id="sb-music" src="assets/brain/cover-music.m4a" loop preload="auto"></audio>
+  <script>
+  (function(){
+    var a = document.getElementById('sb-music'); if(!a) return;
+    var KEY = 'sb_music_t';
+    a.volume = 0;
+    var raf, started = false;
+    function restore(){
+      var t = parseFloat(sessionStorage.getItem(KEY) || '');
+      if(isFinite(t) && a.duration && t < a.duration){ try{ a.currentTime = t; }catch(_){} }
+    }
+    if(a.readyState >= 1) restore(); else a.addEventListener('loadedmetadata', restore, { once:true });
+    function save(){ try{ if(a.currentTime) sessionStorage.setItem(KEY, String(a.currentTime)); }catch(_){} }
+    setInterval(save, 1000);
+    window.addEventListener('pagehide', save);
+    function fadeIn(){
+      var target = 0.12; // match index.html's soft target
+      (function step(){ if(a.volume < target){ a.volume = Math.min(target, a.volume + target/(2.2*60)); raf = requestAnimationFrame(step); } })();
+    }
+    function tryPlay(){
+      if(started) return;
+      var p = a.play();
+      if(p && p.then) p.then(function(){ started = true; fadeIn(); }).catch(function(){}); else { started = true; fadeIn(); }
+    }
+    tryPlay(); // the site's media engagement usually lets this autoplay; if not, the gesture below does
+    function onFirst(){ tryPlay(); }
+    ['pointerdown','keydown','touchstart'].forEach(function(e){ window.addEventListener(e, onFirst); });
+    // Only play while the page is on screen: pause when hidden (phone locked, app switched, tab
+    // backgrounded), resume when it returns. hiddenPause guards so music the visitor never began
+    // is not force-started on return.
+    var hiddenPause = false;
+    document.addEventListener('visibilitychange', function(){
+      if(document.hidden){ save(); if(!a.paused){ a.pause(); hiddenPause = true; } }
+      else if(hiddenPause){ hiddenPause = false; a.play().catch(function(){}); }
+    });
+  })();
+  </script>
 </body>
 </html>

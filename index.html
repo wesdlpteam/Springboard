@@ -633,7 +633,10 @@
   .bx-mast { position: fixed; top: 0; left: 0; right: 0; z-index: 30; display: flex; align-items: baseline; justify-content: space-between;
     padding: 20px clamp(20px, 4vw, 52px) 16px; mix-blend-mode: normal;
     background: linear-gradient(to bottom, var(--paper) 72%, transparent); }
-  .bx-mast .bx-word { font-family: var(--bx-display); font-weight: 500; font-size: 22px; letter-spacing: -.01em; }
+  .bx-mast .bx-word { font-family: var(--bx-display); font-weight: 500; font-size: 22px; letter-spacing: -.01em;
+    color: var(--ink); border: 0; background: none; padding: 0; margin: 0; cursor: pointer; transition: opacity .2s; }
+  .bx-mast .bx-word:hover { opacity: .68; }
+  .bx-mast .bx-word:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; border-radius: 3px; }
   .bx-mast .bx-word i { font-style: italic; font-weight: 400; }
   .bx-mast .bx-nav { display: flex; align-items: baseline; gap: 22px; font-size: 12.5px; letter-spacing: .01em; }
   .bx-mast .bx-nav a, .bx-mast .bx-nav button { color: var(--muted); text-decoration: none; border: 0; background: none; cursor: pointer; font: inherit; padding: 0; transition: color .2s; }
@@ -865,12 +868,14 @@
      hand-drawn gold ring that blooms behind it — playful, not a plain button */
   .ww-enter { margin-top: 34px; display: inline-flex; align-items: center; justify-content: center; position: relative;
     background: var(--purple); color: #fff; border: 0; border-radius: 44px;
-    font-family: "Blackrush", "Segoe Script", cursive; font-weight: 400; font-size: 58px;
-    padding: 2px 40px; cursor: pointer; box-shadow: 0 6px 18px rgba(79,39,89,.22);
+    font-family: "Blackrush", "Segoe Script", cursive; font-weight: 400; font-size: 66px;
+    padding: 12px 30px 6px; cursor: pointer; box-shadow: 0 6px 18px rgba(79,39,89,.22);
     transition: transform .3s cubic-bezier(.22,1,.36,1), box-shadow .3s; }
   /* the brush font fills the oval; the ink-roughen filter frays its edges into dry-brush ink.
-     Blackrush sits high in its em box, so a small negative top margin optically centres it. */
-  .ww-enter span { display: block; line-height: 1; transform: translateY(4px); filter: url(#wwInkRoughen); }
+     Blackrush's glyphs sit high AND small in a tall em box, so line-height:1 left a big empty
+     pill. A tight line-box (.66) + snug padding lets the ink actually fill the button; the
+     translateY re-centres the high-sitting glyphs in the shorter box. */
+  .ww-enter span { display: block; line-height: .66; transform: translateY(1px); filter: url(#wwInkRoughen); }
   .ww-enter::before { content: ""; position: absolute; inset: -5px; border-radius: 48px;
     border: 1.5px solid var(--gold); opacity: 0; transform: scale(.9) rotate(-1deg);
     transition: opacity .3s, transform .3s cubic-bezier(.22,1,.36,1); pointer-events: none; }
@@ -897,8 +902,12 @@
      full-width paper veil; wide-short desktops (incl. Nathan's ~2:1) keep the vivid brain beside
      the text. (keeps the edge-feather mask so the watermark rectangle never shows a rim either.) */
   @media (max-aspect-ratio: 7/5) {
-    .ww-cover-still, .ww-cover-still.on, .ww-cover-art video { right: 50%; transform: translate(50%, -50%);
-      height: auto; width: 118vw; max-width: 118vw; opacity: .4; animation: none; }
+    /* centre + enlarge the art as a soft watermark, but do NOT force opacity on the OFF-state
+       still — only the visible layer (on-still, or the video) carries .4, so the finished still
+       and the mid-paint video can never show at once (that overlap was the "two brains"). */
+    .ww-cover-still, .ww-cover-art video { right: 50%; transform: translate(50%, -50%);
+      height: auto; width: 118vw; max-width: 118vw; animation: none; }
+    .ww-cover-still.on, .ww-cover-art video { opacity: .4; }
     .ww-cover::before { background: rgba(244,239,230,.66); }
     .ww-cover-copy { max-width: 640px; }
   }
@@ -1023,6 +1032,13 @@
     animation: wwTintBreath 9s ease-in-out infinite alternate; }
   @keyframes wwTintBreath { from { opacity: .75; transform: scale(1); } to { opacity: 1; transform: scale(1.05); } }
   @media (prefers-reduced-motion: reduce) { .ww-chamber-bg .tintwash { animation: none; } }
+  /* The chamber is its own scroller sitting under the shared fixed masthead. Without this,
+     scrolling text slides up under the transparent "Springboard"/About wordmark and collides
+     (very visible on phones). A soft paper top-fade dissolves the text into the paper before it
+     reaches the header — no hard header bar, it fades fully to transparent. Only in the chamber;
+     z:20 sits above chamber content (z:1) and below the masthead (z:30); never eats clicks. */
+  .ww .bx-topfade { position: fixed; top: 0; left: 0; right: 0; height: 96px; z-index: 20; pointer-events: none;
+    background: linear-gradient(180deg, var(--paper) 46%, color-mix(in srgb, var(--paper) 55%, transparent) 74%, transparent 100%); }
   .ww-chamber .bx-tool { position: relative; z-index: 1; padding-top: 78px; padding-bottom: 24px; min-height: 100%; }
   .ww-chamber .bx-drop { padding: 14px 18px; }
   .ww-chamber .bx-tool-head { display: block; }
@@ -1172,7 +1188,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.6 · 2026-07-23";
+const APP_VERSION = "v0.9.8 · 2026-07-23";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -3451,6 +3467,18 @@ function App() {
     const a = musicRef.current; if (!a) return;
     a.volume = 0;
     let raf, started = false;
+    // Remember the playback position across the separate HTML pages (home <-> About) via
+    // sessionStorage, so hopping into About and back RESUMES the same track instead of cutting
+    // it dead. About carries the same soundtrack + the same key, so it feels continuous.
+    const KEY = "sb_music_t";
+    const restore = () => {
+      const t = parseFloat(sessionStorage.getItem(KEY) || "");
+      if (isFinite(t) && a.duration && t < a.duration) { try { a.currentTime = t; } catch (_) {} }
+    };
+    if (a.readyState >= 1) restore(); else a.addEventListener("loadedmetadata", restore, { once: true });
+    const save = () => { try { if (a.currentTime) sessionStorage.setItem(KEY, String(a.currentTime)); } catch (_) {} };
+    const saver = setInterval(save, 1000);
+    window.addEventListener("pagehide", save); // persist right before we navigate away
     const fadeIn = () => {
       // soft target 0.12: comfortable with the system volume around 50% (Nathan's 20% ≈ this at 0.3)
       const target = 0.12;
@@ -3462,10 +3490,24 @@ function App() {
       const p = a.play();
       if (p && p.then) p.then(() => { started = true; fadeIn(); }).catch(() => {}); else { started = true; fadeIn(); }
     };
-    tryPlay(); // attempt autoplay (usually blocked with sound until a gesture)
+    tryPlay(); // attempt autoplay (usually blocked WITH sound until a gesture — browser rule, not a bug)
     const onFirst = () => { tryPlay(); }; // start the soundtrack on the first gesture
     ["pointerdown", "keydown", "touchstart"].forEach(e => window.addEventListener(e, onFirst));
-    return () => { cancelAnimationFrame(raf); ["pointerdown", "keydown", "touchstart"].forEach(e => window.removeEventListener(e, onFirst)); };
+    // Only play while the page is actually on screen: pause when it's hidden (phone locked, app
+    // switched, tab in the background — Android otherwise keeps browser audio going), resume when
+    // it comes back. hiddenPause guards so we never force-start music the visitor never began.
+    let hiddenPause = false;
+    const onVis = () => {
+      if (document.hidden) { save(); if (!a.paused) { a.pause(); hiddenPause = true; } }
+      else if (hiddenPause) { hiddenPause = false; a.play().catch(() => {}); }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      cancelAnimationFrame(raf); clearInterval(saver); save();
+      window.removeEventListener("pagehide", save);
+      document.removeEventListener("visibilitychange", onVis);
+      ["pointerdown", "keydown", "touchstart"].forEach(e => window.removeEventListener(e, onFirst));
+    };
   }, []);
   // Warm the scene-critical art while the teacher reads the cover: the chamber wash and the
   // nine blooms, so the map and every chamber arrive painted, not popping in.
@@ -3538,6 +3580,34 @@ function App() {
     glideTimer.current = setTimeout(() => { pickMove(""); setBxScene("inside"); }, BX_FADE_MS);
   };
   const leaveChamberRef = useRef(leaveChamber); leaveChamberRef.current = leaveChamber;
+  // Clicking the wordmark returns "home" to the cover from anywhere in the journey. Same calm
+  // paper fade as About (veil to paper, swap the scene underneath, then lift the veil) so it
+  // never pops. The cover shows its finished still on return, so pin paintSeen — no repaint.
+  const goHome = () => {
+    if (sceneRef.current === "cover") return;             // already home
+    paintSeenRef.current = true;
+    clearTimeout(glideTimer.current);
+    clearTimeout(diveSafetyTimer.current);
+    const land = () => { pickMove(""); setBxScene("cover"); announce("Home. Start with the thinking, not the topic."); };
+    if (prefersReducedMotion) { land(); return; }         // instant, no veil
+    const veil = document.createElement("div");
+    veil.className = "nav-veil";
+    document.body.appendChild(veil);
+    requestAnimationFrame(() => veil.classList.add("on"));
+    let swapped = false;
+    const swap = () => {
+      if (swapped) return; swapped = true;
+      land();                                             // switch scene while the paper hides it
+      requestAnimationFrame(() => {
+        veil.classList.remove("on");                      // fade the paper off; cover fades in beneath
+        const done = () => veil.remove();
+        veil.addEventListener("transitionend", done, { once: true });
+        setTimeout(done, 1250);
+      });
+    };
+    veil.addEventListener("transitionend", swap, { once: true });
+    setTimeout(swap, 1250);                                // fallback if transitionend never fires
+  };
   useEffect(() => {
     const onKey = (e) => {
       if (e.key !== "Escape") return;
@@ -3764,13 +3834,16 @@ function App() {
       </svg>
       <span className="sr-only" aria-live="polite" ref={liveRef} />
       <header className="bx-mast">
-        <div className="bx-word">Spring<i>board</i></div>
+        <button type="button" className="bx-word" onClick={goHome} aria-label="Springboard — back to the start" title="Back to the start">Spring<i>board</i></button>
         <nav className="bx-nav">
           <a href="about.html" onClick={fadeToAbout}>About</a>
         </nav>
       </header>
       {/* dreamy soundtrack, fades in soft on first interaction (see the music effect) */}
       <audio ref={musicRef} src={BX_ASSETS.base + BX_ASSETS.music} loop preload="auto" />
+      {/* soft paper top-fade so chamber text scrolling under the fixed masthead doesn't collide
+          with the wordmark (see .bx-topfade). Chamber only — the cover/map keep a clear header. */}
+      {bxScene === "chamber" && <div className="bx-topfade" aria-hidden="true" />}
 
       {(bxScene === "cover" || bxScene === "transport") && (
         <section className={"ww-cover" + (bxScene === "transport" ? " fading" : "")}>
