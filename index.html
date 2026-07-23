@@ -571,6 +571,48 @@
 </head>
 <body>
 <div id="root"></div>
+<!-- Soundtrack lives HERE (plain script, not React) so it starts the instant the page loads,
+     BEFORE the big in-browser React/Babel boot. That boot was the lag when returning from About —
+     the music couldn't start until React mounted. Now home matches about.html: same element, same
+     sessionStorage key, same fast (~0.3s) resume when a saved position exists. -->
+<audio id="sb-music" src="assets/brain/cover-music.m4a" loop preload="auto"></audio>
+<script>
+(function(){
+  var a = document.getElementById('sb-music'); if(!a) return;
+  var KEY = 'sb_music_t';
+  a.volume = 0;
+  var raf, started = false;
+  function restore(){
+    var t = parseFloat(sessionStorage.getItem(KEY) || '');
+    if(isFinite(t) && a.duration && t < a.duration){ try{ a.currentTime = t; }catch(_){} }
+  }
+  if(a.readyState >= 1) restore(); else a.addEventListener('loadedmetadata', restore, { once:true });
+  function save(){ try{ if(a.currentTime) sessionStorage.setItem(KEY, String(a.currentTime)); }catch(_){} }
+  setInterval(save, 1000);
+  window.addEventListener('pagehide', save);
+  // resuming across a page hop -> ramp back fast (~0.3s); a true first visit gets the gentle 2.2s.
+  var resuming = (function(){ var t = parseFloat(sessionStorage.getItem(KEY)||''); return isFinite(t) && t > 0.2; })();
+  function fadeIn(){
+    var target = 0.12; // soft target
+    var inc = target / ((resuming ? 0.3 : 2.2) * 60);
+    (function step(){ if(a.volume < target){ a.volume = Math.min(target, a.volume + inc); raf = requestAnimationFrame(step); } })();
+  }
+  function tryPlay(){
+    if(started) return;
+    var p = a.play();
+    if(p && p.then) p.then(function(){ started = true; fadeIn(); }).catch(function(){}); else { started = true; fadeIn(); }
+  }
+  tryPlay();
+  function onFirst(){ tryPlay(); }
+  ['pointerdown','keydown','touchstart'].forEach(function(e){ window.addEventListener(e, onFirst); });
+  // pause while off-screen (phone locked / tab backgrounded), resume when it returns
+  var hiddenPause = false;
+  document.addEventListener('visibilitychange', function(){
+    if(document.hidden){ save(); if(!a.paused){ a.pause(); hiddenPause = true; } }
+    else if(hiddenPause){ hiddenPause = false; a.play().catch(function(){}); }
+  });
+})();
+</script>
 <script>
 /* Returning from About: hold a paper veil over the app until React has mounted, then fade it
    away over 1.1s so the home screen fades IN (mirrors the fade OUT to paper). Runs only when
@@ -1195,7 +1237,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.10 · 2026-07-23";
+const APP_VERSION = "v0.9.11 · 2026-07-23";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -3466,9 +3508,10 @@ function App() {
   useEffect(() => { sceneRef.current = bxScene; }, [bxScene]);
   const paintSeenRef = useRef(false); // the paint-in clip plays once per visit; on return the still (its last frame) shows
   const [paintFailed, setPaintFailed] = useState(false); // cover video errored -> reveal the still fallback
-  // Dreamy background music: browsers block autoplay WITH sound, so we try on mount and, if
-  // rejected, start it on the very first user interaction. Either way it FADES IN softly
-  // (volume ramps 0 -> 0.28 over ~4s) so it never jars. Loops. Muted-friendly: never blares.
+  // Soundtrack now lives in the standalone #sb-music script in <body> (it must start BEFORE this
+  // in-browser React boot so the music resumes instantly on return from About). This ref is left
+  // deliberately UNATTACHED, so the effect below early-returns and does nothing — kept only to
+  // avoid reshuffling the surrounding code.
   const musicRef = useRef(null);
   useEffect(() => {
     const a = musicRef.current; if (!a) return;
@@ -3851,8 +3894,8 @@ function App() {
           <a href="about.html" onClick={fadeToAbout}>About</a>
         </nav>
       </header>
-      {/* dreamy soundtrack, fades in soft on first interaction (see the music effect) */}
-      <audio ref={musicRef} src={BX_ASSETS.base + BX_ASSETS.music} loop preload="auto" />
+      {/* soundtrack moved to the standalone #sb-music <audio> + script in <body> so it starts
+          before React boots (instant resume from About). No React-managed <audio> here anymore. */}
       {/* soft paper top-fade so chamber text scrolling under the fixed masthead doesn't collide
           with the wordmark (see .bx-topfade). Chamber only — the cover/map keep a clear header. */}
       {bxScene === "chamber" && <div className="bx-topfade" aria-hidden="true" />}
