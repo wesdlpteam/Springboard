@@ -803,15 +803,25 @@
   .ww-cover-art img, .ww-cover-art video { position: absolute; right: -4vw; top: 50%;
     transform: translateY(-50%); height: min(86vh, 60vw); width: auto; max-width: 92vw;
     mix-blend-mode: multiply;
-    -webkit-mask-image: radial-gradient(74% 70% at 54% 50%, #000 50%, transparent 76%);
-            mask-image: radial-gradient(74% 70% at 54% 50%, #000 50%, transparent 76%); }
+    /* generous feather: only softens the extreme rectangle rim, so the artwork's loose blue
+       wash bleeds well outside the brain outline (a tight oval was cropping that bleed) */
+    -webkit-mask-image: radial-gradient(97% 94% at 54% 50%, #000 80%, transparent 99%);
+            mask-image: radial-gradient(97% 94% at 54% 50%, #000 80%, transparent 99%); }
+  /* still starts hidden (so the finished brain never shows before the paint), crossfades in
+     when the clip ends — bringing the full loose blue wash. Video fades out under it. */
+  .ww-cover-still { opacity: 0; transition: opacity 1.2s ease; }
+  .ww-cover-still.on { opacity: 1; }
+  .ww-cover-art video { transition: opacity 1.2s ease; }
+  .ww-cover-art video.done { opacity: 0; }
   /* readability scrim: TEXTURED paper (not flat) veiling the left column, opaque enough that
      the brain can never overlap the words no matter the window size, fading to clear on the
      right where the painting lives. Sits above the art, below the copy. */
   .ww-cover::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
     background: var(--paper) url("assets/brain/paper.jpg") repeat; background-size: 360px 360px;
-    -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 36%, transparent 64%);
-            mask-image: linear-gradient(90deg, #000 0%, #000 36%, transparent 64%); }
+    /* barely veils the far-left wordmark/kicker column; clears by 28% so the brain's loose
+       blue wash bleeds freely (a wider scrim was washing the cloud out) */
+    -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 14%, transparent 30%);
+            mask-image: linear-gradient(90deg, #000 0%, #000 14%, transparent 30%); }
   .ww-cover-copy { position: relative; z-index: 2; max-width: 620px; }
   .ww-kicker { font-size: clamp(11px, 1.2vw, 12.5px); font-weight: 600; letter-spacing: .18em; text-transform: uppercase;
     color: var(--purple); margin-bottom: 20px; }
@@ -1125,7 +1135,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.8.1 · 2026-07-23";
+const APP_VERSION = "v0.8.2 · 2026-07-23";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2546,14 +2556,14 @@ const BX_ASSETS = {
 // (control point = midpoint pushed perpendicular by c * segment length; +c bows toward
 // (-dy, dx), 90° clockwise of the bloom->hub direction, +y down).
 const IMG_MOVE_POS = {
-  "Capture the Heart & Form Conclusions": { bx: 0.155, by: 0.30, lx: 0.155, ly: 0.435, bloom: "red",        dark: "#8F1D2E", c: 0.10 },
+  "Capture the Heart & Form Conclusions": { bx: 0.155, by: 0.30, lx: 0.165, ly: 0.175, bloom: "red",        dark: "#8F1D2E", c: 0.10 },
   "Uncovering Complexity":                { bx: 0.365, by: 0.15, lx: 0.365, ly: 0.285, bloom: "purple",     dark: "#4F2759", c: -0.08 },
   "Reason with Evidence":                 { bx: 0.635, by: 0.16, lx: 0.635, ly: 0.295, bloom: "olive",      dark: "#4f523f", c: 0.08 },
-  "Wondering":                            { bx: 0.845, by: 0.31, lx: 0.845, ly: 0.445, bloom: "blue",       dark: "#2b3f8f", c: -0.10 },
-  "Build Explanations":                   { bx: 0.150, by: 0.68, lx: 0.150, ly: 0.555, bloom: "green",      dark: "#3f5c38", c: -0.10 },
+  "Wondering":                            { bx: 0.845, by: 0.31, lx: 0.845, ly: 0.185, bloom: "blue",       dark: "#2b3f8f", c: -0.10 },
+  "Build Explanations":                   { bx: 0.150, by: 0.68, lx: 0.160, ly: 0.815, bloom: "green",      dark: "#3f5c38", c: -0.10 },
   "Consider Different Viewpoints":        { bx: 0.385, by: 0.86, lx: 0.385, ly: 0.725, bloom: "yellow",     dark: "#7A5012", c: 0.08 },
   "Make Connections":                     { bx: 0.625, by: 0.85, lx: 0.625, ly: 0.715, bloom: "orange",     dark: "#8A4B12", c: -0.08 },
-  "Describe What's There":                { bx: 0.850, by: 0.68, lx: 0.850, ly: 0.555, bloom: "periwinkle", dark: "#4242A1", c: 0.10 },
+  "Describe What's There":                { bx: 0.850, by: 0.68, lx: 0.840, ly: 0.815, bloom: "periwinkle", dark: "#4242A1", c: 0.10 },
 };
 // The central PALE/UNLIT neuron every other neuron's axon runs into (see inside.png — it's
 // Hub (gold bloom) and title lockup — same viewport-fraction convention as IMG_MOVE_POS.
@@ -3391,6 +3401,7 @@ function App() {
   useEffect(() => { sceneRef.current = bxScene; }, [bxScene]);
   const paintSeenRef = useRef(false); // the paint-in clip plays once per visit, not on every cover return
   const [paintFailed, setPaintFailed] = useState(false); // cover video errored -> reveal the still fallback
+  const [paintDone, setPaintDone] = useState(false);     // paint clip ended -> crossfade to the still (full cloud bleed)
   // Dreamy background music: browsers block autoplay WITH sound, so we try on mount and, if
   // rejected, start it on the very first user interaction. Either way it FADES IN softly
   // (volume ramps 0 -> 0.28 over ~4s) so it never jars. Loops. Muted-friendly: never blares.
@@ -3711,18 +3722,17 @@ function App() {
       {(bxScene === "cover" || bxScene === "transport") && (
         <section className={"ww-cover" + (bxScene === "transport" ? " fading" : "")}>
           <div className="ww-cover-art" aria-hidden="true">
-            {/* Start from BLANK paper and draw in: the paint-in clip plays over the paper and
-                FREEZES on its last painted frame. The finished-brain still is only revealed if
-                there's no video (reduced motion, return visit, or the clip failed) — otherwise
-                showing it would flash the finished brain before the drawing even begins. */}
-            {(prefersReducedMotion || paintSeenRef.current || paintFailed) && (
-              <img src={BX_ASSETS.base + BX_ASSETS.cover} alt="" />
-            )}
-            {!prefersReducedMotion && !paintSeenRef.current && !paintFailed && (
-              // NO onEnded swap: the clip stays mounted and FREEZES on its last (fully detailed)
-              // frame. Swapping to the still at the end cut off the final detail strokes and
-              // read as a jump. paintSeenRef only flips when leaving the cover (enterMind).
-              <video src={BX_ASSETS.base + BX_ASSETS.coverPaint} muted playsInline autoPlay preload="auto"
+            {/* Start BLANK (the .ww-cover-art paper bg shows while the video buffers), paint in
+                via the clip, then CROSSFADE to the still — the still carries the full loose blue
+                wash that bleeds outside the brain (the clip's last frame is tighter), so the
+                clouds bloom in at the end. Still is hidden until the paint finishes so the
+                finished brain never shows before the drawing. */}
+            <img className={"ww-cover-still" + ((paintDone || prefersReducedMotion || paintFailed) ? " on" : "")}
+              src={BX_ASSETS.base + BX_ASSETS.cover} alt="" />
+            {!prefersReducedMotion && !paintFailed && (
+              <video className={paintDone ? "done" : ""}
+                src={BX_ASSETS.base + BX_ASSETS.coverPaint} muted playsInline autoPlay preload="auto"
+                onEnded={() => { paintSeenRef.current = true; setPaintDone(true); }}
                 onError={() => { setPaintFailed(true); }} />
             )}
           </div>
