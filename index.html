@@ -1240,7 +1240,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.13 · 2026-07-24";
+const APP_VERSION = "v0.9.14 · 2026-07-24";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2118,7 +2118,7 @@ ${outcomeLine}
 Each notes field is a teacher script with EXACTLY these labelled sections, each 1-3 sentences:
 FACILITATION: … TIMING: … DIFFERENTIATION: … CURRICULUM LINKS: … EXTENSIONS: …
 Set advisory.flag true only for sensitive themes (grief, violence, body image, etc.) with a one-line reason.
-Return STRICT JSON with keys: title, keywords, ignite{question}, think{routine, steps, structure}, launch{connection, bridge, question}, reflect{revisit, prompts}, notes{ignite, think, launch, reflect}, advisory{flag, reason}.`;
+Return STRICT JSON with keys: title, keywords, ignite{question}, think{routine, steps, structure}, launch{connection, bridge, question, ideas}, reflect{revisit, prompts}, notes{ignite, think, launch, reflect}, advisory{flag, reason}.`;
 
   // Single-slide regenerate: rebuild only the scoped slide + its notes, copying the rest verbatim.
   if (scope !== "all") {
@@ -2138,7 +2138,7 @@ Return STRICT JSON with keys: title, keywords, ignite{question}, think{routine, 
     `keywords: 3-6 short search terms a teacher might type to find this lesson later.`,
     `ignite.question: ONE provocative question.`,
     `think.routine MUST be exactly "${routine.name}". This routine's real moves are: ${(routine.steps || []).map((s, i) => `${i + 1}) ${s}`).join(" ")}. think.steps: take THOSE actual moves and lightly tailor the wording to THIS stimulus — keep the routine's real moves and their order, do NOT invent different ones; <=4 short student-facing prompts. think.structure: "${routine.structure || "Think-pair-share, 3 min"}".`,
-    `launch.connection: <=25 words curriculum connection; launch.bridge: <=20 words from the stimulus to today's lesson; launch.question: the lesson launch question.`,
+    `launch.connection: <=25 words curriculum connection; launch.bridge: <=20 words from the stimulus to today's lesson; launch.question: the lesson launch question; launch.ideas: EXACTLY 3 short, distinct ways to run the launch so students work toward launch.question (e.g. a quick debate, a rank/sort, a role-play, a prediction, a quick-write) — one sentence each, <=20 words.`,
     `reflect.revisit: <=15 words revisiting the ignite question. For reflect.prompts, CHOOSE the end-of-lesson reflection routine that best fits THIS lesson, and VARY the choice across lessons (do NOT always use the same one). Pick from: (a) I Used to Think… / Now I Think…; (b) Connect–Extend–Challenge — one new connection, one way it extends thinking, one lingering challenge or question; (c) 3-2-1 Bridge — 3 thoughts, 2 questions, 1 analogy; (d) Headlines — a one-line headline capturing today's core idea; (e) Reflect–Connect–Project — reflect on it, connect to prior learning, project forward. Use THAT routine's real prompt stems as reflect.prompts (<=4 short stems).`,
   ].join("\n");
   const instruction = `Create the Springboard now. Respect every word limit:\n${limits}\nReturn STRICT JSON only — no markdown, no code fences, plain text in every field.`;
@@ -3290,7 +3290,13 @@ function App() {
         let out = NOTE_HEAD[key] + (body ? "\n\n" + body : "");
         if (key === "ignite" && kw.length) out += "\n\nKeywords: " + kw.join(", ");
         // Curriculum connection is teacher-only — it rides in the LAUNCH speaker notes, never the projected slide.
-        if (key === "launch") { const conn = ((deck.launch && deck.launch.connection) || "").trim(); if (conn) out += "\n\nCurriculum connection: " + conn; }
+        if (key === "launch") {
+          // Give the teacher several ways to run the launch toward the question, not just the one in
+          // FACILITATION, so they can pick what suits the class.
+          const ideas = (Array.isArray(deck.launch && deck.launch.ideas) ? deck.launch.ideas : []).map(s => String(s).trim()).filter(Boolean).slice(0, 3);
+          if (ideas.length) out += "\n\nLaunch ideas (pick one):\n" + ideas.map((t, i) => (i + 1) + ") " + t).join("\n");
+          const conn = ((deck.launch && deck.launch.connection) || "").trim(); if (conn) out += "\n\nCurriculum connection: " + conn;
+        }
         return out;
       };
 
@@ -3354,6 +3360,27 @@ function App() {
           drew = true;
         }
         return drew;
+      }
+
+      // ---------------- TEACHER PREFACE (slide 1) — teach from the notes ----------------
+      // A purple cover-style slide telling the teacher to open Presenter View / the notes pane, with
+      // the reason. Deliberately NOT numbered (no pageNo, sNum untouched) so the lesson slides keep
+      // their "n / total" count; the teacher can delete or hide it before class.
+      {
+        const s = pptx.addSlide();
+        s.background = { color: P };
+        goldCrest(s, 1.3);
+        eyebrow(s, "Before you teach — read this", 0.7, 0.55, GOLD_LT);
+        s.addText("Teach from the notes: turn on Presenter View", { x: 0.7, y: 1.35, w: W - 1.4, h: 1.5, fontSize: 34, bold: true, color: WHITE, valign: "top", fontFace: FONT, charSpacing: -0.4, fit: "shrink" });
+        s.addShape(pptx.ShapeType.rect, { x: 0.7, y: 3.0, w: 2.4, h: 0.05, fill: { color: GOLD } });
+        s.addText([
+          { text: "Every slide has teacher notes with the run-sheet and the moves that make this lesson stick — like getting students to commit to a guess before the reveal, and hands-on tasks that never appear on the slides. Miss the notes and you miss half the lesson.\n\n", options: { color: WHITE } },
+          { text: "In PowerPoint:  ", options: { bold: true, color: GOLD_LT } },
+          { text: "Slide Show ▸ Presenter View", options: { color: WHITE } },
+          { text: "  (or press Alt+F5), or read the Notes pane under each slide.\n\n", options: { color: WHITE } },
+          { text: "You can delete or hide this slide before class.", options: { italic: true, color: SUB } },
+        ], { x: 0.7, y: 3.25, w: W - 1.4, h: 3.4, fontSize: 16.5, valign: "top", lineSpacingMultiple: 1.2, fontFace: FONT, fit: "shrink" });
+        s.addNotes("Teach from these notes. Presenter View: Slide Show ▸ Presenter View (Alt+F5). This preface slide can be deleted or hidden before you present to students.");
       }
 
       // ---------------- ADVISORY (optional, leads the deck) ----------------
@@ -3435,12 +3462,14 @@ function App() {
       {
         const s = newWhite();
         kicker(s, "LAUNCH");
-        s.addText("Into today's lesson", { x: 0.7, y: 1.05, w: W - 1.4, h: 0.55, fontSize: 26, bold: true, color: P, valign: "top", fontFace: FONT });
-        // Curriculum connection dropped from the projected slide (teacher-only, now in the notes); bridge + question reflow up.
-        cap(s, "From the stimulus", 1.9);
-        s.addText((deck.launch && deck.launch.bridge) || "", { x: 0.7, y: 2.2, w: W - 1.4, h: 0.9, fontSize: 14, color: INK, valign: "top", lineSpacingMultiple: 1.1, fontFace: FONT });
-        s.addShape(pptx.ShapeType.rect, { x: 0.7, y: 3.6, w: 2.1, h: 0.045, fill: { color: GOLD } });
-        s.addText((deck.launch && deck.launch.question) || "", { x: 0.7, y: 3.8, w: W - 1.4, h: 1.8, fontSize: 28, bold: true, color: P, valign: "top", fontFace: FONT, fit: "shrink" });
+        // No "Into today's lesson" subtitle — the LAUNCH kicker already says it. Bridge is a plain
+        // lead-in (no teacher-jargon "From the stimulus" label); the question is framed as the lesson's
+        // destination — "By the end of today, you'll answer:" — so students read it as their task, not
+        // just another question. Curriculum connection stays teacher-only (in the notes).
+        s.addText((deck.launch && deck.launch.bridge) || "", { x: 0.7, y: 1.35, w: W - 1.4, h: 0.9, fontSize: 15, color: INK, valign: "top", lineSpacingMultiple: 1.1, fontFace: FONT });
+        s.addShape(pptx.ShapeType.rect, { x: 0.7, y: 3.3, w: 2.1, h: 0.045, fill: { color: GOLD } });
+        cap(s, "By the end of today, you'll answer:", 3.5);
+        s.addText((deck.launch && deck.launch.question) || "", { x: 0.7, y: 3.95, w: W - 1.4, h: 1.9, fontSize: 28, bold: true, color: P, valign: "top", fontFace: FONT, fit: "shrink" });
         s.addNotes(noteFor("launch"));
       }
 
