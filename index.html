@@ -1254,7 +1254,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.15 · 2026-07-24";
+const APP_VERSION = "v0.9.16 · 2026-07-24";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2107,6 +2107,8 @@ const REFLECT_ROUTINES = [
   { name: "Reflect–Connect–Project", stems: "reflect on what stood out and why it matters ; connect it to earlier learning ; project forward to how you'll use it next time" },
   { name: "Compass Points", stems: "Excited — what excites you about today's idea? ; Worrisome — what worries or puzzles you? ; Need to know — what do you still need to find out? ; Stance/Step — your current stance or next step" },
   { name: "Color, Symbol, Image", stems: "Color — a colour for today's core idea, and why ; Symbol — a symbol for it, and why ; Image — an image for it, and why" },
+  // Metacognition (EEF "thinking about thinking" — Task / Strategy / Self, plus a forward-looking step).
+  { name: "Think About Your Thinking (Task · Strategy · Self)", stems: "Task — did your plan or approach work today, and how do you know? ; Strategy — which strategy helped most, and why? ; Self — what did you learn about yourself as a learner? ; Next time — what will you do differently, or which strategy will you reuse, next time?" },
 ];
 
 /* --------------------------- Backend call --------------------------- */
@@ -2153,7 +2155,7 @@ Return STRICT JSON with keys: title, keywords, ignite{question}, think{routine, 
     `ignite.question: ONE provocative question.`,
     `think.routine MUST be exactly "${routine.name}". This routine's real moves are: ${(routine.steps || []).map((s, i) => `${i + 1}) ${s}`).join(" ")}. think.steps: take THOSE actual moves and lightly tailor the wording to THIS stimulus — keep the routine's real moves and their order, do NOT invent different ones; <=4 short student-facing prompts. think.structure: "${routine.structure || "Think-pair-share, 3 min"}".`,
     `launch.connection: <=25 words curriculum connection; launch.bridge: <=20 words from the stimulus to today's lesson; launch.question: the lesson launch question; launch.ideas: EXACTLY 3 short, distinct ways to run the launch so students work toward launch.question (e.g. a quick debate, a rank/sort, a role-play, a prediction, a quick-write) — one sentence each, <=20 words.`,
-    `reflect.revisit: <=15 words revisiting the ignite question. For reflect.prompts, CHOOSE the end-of-lesson reflection routine that best fits THIS lesson, and VARY the choice across lessons (do NOT always use the same one). Pick from: (a) I Used to Think… / Now I Think…; (b) Connect–Extend–Challenge — one new connection, one way it extends thinking, one lingering challenge or question; (c) 3-2-1 Bridge — 3 thoughts, 2 questions, 1 analogy; (d) Headlines — a one-line headline capturing today's core idea; (e) Reflect–Connect–Project — reflect on it, connect to prior learning, project forward. Use THAT routine's real prompt stems as reflect.prompts (<=4 short stems).`,
+    `reflect.revisit: <=15 words revisiting the ignite question. For reflect.prompts, CHOOSE the end-of-lesson reflection routine that best fits THIS lesson, and VARY the choice across lessons (do NOT always use the same one). Pick from: (a) I Used to Think… / Now I Think…; (b) Connect–Extend–Challenge — one new connection, one way it extends thinking, one lingering challenge or question; (c) 3-2-1 Bridge — 3 thoughts, 2 questions, 1 analogy; (d) Headlines — a one-line headline capturing today's core idea; (e) Reflect–Connect–Project — reflect on it, connect to prior learning, project forward; (f) Think About Your Thinking (metacognition) — Task: did your plan/approach work and how do you know; Strategy: which strategy helped and what will you do differently next time; Self: what did you learn about yourself as a learner. Use THAT routine's real prompt stems as reflect.prompts (<=4 short stems). Tie every stem to THIS lesson's content (never generic), and ALWAYS make at least one stem a forward-looking metacognitive prompt — what the student will do differently, or which strategy they'll reuse, next time.`,
   ].join("\n");
   const instruction = `Create the Springboard now. Respect every word limit:\n${limits}\nReturn STRICT JSON only — no markdown, no code fences, plain text in every field.`;
 
@@ -3310,6 +3312,16 @@ function App() {
           const ideas = (Array.isArray(deck.launch && deck.launch.ideas) ? deck.launch.ideas : []).map(s => String(s).trim()).filter(Boolean).slice(0, 3);
           if (ideas.length) out += "\n\nLaunch ideas (pick one):\n" + ideas.map((t, i) => (i + 1) + ") " + t).join("\n");
           const conn = ((deck.launch && deck.launch.connection) || "").trim(); if (conn) out += "\n\nCurriculum connection: " + conn;
+        }
+        if (key === "reflect") {
+          // Metacognition helper for the teacher (EEF Task/Strategy/Self frame): a stem bank + how to
+          // run it. The student stems on the slide are tied to the lesson; this teacher how-to is generic.
+          out += "\n\nMetacognition — thinking about thinking (EEF Task · Strategy · Self). Close with a few of these, tied to today's task:" +
+            "\n• Task: Did your plan or approach work? How do you know?" +
+            "\n• Strategy: Which strategy helped most, and why? What would help you use it better?" +
+            "\n• Self: What did you learn about yourself as a learner today?" +
+            "\n• Next time: What will you do differently, or which strategy will you reuse, next time?" +
+            "\nLeast help first: model one answer aloud, then let students answer on their own. Loop it forward — carry their 'next time' into how you plan the next lesson.";
         }
         return out;
       };
