@@ -13,9 +13,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Inter:wght@400;450;500;600;700&display=swap" rel="stylesheet" />
-<script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-<script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
-<script crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/@studio-freight/lenis@1.0.42/dist/lenis.min.js"></script>
 
 <!-- React + Babel (in-browser JSX, no build step) -->
 <script crossorigin="anonymous" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
@@ -603,9 +600,6 @@
   .bx ::selection { background: var(--ink); color: var(--paper); }
 
   /* subtle premium grain over everything */
-  .bx-grain { position: fixed; inset: 0; z-index: 40; pointer-events: none; opacity: .5; mix-blend-mode: multiply;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E"); }
-
   /* masthead */
   .bx-mast { position: fixed; top: 0; left: 0; right: 0; z-index: 30; display: flex; align-items: baseline; justify-content: space-between;
     padding: 20px clamp(20px, 4vw, 52px) 16px; mix-blend-mode: normal;
@@ -756,267 +750,6 @@
     .bx-cue .l, .bx-working .sp::after { animation: none; }
   }
 
-  /* ---------- Brain World (bw-) ---------- */
-  .bw-night { position: fixed; inset: 0; z-index: 0; background: #101017; opacity: 0; transition: opacity .5s; pointer-events: none; }
-  .bw-on-night .bw-night { opacity: 1; }
-  .bw-scene { position: fixed; inset: 0; z-index: 2; display: grid; place-items: center; text-align: center; padding: 24px; }
-  /* image-backed stage (north-star art): fixed-aspect backdrop, cover-fit, optional
-     living clip on top of the still. Positioned so it sits UNDER the cover's own text
-     column stacking-wise (bw-top/bw-bottom get z-index below) — see .bw-cover rule. */
-  .bx-stage { position: absolute; inset: 0; overflow: hidden; background: #0b0b12; }
-  .bx-stage-media { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    min-width: 100%; min-height: 100%; width: auto; height: auto; object-fit: cover; }
-  /* full scrim: horizontal fade (legible left text column) + a soft vertical fade so the
-     bottom row (Enter + credit) stays legible over bright artwork too. Started 1:1 with the
-     approved cover mock (docs/superpowers/inspiration/2026-07-21-brain-journey/round1/live-demo.html)
-     but that mock's stops were %-based, so the same visual fade covers fewer physical pixels on
-     a narrow viewport than on desktop. Measured against a WCAG >=4.5:1 target (chrome-devtools
-     sampling of the actual cover.png under each real glyph line, not just each element's box —
-     block text elements are often wider than their own text): the H1's second line failed at
-     tablet width (768px) because it fell in the fade's weak middle stretch. Switched to px stops
-     at the SAME pixel positions the old %s worked out to at 1440 (0/490/835/1080), only raising
-     the middle stop's opacity — desktop is visually unchanged past the 1080px mark, narrower
-     viewports keep the same physical darkened reach instead of losing it proportionally. */
-  .bx-scrim-left { position: absolute; inset: 0; pointer-events: none;
-    background: linear-gradient(90deg, rgba(8,8,14,.92) 0, rgba(8,8,14,.75) 490px, rgba(8,8,14,.48) 835px, rgba(8,8,14,0) 1080px),
-                linear-gradient(0deg, rgba(8,8,14,.55) 0%, rgba(8,8,14,0) 30%); }
-  @media (prefers-reduced-motion: reduce) { .bx-stage video { display: none; } }
-  /* Contain-fit the cover art (the shared media rule cover-crops, which on wide-short
-     windows — Nathan's is 2.22:1 vs the art's 1.79:1 — chopped ~20% of the image and read
-     as "zoomed in, can't see the brain"). Contain shows the WHOLE brain at every window
-     shape; the stage's near-black background fills the side bands invisibly (the art's
-     edges are dark starfield), and the left text scrim already darkens that flank. */
-  /* ambient fill behind the contain-fit art: the same image cover-cropped and heavily
-     blurred, so any letterbox band is glowing starfield, not a black strip. scale 1.12
-     hides the blur's darkened edges; at 16:9-ish windows the sharp art covers it fully. */
-  .bw-cover-fill { object-fit: cover; filter: blur(46px) brightness(.4) saturate(1.05);
-    transform: translate(-50%, -50%) scale(1.12); }
-  .bw-cover-art { top: 0; left: 0; transform: none; width: 100%; height: 100%;
-    min-width: 0; min-height: 0; object-fit: contain;
-    /* feather the art's own edges so the contain boundary melts into the ambient fill */
-    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 36px, #000 calc(100% - 36px), transparent 100%);
-            mask-image: linear-gradient(90deg, transparent 0, #000 36px, #000 calc(100% - 36px), transparent 100%);
-    animation: bwCoverDrift 38s ease-in-out infinite alternate; }
-  /* cover breathes: a very slow push-in/out about the brain's own centre — max 1.045 so
-     the whole brain stays in frame at every point of the loop */
-  @keyframes bwCoverDrift { from { transform: scale(1); } to { transform: scale(1.045); } }
-  .bw-cover-art { transform-origin: 62% 45%; }
-  @media (prefers-reduced-motion: reduce) { .bw-cover-art { animation: none; } }
-  /* cover: left-aligned text column (kicker/h1/sub top, Enter+credit bottom) over the
-     full-bleed artwork — matches the approved mock. Top padding is taller than the mock's
-     (which has no masthead to clear) so the kicker never collides with the fixed .bx-mast
-     above it. overflow-y:auto is the guarantee the Enter button stays reachable on very
-     short windows (the mock assumes it always fits). */
-  .bw-cover { display: flex; flex-direction: column; align-items: flex-start; text-align: left; justify-content: space-between;
-    padding: clamp(84px, 12vh, 128px) clamp(24px, 6vw, 84px) clamp(24px, 5vh, 56px); overflow-y: auto;
-    background: #05060c; /* opaque: the inside layer mounts beneath during transport and must never ghost through */ }
-  .bw-cover a { color: inherit; }
-  /* position:relative + z-index lifts these flex items above the absolutely-positioned
-     .bx-stage image sibling (position:absolute paints above plain flex items otherwise).
-     max-width caps the TEXT column only (not .bw-cover itself) so .bx-stage stays full-bleed. */
-  .bw-cover .bw-top, .bw-cover .bw-bottom { position: relative; z-index: 1; max-width: 720px; }
-  .bw-cover .bx-kicker { display: block; margin-bottom: 18px; color: #9fa0b2; }
-  .bw-cover h1 { font-family: var(--bx-display); font-weight: 420; font-size: clamp(38px, 5.4vw, 72px); line-height: 1.04; letter-spacing: -.01em; margin: 0; color: #e8e9f2; }
-  .bw-cover h1 em { font-style: italic; }
-  .bw-cover .bw-sub { margin: 26px 0 0; color: #c6c7d6; font-size: clamp(15px, 1.4vw, 18px); line-height: 1.55; max-width: 38ch; }
-  .bw-cover .bw-credit { color: #9fa0b2; max-width: none; }
-  .bw-enter { appearance: none; display: inline-flex; align-items: center; gap: 10px; border: 1px solid rgba(232,233,242,.5);
-    background: rgba(12,12,20,.35); color: #e8e9f2; font: 500 16px var(--bx-ui); padding: 14px 26px; border-radius: 999px;
-    cursor: pointer; backdrop-filter: blur(4px); transition: background .25s, border-color .25s; }
-  .bw-enter:hover, .bw-enter:focus-visible { background: rgba(232,233,242,.14); border-color: rgba(232,233,242,.9); outline: none; }
-  /* cover masthead/grain: minimal light-on-dark chrome, no paper grain. The dive/inside/
-     chamber scenes already look right (they get this via .bw-on-night, untouched here) —
-     the resting cover was the one state that never got it, which is what read as a hybrid.
-     Alpha raised from .6/0 to .85/.6 (WCAG measurement pass): the nav links sit hard against
-     the right edge, past where .bx-scrim-left's horizontal fade can reach on desktop, so this
-     bar has to carry their legibility on its own regardless of what's directly behind it. */
-  .bx:not(.bw-on-night) .bx-mast { background: linear-gradient(to bottom, rgba(8,8,14,.85) 0%, rgba(8,8,14,.6) 100%); }
-  .bx:not(.bw-on-night) .bx-mast .bx-word, .bx:not(.bw-on-night) .bx-mast .bx-nav a, .bx:not(.bw-on-night) .bx-mast .bx-nav button { color: #d9d9e3; }
-  .bx:not(.bw-on-night) .bx-mast .bx-nav a:hover, .bx:not(.bw-on-night) .bx-mast .bx-nav button:hover { color: #fff; }
-  .bx:not(.bw-on-night) .bx-tog { border-color: rgba(255,255,255,.35); }
-  .bx:not(.bw-on-night) .bx-grain { display: none; }
-  .bw-on-night .bx-mast { background: linear-gradient(to bottom, rgba(16,16,23,.9) 55%, transparent); }
-  .bw-on-night .bx-mast .bx-word, .bw-on-night .bx-mast .bx-nav a, .bw-on-night .bx-mast .bx-nav button { color: #d9d9e3; }
-  .bw-on-night .bx-mast .bx-nav a:hover, .bw-on-night .bx-mast .bx-nav button:hover { color: #fff; }
-  .bw-on-night .bx-tog { border-color: rgba(255,255,255,.35); }
-  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  /* Scroll lock while the brain experience is on screen: the document must never scroll — a
-     dive stage scaled up (cover 2.6x, neuron 4.2x) or a mounting video briefly overflows it
-     otherwise, flashing the browser scrollbars during the plunge. Toggled by .bx-lock on
-     <html> in the brainView effect, so classic view keeps its normal scrolling untouched. */
-  html.bx-lock, html.bx-lock body { overflow: hidden !important; }
-  /* the cover keeps overflow-y:auto at rest so a short window can still reach Enter; during the
-     dive its 2.6x-scaled stage would trip that scrollbar, so clamp it only while diving. */
-  .bw-cover--diving { overflow: hidden; }
-  /* inside the mind: the neuron artwork (inside.png) backs the scene; each move label is
-     pinned to its colour-matched neuron by bxImagePoint (no per-frame 3D projection).
-     overflow:hidden clips the immersive move-zoom (stage scales to 4.2) at the viewport edge. */
-  .bw-inside { position: fixed; inset: 0; z-index: 2; overflow: hidden; }
-  /* the .bx-stage image is the first child so the labels (later siblings) paint above it */
-  .bx-stage--inside { z-index: 0; }
-  /* True cover-fit for the inside artwork specifically. The shared .bx-stage-media rule
-     (min-width/height:100% + width/height:auto) only scales images UP to cover — a source
-     LARGER than the viewport (the H3 inside.png is 2752px wide) renders at native size and
-     centre-crops, which knocks every label/glow/connector off its neuron because bxImagePoint
-     assumes cover-fit. Sizing the element to the stage + object-fit:cover makes the on-screen
-     geometry match bxImagePoint's maths exactly, at any viewport/DPR. Scoped to the inside
-     stage so the WCAG-tuned cover crop and the chamber backdrop are left untouched. */
-  .bx-stage--inside .bx-stage-media { top: 0; left: 0; transform: none;
-    width: 100%; height: 100%; min-width: 0; min-height: 0; object-fit: cover; }
-  /* faint even scrim: lifts label contrast over stray bright dendrites without dimming the
-     neuron cores enough to matter (labels already carry a heavy text-shadow). */
-  .bx-inside-scrim { position: absolute; inset: 0; pointer-events: none; z-index: 1;
-    /* top/bottom bands tame the blown-out edge neurons (art is over-bright at its rim);
-       the radial keeps the centre open */
-    background: linear-gradient(180deg, rgba(9,9,15,.42) 0%, rgba(9,9,15,0) 16%, rgba(9,9,15,0) 84%, rgba(9,9,15,.42) 100%),
-                radial-gradient(120% 90% at 50% 45%, rgba(9,9,15,.10) 0%, rgba(9,9,15,.42) 100%); }
-  /* Move labels as dark-glass pills: near-white text (>=4.5:1) on a translucent near-black
-     capsule with a blur, bordered in the move's colour (--bwbd = colour @55%) and led by a
-     small colour dot. Far more legible over the busy neuron artwork than the old floating
-     text. The connector still runs from the pill's edge to the neuron (place() reads
-     offsetWidth/Height, so it adapts to the pill automatically). */
-  .bw-label { position: absolute; left: 0; top: 0; z-index: 2; visibility: hidden; cursor: pointer;
-    display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
-    background: rgba(10,10,18,.74); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-    border: 1px solid var(--bwbd, rgba(255,255,255,.4)); border-radius: 999px; padding: 7px 14px;
-    color: #f2f3fa; font-family: var(--bx-ui); font-size: 13.5px; font-weight: 500; letter-spacing: .01em; line-height: 1;
-    box-shadow: 0 2px 12px rgba(8,8,14,.55); transition: opacity .3s, background .2s, border-color .2s; }
-  .bw-label-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--bwc, #fff); box-shadow: 0 0 6px var(--bwc, #fff); }
-  .bw-label-name { display: block; }
-  .bw-label:hover, .bw-label:focus-visible { background: rgba(26,26,40,.82); border-color: var(--bwt); }
-  .bw-label:focus-visible { outline: 2px solid var(--bwc, var(--bwt)); outline-offset: 2px; }
-  /* pulsing neuron glow: one per move, centred on the same anchor point as its label (the
-     positioning effect sets left/top identically for both, see the place() effect) so each
-     label visually reads as "grouped with" its colour-matched neuron. z-index 1 sits above
-     the artwork/scrim (0/1 inside .bx-stage--inside's own stacking context) and below the
-     label text (2). Non-interactive: aria-hidden, pointer-events none, never a hit target.
-     The keyframe bakes in the centring translate because a running CSS animation overrides
-     the inline transform the JS also sets (that inline transform is the reduced-motion
-     fallback centring, see the @media rule below). */
-  .bw-glow { position: absolute; left: 0; top: 0; z-index: 1; width: 104px; height: 104px;
-    border-radius: 50%; pointer-events: none;
-    background: radial-gradient(circle, var(--bwg) 0%, rgba(0,0,0,0) 58%);
-    opacity: .32; animation: bwGlowPulse 3.5s ease-in-out infinite alternate;
-    transition: transform .4s ease, opacity .4s ease, filter .4s ease; }
-  @keyframes bwGlowPulse {
-    from { transform: translate(-50%, -50%) scale(1); opacity: .32; }
-    to   { transform: translate(-50%, -50%) scale(1.15); opacity: .5; }
-  }
-  @media (prefers-reduced-motion: reduce) { .bw-glow { animation: none; opacity: .4; } }
-  /* Hover/focus signal (the move whose neuron is hovered/focused "shines brighter"): pausing
-     the keyframe first means the scale/opacity/filter below aren't fighting a running
-     animation for the same properties every frame; author-!important then beats the (now
-     frozen, but still technically "animating") transform/opacity, same trick .bw-inside--glide
-     uses below. Un-hovering removes the class, so the base rule's own transition (above) eases
-     the brighten back down before the keyframe animation resumes from its paused frame. */
-  /* Hovered move: the painted disc DIMS AWAY and the artwork itself brightens instead (see
-     .bw-brighten) — the old scale-up + drop-shadow disc read as a tacky sticker on the art. */
-  .bw-glow.bw-glow--hot { animation-play-state: paused; opacity: .12 !important; }
-  @media (prefers-reduced-motion: reduce) { .bw-glow--hot { transition: none; } } /* instant swap, no ease */
-  /* Hover brighten: a second copy of the inside artwork, masked to a feathered circle around
-     the hovered neuron, boosted in brightness — so the NEURON'S OWN pixels light up (glow from
-     within) rather than a colour disc sitting on top. Mask centre (--bwx/--bwy, stage px) is
-     set by startMoveHover; the media box is sized 1:1 to the stage (rule above) so stage px ==
-     element px. z-index 2 keeps it above the base art + scrim inside the stage's own context. */
-  .bw-brighten { z-index: 2; opacity: 0; transition: opacity .35s ease; pointer-events: none;
-    filter: brightness(1.28) saturate(1.06); /* a lift, not a torch — 1.65 blew the soma out */
-    -webkit-mask-image: radial-gradient(circle var(--bwr, 180px) at var(--bwx, -500px) var(--bwy, -500px), #000 0%, #000 42%, rgba(0,0,0,0) 100%);
-            mask-image: radial-gradient(circle var(--bwr, 180px) at var(--bwx, -500px) var(--bwy, -500px), #000 0%, #000 42%, rgba(0,0,0,0) 100%); }
-  .bw-brighten.on { opacity: 1; }
-  @media (prefers-reduced-motion: reduce) { .bw-brighten { transition: none; } }
-  /* Signal pulses: 3 dots per move (reused round-robin — see firePulse/startPulses),
-     riding the curved axon path (a hidden quadratic-Bézier <path> per move, sampled with
-     getPointAtLength) from the neuron into the hub at a slow, calm pace. cx/cy/opacity are
-     written every frame by a GSAP tween (onUpdate), never by CSS — idle state is just off.
-     The path itself is pure geometry, never painted (fill/stroke none via attributes). */
-  .bw-pulse-dot { pointer-events: none; opacity: 0; }
-  /* Centre title lockup — the artwork's hub neuron is deliberately pale/unlit, which left the
-     middle feeling empty; this names the map. A REAL h2 (the inside scene has no other
-     heading: the cover's h1 and the chamber's h2 are unmounted here), but never interactive.
-     Positioned by place() at BX_TITLE (image-space, just above the hub soma) so it rides
-     resizes with everything else; visibility toggled per scene like the labels; fades with
-     them during glide (rule below). The kicker's padding-left rebalances the trailing
-     letter-spacing gap after its last character so it reads optically centred. */
-  /* Nameplate, not floating text: the same dark-glass language as the move label pills
-     (translucent near-black + blur + hairline border), scaled up to name the whole map.
-     Guaranteed legible over any patch of the art, and clearly part of the same system. */
-  .bw-centre-title { position: absolute; left: 0; top: 0; z-index: 1; margin: 0; visibility: hidden;
-    transform: translate(-50%, -50%); pointer-events: none; text-align: center; white-space: nowrap;
-    display: flex; flex-direction: column; align-items: center; gap: 6px; transition: opacity .3s;
-    padding: 13px 30px 15px; border-radius: 14px;
-    background: rgba(10,10,17,.72); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,.16);
-    box-shadow: 0 6px 30px rgba(0,0,0,.45); }
-  .bw-centre-kicker { font-family: var(--bx-ui); font-weight: 600; font-size: 10px;
-    letter-spacing: .22em; padding-left: .22em; text-transform: uppercase; color: #b9bac9; }
-  .bw-centre-name { font-family: var(--bx-display); font-style: italic; font-weight: 460;
-    font-size: 27px; line-height: 1.05; letter-spacing: .01em; color: #f4f4f9; }
-  @media (prefers-reduced-motion: reduce) { .bw-centre-title { transition: none; } }
-  /* narrower stages compress the artwork while the label pills keep their px size, squeezing
-     the dark pocket the title sits in — shrink the lockup a step so it stays clear of the
-     "Reason with Evidence" / "Uncovering Complexity" pills either side. */
-  @media (max-width: 1100px) {
-    .bw-centre-kicker { font-size: 9.5px; }
-    .bw-centre-name { font-size: 21px; }
-  }
-  /* Central hub neuron's faint "receiving" glow: one shared node (not per-move), tinted to
-     whichever move is currently signalling it (--bwg set inline in startMoveHover). Off by
-     default; .on starts the breathing loop and its removal lets the opacity transition below
-     ease it back to 0 instead of popping. Reduced motion never adds .on (see startMoveHover),
-     so this never animates for those users. */
-  .bw-centre-glow { position: absolute; left: 0; top: 0; z-index: 1; width: 150px; height: 150px;
-    border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%);
-    background: radial-gradient(circle, var(--bwg, #fff) 0%, rgba(0,0,0,0) 70%);
-    opacity: 0; transition: opacity .3s ease; }
-  .bw-centre-glow.on { animation: bwCentreBreath 1.6s ease-in-out infinite alternate; }
-  @keyframes bwCentreBreath { from { opacity: .1; } to { opacity: .25; } }
-  /* connector lines: full-stage SVG under the labels (z 1, above the artwork/glow's own
-     stacking context, below the label text at z 2). Non-interactive; endpoints (label edge ->
-     neuron) are written per move in the place() effect, the end-dot's fill is the move colour.
-     Fades/hides with the labels (visibility toggled per scene + the glide opacity rule below). */
-  .bw-links { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; overflow: visible; transition: opacity .3s; }
-  .bw-links line { stroke: rgba(232,233,242,.45); stroke-width: 1.5; }
-  /* glide (move select -> chamber, and chamber -> back): the artwork stage stays visible and
-     carries the ride (GSAP zoom into the neuron on .bx-stage--inside, see the bxScene
-     effect); only the interactive bits (+ the glow, which doesn't scale with the stage and
-     would visibly detach from the artwork mid-zoom) fade out so nothing is clickable or
-     seems to jump mid-flight. The glow's own infinite animation keeps writing opacity every
-     frame, which beats a plain override, so this pins it with !important + pauses the
-     animation rather than fight it. */
-  .bw-inside--glide .bw-label, .bw-inside--glide .bw-listbtn, .bw-inside--glide .bw-links { opacity: 0; pointer-events: none; }
-  .bw-inside--glide .bw-glow { animation-play-state: paused; opacity: 0 !important; }
-  .bw-inside--glide .bw-centre-glow { opacity: 0 !important; } /* pulses live inside .bw-links, already faded above */
-  .bw-inside--glide .bw-centre-title { opacity: 0; }
-  /* dive crossfade bloom: a pale glow pulse standing in for "passing through the brain's own
-     light" at the moment the cover dissolves into the inside artwork — never a bare/black
-     frame. Sits above both stages (z 2) but well below the fixed masthead (z 30/40). */
-  .bw-dive-bloom { position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: 0;
-    background: radial-gradient(55% 55% at 62% 45%, #dfe6ff 0%, rgba(223,230,255,0) 72%); }
-  /* tunnel-dive flight: full-viewport video over the cover (z 5, above cover z2/bloom z3) but
-     below the fixed masthead (z 30/40). Starts hidden (GSAP fades it in ~0.5s after Enter);
-     dark backdrop so a not-yet-decoded first frame reads black, not white. pointer-events none
-     so the skip button beneath still catches clicks. */
-  /* contain, not cover: on wide-short windows (e.g. 2.2:1) cover-cropping the 16:9 clip
-     zoomed its framing ~20% past the cover still and the Enter handoff read as a jump.
-     Contain keeps the clip's full frame at every window shape; the near-black body fills
-     any letterbox band invisibly (the clip's own edges are dark space). */
-  .bw-tunnel { position: fixed; inset: 0; z-index: 5; width: 100%; height: 100%; object-fit: contain;
-    background: #05060c; pointer-events: none; opacity: 0; }
-  /* move-select zoom bloom: same idea as .bw-dive-bloom, but centred on the neuron being
-     zoomed into (--bxbx/--bxby, set inline from the same origin the GSAP zoom uses) and
-     tinted with the chosen move's colour (--move-colour) instead of a fixed pale glow. */
-  .bw-move-bloom { position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: 0;
-    background: radial-gradient(45% 45% at var(--bxbx, 50%) var(--bxby, 50%), var(--move-colour, #dfe6ff) 0%, rgba(0,0,0,0) 72%); }
-  .bw-listbtn { position: fixed; right: clamp(20px,4vw,52px); bottom: 26px; background: none; border: 1px solid rgba(255,255,255,.3); color: #d9d9e3; font: inherit; font-size: 12.5px; padding: 8px 16px; border-radius: 999px; cursor: pointer; transition: opacity .3s; }
-  .bw-listbtn:hover { border-color: #fff; color: #fff; }
-  /* Very narrow screens: the neurons crop past both viewport edges, so scattered labels
-     can't be laid out without overlaps. Hide them and route the moves through the always-
-     present "See as a list" overlay (the mobile path). Placed AFTER the base rules so the
-     centring/size overrides win cleanly. */
-  @media (max-width: 479px) {
-    .bw-inside .bw-label, .bw-inside .bw-links { display: none; } /* connectors hide with their labels */
-    .bw-listbtn { left: 50%; right: auto; transform: translateX(-50%); font-size: 14px; padding: 11px 22px; }
-  }
   .bw-list { position: fixed; inset: 0; z-index: 5; background: rgba(16,16,23,.92); display: flex; flex-direction: column; justify-content: center; padding: 8vh clamp(24px,10vw,180px); gap: 2px; overflow: auto; }
   .bw-list-row { display: grid; grid-template-columns: 14px 1fr; column-gap: 14px; align-items: baseline; text-align: left; background: none; border: 0; border-bottom: 1px solid rgba(255,255,255,.12); padding: 13px 4px; cursor: pointer; font: inherit; }
   .bw-list-row i { width: 10px; height: 10px; border-radius: 50%; background: var(--bwt); align-self: center; }
@@ -1024,111 +757,10 @@
   .bw-list-row span { grid-column: 2; font-size: 13px; color: #b9bac9; margin-top: 3px; }
   .bw-list-row:hover b { text-decoration: underline; text-underline-offset: 4px; }
   .bw-list-close { position: absolute; top: 20px; right: 26px; background: none; border: 0; color: #d9d9e3; font-size: 26px; cursor: pointer; }
-  /* the chamber: the working tool restyled for the night world. Fades in on mount so the
-     glide -> chamber handoff is a crossfade (inside stage fades out underneath it). */
-  .bw-chamber { position: fixed; inset: 0; z-index: 2; overflow: auto; animation: bwChamberIn .45s ease both; }
-  @keyframes bwChamberIn { from { opacity: 0; } to { opacity: 1; } }
-  /* Leaving ("All moves"): swapped in via inline style for its own animation (below) rather
-     than a plain opacity transition — bwChamberIn's fill-mode: both holds opacity at 1
-     forever once mounted, which (being a running CSS animation) outranks a later inline
-     opacity+transition in the cascade and silently no-ops it, popping the chamber away
-     instead of fading it. A distinct animation with its own from/to values replaces
-     bwChamberIn outright (only one can apply at a time) and always fades from its own
-     declared start, so it isn't at the mercy of whatever the previous frame happened to be. */
-  @keyframes bwChamberOut { from { opacity: 1; } to { opacity: 0; } }
-  @media (prefers-reduced-motion: reduce) { .bw-chamber { animation: none; } }
-  /* chamber backdrop: chamber.png under a dim veil, with a colour halo ring (the chosen
-     move's colour) glowing behind the tool. The blue reference stays the mood; the ring
-     supplies per-move colour via --move-colour (set inline from BX_COLOR[selectedMove]).
-     The stage is fixed so it stays put while the tool panel scrolls over it. */
-  /* transparent, NOT the .bx-stage default black: the zoomed neuron (inside layer, kept
-     opaque beneath) must stay visible through the chamber's fade-in until the interior art
-     is painted — an opaque stage curtained the dive to a dark blank ("disappears, then
-     appears inside") and swallowed the arrival bloom. */
-  .bw-chamber .bx-stage--chamber { position: fixed; z-index: 0; background: none; }
-  .bw-chamber .bx-chamber-veil { position: absolute; inset: 0; background: rgba(8,8,14,.55); pointer-events: none; }
-  .bw-chamber .bx-ring { position: absolute; width: 340px; height: 340px; border-radius: 50%;
-    left: 50%; top: 38%; transform: translate(-50%, -50%);
-    box-shadow: 0 0 90px 18px var(--move-colour), inset 0 0 60px 6px var(--move-colour);
-    opacity: .28; pointer-events: none; }
-  /* Inside-a-giant-neuron backdrop (neuron-interior.png), tinted to the chosen move. Layer
-     order inside the chamber stage: interior img -> colour tint (overlay blend) -> radial
-     vignette -> the halo ring (dimmed) -> tool panels (a sibling, painted above). The whole
-     stage also settles scale 1.25 -> 1 on arrival via GSAP (see the chamber-scale effect). If
-     the interior file is missing, onError swaps back to the chamber.png treatment above. */
-  .bw-chamber .bx-interior-tint { position: absolute; inset: 0; mix-blend-mode: overlay; opacity: .42; pointer-events: none; }
-  /* The interior art fades in when loaded (.ready, set in the img's onLoad) instead of popping,
-     and drifts very slowly once there — the "alive" swirl Nathan asked for: a 52s pan/push loop,
-     gentle enough to read as ambience, not motion. The keyframes bake in the shared media rule's
-     centring translate (a running animation overrides it otherwise). */
-  .bw-chamber .bx-interior-art { opacity: 0; transition: opacity .8s ease;
-    animation: bwInteriorDrift 16s ease-in-out infinite alternate; }
-  .bw-chamber .bx-interior-art.ready { opacity: 1; }
-  /* visible, unhurried life: the swirls travel a real distance every few seconds (the old
-     52s loop moved ~1px/s — indistinguishable from a still) */
-  @keyframes bwInteriorDrift {
-    from { transform: translate(-50%, -50%) scale(1.05); }
-    to   { transform: translate(-47.2%, -52.4%) scale(1.16); }
-  }
-  /* the colour tint breathes with it, so the light in the chamber feels alive too */
-  .bw-chamber .bx-interior-tint { animation: bwTintBreath 7s ease-in-out infinite alternate; }
-  @keyframes bwTintBreath { from { opacity: .34; } to { opacity: .52; } }
-  @media (prefers-reduced-motion: reduce) {
-    .bw-chamber .bx-interior-art { animation: none; transition: none; }
-    .bw-chamber .bx-interior-tint { animation: none; }
-  }
-  .bw-chamber .bx-interior-vignette { position: absolute; inset: 0; pointer-events: none;
-    background: linear-gradient(180deg, rgba(8,8,14,.74) 0%, rgba(8,8,14,.32) 16%, rgba(8,8,14,0) 30%),
-                radial-gradient(120% 100% at 50% 42%, transparent 40%, rgba(8,8,14,.65) 100%); }
-  .bw-chamber .bx-ring--interior { opacity: .18; }
-  /* over the tinted interior the overlay blend can lift mid-tones, so nudge the panel/card
-     backgrounds a touch darker to keep their light text comfortably >=4.5:1. */
-  .bw-chamber.bw-chamber--interior .bx-panel { background: rgba(16,16,24,.86); }
-  .bw-chamber.bw-chamber--interior .bx-card { background: rgba(16,16,24,.9); }
-  .bw-chamber .bx-tool { position: relative; z-index: 1; padding-top: 92px; min-height: 100%; }
-  /* dark-glass plate behind the move's name + meaning: text-shadow alone couldn't win
-     against the interior art's bright fibre patches — this guarantees it, and matches the
-     map's nameplate/label language */
-  .bw-chamber .bx-tool-head { display: inline-block; padding: 16px 24px 18px; border-radius: 14px;
-    background: rgba(10,10,17,.72); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,.14); box-shadow: 0 6px 30px rgba(0,0,0,.4); }
-  .bw-chamber .bx-tool-head h2 { color: var(--bwt);
-    text-shadow: 0 2px 10px rgba(8,8,14,.8); }
-  .bw-chamber .bx-tool-head .bx-back { display: block; margin-bottom: 14px; color: #b9bac9; } .bw-chamber .bx-tool-head .bx-back:hover { color: #fff; }
-  /* the move's meaning gets its own glass strip — it sat naked on the art below the title
-     plate and was the "hard to read what the thinking move means" line */
-  .bw-chamber .bx-tool-sub { color: #e2e3ee; max-width: 68ch; display: inline-block;
-    background: rgba(10,10,17,.72); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,.12); border-radius: 12px; padding: 12px 18px;
-    margin: 10px 0 30px; }
-  .bw-chamber .bx-btn.mv { background: var(--bwt); color: #101017; }
-  .bw-chamber .bx-panel { border-top-color: rgba(255,255,255,.5); background: rgba(22,22,30,.78); backdrop-filter: blur(6px); border-radius: 6px; padding: 18px 18px 22px; }
-  .bw-chamber .bx-panel > h3 { color: #ececf1; }
-  .bw-chamber .bx-panel > .bx-note, .bw-chamber .bx-panel .bx-step-n, .bw-chamber .bx-field label { color: #a9aabb; }
-  .bw-chamber .bx-input, .bw-chamber .bx-tool textarea, .bw-chamber .bx-tool select { background: #101017; color: #ececf1; border-color: rgba(255,255,255,.22); }
-  .bw-chamber .bx-input::placeholder, .bw-chamber .bx-tool textarea::placeholder { color: #9fa0b2; }
-  .bw-chamber .bx-input:focus, .bw-chamber .bx-tool textarea:focus, .bw-chamber .bx-tool select:focus { outline-color: var(--bwt); }
-  .bw-chamber .bx-modes { background: rgba(255,255,255,.08); } .bw-chamber .bx-modes button { color: #b9bac9; }
-  .bw-chamber .bx-modes button.on { background: #26262f; color: #fff; box-shadow: none; }
-  .bw-chamber .bx-drop { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.28); color: #ececf1; }
-  .bw-chamber .bx-drop:hover, .bw-chamber .bx-drop.drag { border-color: #fff; background: rgba(255,255,255,.08); }
-  .bw-chamber .bx-drop small, .bw-chamber .bx-working, .bw-chamber .bx-routine .rw, .bw-chamber .bx-routine .ri, .bw-chamber .bx-more summary { color: #a9aabb; }
-  .bw-chamber .bx-btn { background: #ececf1; color: #101017; }
-  .bw-chamber .bx-btn.mv { background: var(--mv); color: #fff; }
-  .bw-chamber .bx-btn.ghost { background: none; color: #ececf1; border-color: rgba(255,255,255,.4); }
-  .bw-chamber .bx-field label { color: #a9aabb; }
-  .bw-chamber .bx-routine { border-bottom-color: rgba(255,255,255,.12); } .bw-chamber .bx-routine .rn { color: #ececf1; }
-  .bw-chamber .bx-routine.on .rn { color: var(--bwt); }
-  .bw-chamber .bx-card { background: rgba(22,22,30,.85); border-color: rgba(255,255,255,.2); }
-  .bw-chamber .bx-card:hover { border-color: #fff; }
-  .bw-chamber .bx-card .ck { color: #a9aabb; } .bw-chamber .bx-card .ct { color: #ececf1; }
-  .bw-chamber .bx-alert { background: rgba(143,29,46,.25); border-color: rgba(240,184,196,.4); color: #f6c9d2; }
-  @media (max-width: 720px) { .bw-label { max-width: 46vw; white-space: normal; } .bw-label-name { white-space: normal; } }
-  @media (prefers-reduced-motion: reduce) { .bw-night { transition: opacity .4s; } .bw-label { transition: none; } }
 
   /* ============================================================================
-     WATERCOLOUR WORLD (2026-07-23): Wesley ink-and-wash on paper. Replaces the
-     space/neon scene CSS above (left in place but unused; cleanup pass later).
+     WATERCOLOUR WORLD (2026-07-23): Wesley ink-and-wash on paper. This is the
+     whole brain experience — the earlier space/neon scene code has been removed.
      ============================================================================ */
   .ww { --paper: #F7F4EE; --paper-deep: #EFEAE0; --ink: #2B281F; --ink-soft: #4b473d;
     --purple: #4F2759; --gold: #C59F40;
@@ -1182,11 +814,6 @@
     .ww-enter { margin-top: 24px; }
     .ww-credit { margin-top: 12px; }
   }
-  /* sound toggle for the clip's score (autoplay must start muted) */
-  .ww-sound { position: absolute; right: clamp(24px, 4vw, 56px); bottom: 26px; z-index: 2;
-    background: none; border: 1px solid rgba(43,40,31,.3); border-radius: 999px; color: var(--ink-soft);
-    font: 500 12.5px "Graphik", "Segoe UI", system-ui, sans-serif; padding: 7px 14px; cursor: pointer; }
-  .ww-sound:hover { border-color: var(--ink); color: var(--ink); }
 
   /* ---------- ink-wash scene transition (Enter, and the reverse) ---------- */
   .ww-wash { position: fixed; inset: 0; z-index: 25; pointer-events: none; background: var(--paper-deep);
@@ -1253,13 +880,18 @@
   @keyframes wwWrite { from { clip-path: inset(0 100% -12% 0); } to { clip-path: inset(0 0 -12% 0); } }
   @media (prefers-reduced-motion: reduce) { .ww-title .k, .ww-title .n { animation: none; clip-path: none; } }
   .ww-pulse-dot { pointer-events: none; opacity: 0; } /* driven by the pulse engine, ink-droplet style */
+  /* DLP credit under the map, centred along the bottom */
+  .ww-mapcredit { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 2;
+    margin: 0; font-size: 12px; letter-spacing: .04em; color: #7c766a; pointer-events: none;
+    animation: wwLabelIn 1s ease 1.9s both; }
+  @media (prefers-reduced-motion: reduce) { .ww-mapcredit { animation: none; opacity: 1; } }
   .ww-listbtn { position: absolute; right: 26px; bottom: 22px; z-index: 2;
     background: none; border: 1px solid rgba(43,40,31,.3); border-radius: 999px; color: var(--ink-soft);
     font: 500 13px "Graphik", "Segoe UI", system-ui, sans-serif; padding: 8px 16px; cursor: pointer; }
   .ww-listbtn:hover { border-color: var(--ink); color: var(--ink); }
 
   /* ---------- chamber (inside a thinking move) — light paper theme ---------- */
-  .ww-chamber { position: fixed; inset: 0; z-index: 2; overflow: auto; animation: wwChamberIn 1s ease both;
+  .ww-chamber { position: fixed; inset: 0; z-index: 2; overflow: auto; outline: none; animation: wwChamberIn 1s ease both;
     background: var(--paper); }
   @keyframes wwChamberIn { from { opacity: 0; } to { opacity: 1; } }
   .ww-chamber.out { animation: wwChamberOut 1s ease forwards; }
@@ -1288,6 +920,11 @@
     box-shadow: 0 3px 14px rgba(43,40,31,.06); }
   .ww-chamber .bx-btn.mv { background: var(--purple); color: #fff; } /* purple = the only interactive voice */
   .ww-chamber .bx-alert { background: #FDAFBD33; border-color: #8F1D2E55; color: #8F1D2E; }
+  /* paste-a-link import row in the chamber's stimulus step */
+  .bx-linkrow { display: flex; gap: 6px; margin-top: 8px; }
+  .bx-linkrow .bx-input { flex: 1; min-width: 0; }
+  .ww-chamber .bx-btn.ghost { border-color: rgba(43,40,31,.4); color: var(--ink); white-space: nowrap; padding: 9px 14px; }
+  .ww-chamber .bx-btn.ghost:hover:not(:disabled) { border-color: var(--purple); color: var(--purple); }
 
   /* ---------- calm ink fades: scenes swap slowly on the same paper ---------- */
   /* Enter = the cover's ink lifts off the paper: a long fade with a breath of blur + a
@@ -1419,7 +1056,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.7.4 · 2026-07-22";
+const APP_VERSION = "v0.8.0 · 2026-07-23";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2819,18 +2456,16 @@ const BX_COLOR = {
 const bxColor = (name) => BX_COLOR[name] || "#17171b";
 
 // North-star art (sandbox): AI-generated brain-journey images/clip, loaded from a
-// git-ignored local folder. PRE-MERGE: must be committed/hosted before this ships to main.
-// Watercolour theme (2026-07-23 rebuild, approved by Nathan): Wesley ink-and-wash on paper.
-// The space/neon assets are retired; see docs/superpowers/2026-07-23-watercolour-rebuild-plan.md
+// Watercolour theme (2026-07-23, approved by Nathan): Wesley ink-and-wash on paper. Art is
+// committed + served from assets/brain/ (JPEG, web-optimised; all multiply-blended so no
+// transparency is needed). Everything scales/composes in code — no per-image calibration.
 const BX_ASSETS = {
-  base: "docs/superpowers/inspiration/2026-07-23-watercolour/",
-  cover: "wc-cover.png",          // approved blue ink-wash brain on warm white, 2752x1536
-  coverPaint: "wc-cover-paint.mp4", // Seedance paint-in (mirrored + warmed, muted); crossfades to the still
-  coverMusic: "wc-cover-music.m4a", // the clip's calm score — optional, behind a sound toggle (autoplay must stay muted)
-  chamber: "wc-chamber.png",      // soft grey-cream wash, tinted per move (may not exist yet -> CSS wash fallback)
-  bloom: (name) => "bloom-" + name + ".png" // 683px watercolour blooms, multiply-blended onto the paper
+  base: "assets/brain/",
+  cover: "wc-cover.jpg",            // approved blue ink-wash brain on warm white
+  coverPaint: "wc-cover-paint.mp4", // Seedance paint-in (mirrored + paper-matched, muted); freezes on its last frame
+  chamber: "wc-chamber.jpg",        // soft grey-cream wash, tinted per move behind the chamber panels
+  bloom: (name) => "bloom-" + name + ".jpg" // nine watercolour blooms, multiply-blended onto the paper
 };
-const BX_AR = { cover: 2752 / 1536 }; // cover art aspect ratio
 
 // Map of Understanding, watercolour edition: positions are VIEWPORT fractions (0..1 of the
 // map stage), not artwork coordinates — the scene is composed in code (paper + bloom PNGs +
@@ -2876,42 +2511,19 @@ function App() {
   const [brainView, setBrainView] = useState(true);
   const [openSlide, setOpenSlide] = useState(null);   // which bloomed slide is previewed
   const [bxDrag, setBxDrag] = useState(false);        // dropzone dragover
-  // Brain World scenes: cover (image/video) -> transport (dive) -> inside -> glide -> chamber
+  // Watercolour scenes: cover -> transport (enter ink-dissolve) -> inside (map) -> glide -> chamber
   const [bxScene, setBxScene] = useState("cover");
-  // dive flavour: null (not diving), "tunnel" (playing tunnel-dive.mp4), "fallback"
-  // (mp4 missing/broken -> the old match-dissolve zoom). Only meaningful during "transport".
-  const [diveMode, setDiveMode] = useState(null);
-  const [interiorOk, setInteriorOk] = useState(true); // neuron-interior.png present? (img onError -> chamber.png fallback)
+  const [interiorOk, setInteriorOk] = useState(true); // wc-chamber.jpg present? (img onError -> CSS tint-wash only)
   const sceneRef = useRef("cover");                   // Esc-handler-readable mirror of bxScene
-  const nightRef = useRef(null);                      // deep-night DOM layer
-  const diveTl = useRef(null);                        // GSAP timeline driving the cover -> inside dive
-  const tunnelVideoRef = useRef(null);                // full-viewport dive-flight <video>
-  const diveSafetyTimer = useRef(0);                  // setTimeout id: 6s net if the video's onEnded never fires
-  const tunnelEnded = useRef(false);                  // guards the tunnel arrival from double-firing (timeupdate + onEnded + safety + skip)
+  const diveSafetyTimer = useRef(0);                  // setTimeout id: enter-fade -> map
   const skipDiveRef = useRef(null);                   // Esc-handler-readable skipDive (empty-dep keydown effect)
-  const glideTimer = useRef(0);                       // setTimeout id: glide -> chamber / glide -> inside
-  const labelEls = useRef([]);                        // move label buttons, positioned from the artwork
-  const glowEls = useRef([]);                         // pulsing neuron glows, positioned same as the labels
-  const linkLineEls = useRef([]);                     // connector <line>s: label edge -> neuron
-  const linkDotEls = useRef([]);                      // connector end dots at the neuron
-  const pulseDotEls = useRef([]);                     // per move: [3 <circle>s] reused round-robin for hover signal pulses
-  const pulsePathEls = useRef([]);                    // per move: hidden Bézier <path> the pulses ride (never painted, pure geometry)
-  const pulseGeomRef = useRef([]);                    // per move: {path, len} cached by place(); firePulse samples getPointAtLength
-  const neuronPosRef = useRef([]);                    // (space-theme leftover, unused)
-  const brightenRef = useRef(null);                   // (space-theme leftover, unused)
+  const glideTimer = useRef(0);                       // setTimeout id: map <-> chamber crossfade
+  const labelEls = useRef([]);                        // move caption buttons, placed from viewport fractions
   const bloomEls = useRef([]);                        // per move: its watercolour bloom <img> (placed + hover-swelled)
-  const hubBloomRef = useRef(null);                   // the gold hub bloom at BX_CENTER
-  const pulseSpawnerRef = useRef([]);                 // per move: setInterval id spawning pulses while hovered/focused
-  const pulseTweensRef = useRef([]);                  // per move: in-flight GSAP pulse tweens (for clean kill)
-  const centreGlowRef = useRef(null);                 // shared "receiving" glow at BX_CENTER, tinted to whichever move is signalling it
-  const centreTitleRef = useRef(null);                // "Thinking Moves" h2 lockup pinned at BX_TITLE
+  const centreTitleRef = useRef(null);                // "Thinking Moves" centre title
   const hoveredMovesRef = useRef(new Set());          // move indices currently hovered/focused (mouse + keyboard can overlap)
-  const insideStageRef = useRef(null);                // .bx-stage holding inside.png (anchors the labels)
-  const bloomRef = useRef(null);                      // full-viewport glow pulse at the dive's crossfade moment
-  const moveBloomRef = useRef(null);                  // colour bloom at the move-select zoom's crossfade moment
-  const zoomOriginRef = useRef({ css: "50% 50%", xPct: "50%", yPct: "50%" }); // neuron px point, as transform-origin css + bloom %ages
-  const chamberStageRef = useRef(null);               // .bx-stage--chamber backdrop (settles scale 1.25 -> 1 on arrival)
-  const [glideDir, setGlideDir] = useState("in");     // "in" (move select, zooming into the neuron) vs "out" (leaving chamber)
+  const insideStageRef = useRef(null);                // the .ww-map region (anchors bloom/label placement + holds scene focus)
+  const [glideDir, setGlideDir] = useState("in");     // "in" (map -> chamber) vs "out" (chamber -> map)
   const [listOpen, setListOpen] = useState(false);    // "See as a list" overlay
   const brainRootRef = useRef(null);
   // North-star cover media: video off, still image only, when the OS asks for less motion.
@@ -3707,15 +3319,7 @@ function App() {
 
   /* ---------- Brain World: watercolour scenes (paper + ink fades, no engine) ---------- */
   useEffect(() => { sceneRef.current = bxScene; }, [bxScene]);
-  // Cover music: the paint clip's calm score, strictly opt-in (autoplay must stay muted).
-  const [musicOn, setMusicOn] = useState(false);
-  const musicRef = useRef(null);
   const paintSeenRef = useRef(false); // the paint-in clip plays once per visit, not on every cover return
-  const toggleMusic = () => {
-    const a = musicRef.current; if (!a) return;
-    if (musicOn) { a.pause(); setMusicOn(false); }
-    else { const p = a.play(); if (p && p.catch) p.catch(() => {}); setMusicOn(true); }
-  };
   // Warm the scene-critical art while the teacher reads the cover: the chamber wash and the
   // nine blooms, so the map and every chamber arrive painted, not popping in.
   useEffect(() => {
@@ -3789,7 +3393,7 @@ function App() {
       const map = insideStageRef.current;
       if (map) map.focus();
     }, 80);
-    if (bxScene === "chamber") setTimeout(() => { const b = document.querySelector(".ww-chamber .bx-back"); if (b) b.focus(); }, 80);
+    if (bxScene === "chamber") setTimeout(() => { const c = document.querySelector(".ww-chamber"); if (c) c.focus(); }, 80);
   }, [bxScene]);
   // Compose the Map of Understanding: the eight move blooms, their captions, and the centre
   // title — all placed from viewport fractions (no source artwork), so nothing can drift.
@@ -3826,52 +3430,6 @@ function App() {
     window.addEventListener("resize", place);
     return () => window.removeEventListener("resize", place);
   }, [bxScene]);
-  // Hover/focus signal: while a move's label is hovered/focused, stream small dots one after
-  // another from its neuron into the hub (BX_CENTER), riding that move's curved axon path
-  // (the hidden Bézier <path> built in place(), sampled via getPointAtLength) at a slow,
-  // calm pace — 2.2s per trip, one dot every 0.9s. The same 3 <circle>s are reused
-  // round-robin (3 slots x 0.9s = 2.7s cadence > 2.2s travel, so a slot is always free
-  // again before its turn comes back — no mid-flight steals in steady state). Geometry is
-  // read live from pulseGeomRef every frame, so a resize mid-flight just draws the next
-  // frame on the fresh path — no restart needed (see the place() effect above).
-  const PULSE_S = 2.2, PULSE_GAP_MS = 900;
-  const firePulse = (i, slot) => {
-    const dots = pulseDotEls.current[i], dot = dots && dots[slot];
-    if (!dot) return;
-    gsap.killTweensOf(dot); // safety net if a slot is somehow still in flight when reused
-    const proxy = { t: 0 };
-    const tw = gsap.to(proxy, {
-      t: 1, duration: PULSE_S, ease: "none",
-      onUpdate: () => {
-        const g = pulseGeomRef.current[i]; if (!g) return;
-        const t = proxy.t;
-        const pt = g.path.getPointAtLength(t * g.len); // arc-length sampling: constant speed along the curve
-        dot.setAttribute("cx", pt.x.toFixed(1));
-        dot.setAttribute("cy", pt.y.toFixed(1));
-        // fade in over the first 15% of the trip, hold, fade out over the last 15% (arrival)
-        dot.style.opacity = t < 0.15 ? (t / 0.15) : t > 0.85 ? ((1 - t) / 0.15) : 1;
-      },
-      onComplete: () => {
-        dot.style.opacity = 0;
-        const arr = pulseTweensRef.current[i]; // drop this tween once it finishes — a long hover
-        if (arr) { const idx = arr.indexOf(tw); if (idx !== -1) arr.splice(idx, 1); } // must not accumulate dead refs
-      },
-    });
-    (pulseTweensRef.current[i] || (pulseTweensRef.current[i] = [])).push(tw);
-  };
-  const stopPulses = (i) => { // kills the spawner + any in-flight tweens for move i, hides its dots
-    const id = pulseSpawnerRef.current[i];
-    if (id) { clearInterval(id); pulseSpawnerRef.current[i] = null; }
-    const tweens = pulseTweensRef.current[i];
-    if (tweens) { tweens.forEach((tw) => tw.kill()); pulseTweensRef.current[i] = []; }
-    (pulseDotEls.current[i] || []).forEach((d) => { if (d) d.style.opacity = 0; });
-  };
-  const startPulses = (i) => {
-    stopPulses(i); // clean slate — no leftover tween from a previous hover fighting the new one
-    let slot = 0;
-    firePulse(i, slot); slot = (slot + 1) % 3;
-    pulseSpawnerRef.current[i] = setInterval(() => { firePulse(i, slot); slot = (slot + 1) % 3; }, PULSE_GAP_MS);
-  };
   // Clears every hover swell — called on scene changes away from "inside" and on unmount.
   const stopAllHoverPulses = () => {
     hoveredMovesRef.current.clear();
@@ -3940,6 +3498,18 @@ function App() {
                 {extractingVideo ? "Reading your video…" : "Drop a photo or video, or click to choose"}
                 <small>{media.length ? media.length + " added" : "JPG · PNG · MP4"}</small>
               </div>
+              {/* paste-a-link import (the original's video/social scraper) — grabs the photo or
+                  video (and, for YouTube, its thumbnail) straight from a pasted link */}
+              <div className="bx-linkrow">
+                <input className="bx-input" type="text" aria-label="Paste a link to grab a photo or video from"
+                  value={postLink} placeholder="…or paste a link — YouTube, Instagram, X, Facebook"
+                  onChange={e => setPostLink(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter" && !importingPost) { e.preventDefault(); importFromPostLink(); } }} />
+                <button type="button" className="bx-btn ghost" disabled={importingPost || extractingVideo} onClick={() => importFromPostLink()}>
+                  {importingPost ? "Fetching…" : "Add from link"}
+                </button>
+              </div>
+              {mediaNote && <div className="bx-alert" role="status" aria-live="polite">{mediaNote}</div>}
               {media.length > 0 && <div className="bx-thumbs">{media.slice(0, 8).map((it, i) => <div className="bx-thumb" key={i}><img src={it.kind === "image" ? it.dataUrl : (it.poster || it.dataUrl)} alt="" /></div>)}</div>}
             </React.Fragment>
           ) : (
@@ -4050,13 +3620,8 @@ function App() {
             <h1>Start with the <span className="pu">thinking</span>, not the topic.</h1>
             <p className="ww-sub">Pick one of eight thinking moves from the Map of Understanding, add a photograph, a film or an article, and Springboard builds a lesson that moves your class beyond remembering into understanding.</p>
             <button className="ww-enter" autoFocus onClick={enterMind}>Enter the mind →</button>
-            <p className="ww-credit">Eight thinking moves · Cultures of Thinking · <a href="https://pz.harvard.edu/thinking-routines" target="_blank" rel="noopener">Harvard Project Zero</a> · build 22</p>
+            <p className="ww-credit">Eight thinking moves · Cultures of Thinking · <a href="https://pz.harvard.edu/thinking-routines" target="_blank" rel="noopener">Harvard Project Zero</a></p>
           </div>
-          {/* the paint clip's calm score, off by default (autoplay must stay muted) */}
-          <audio ref={musicRef} src={BX_ASSETS.base + BX_ASSETS.coverMusic} loop preload="none" />
-          <button className="ww-sound" onClick={toggleMusic} aria-pressed={musicOn}>
-            {musicOn ? "Sound off" : "Sound on"}
-          </button>
         </section>
       )}
 
@@ -4099,6 +3664,7 @@ function App() {
             </button>
           ))}
           <button className="ww-listbtn" onClick={() => setListOpen(true)}>See as a list</button>
+          <p className="ww-mapcredit">Brought to you by the DLP team</p>
           </React.Fragment>)}
           {listOpen && bxScene === "inside" && (
             <div className="bw-list" role="dialog" aria-modal="true" aria-label="The eight thinking moves">
@@ -4119,6 +3685,7 @@ function App() {
         // moves" reverses the ink instead of popping. selectedMove clears once leaveChamber's
         // timeout lands back on "inside".
         <div className={"ww-chamber" + ((bxScene === "glide" && glideDir === "out") ? " out" : "")}
+          tabIndex={-1} aria-label={selectedMove + " — build the lesson"}
           style={{ "--bwt": bwTint(selectedMove), "--mv": bxColor(selectedMove),
             ...(bxScene === "glide" ? { pointerEvents: "none" } : null) }}>
           <div className="ww-chamber-bg" aria-hidden="true">
