@@ -4,100 +4,156 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Springboard — How it works</title>
+
+<!-- Match the app's watercolour "thinking brain" experience: Fraunces display serif +
+     Inter body, warm porcelain paper with the same real paper-stock texture, warm near-black
+     ink, purple/gold as rare accents. Kept in step with index.html's .ww theme block. -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500;1,9..144,600&family=Inter:wght@400;450;500;600;700&display=swap" rel="stylesheet" />
+
 <style>
   :root{
-    --purple:#4F2759; --purple-deep:#3A1C42; --purple-soft:#F4EFF6;
-    --gold:#C59F40; --gold-soft:#F7F1E4; --gold-light:#e4d1a1;
-    --label:#6a5375; /* small uppercase label ink — brand gold fails AA on white at this size */
-    --ink:#241a29; --muted:#574f63; --line:#e7e1ea; --bg:#faf8fb; --white:#fff;
+    /* Watercolour-world palette (mirrors index.html .ww) */
+    --paper:#F4EFE6; --paper-deep:#EBE4D7;
+    --ink:#2B281F; --ink-soft:#4b473d; --muted:#5f594d; /* muted still AA on paper */
+    --purple:#4F2759; --purple-deep:#3A1C42; --gold:#C59F40;
+    --line:rgba(43,40,31,.14); --line-strong:rgba(43,40,31,.24);
+    --panel:rgba(255,255,255,.6);  /* translucent so the paper grain shows through */
+    --display:"Fraunces",Georgia,"Times New Roman",serif;
+    --ui:"Inter","Segoe UI",system-ui,-apple-system,sans-serif;
+    --shadow:0 3px 16px rgba(43,40,31,.07);
   }
   *{box-sizing:border-box}
   html{ -webkit-text-size-adjust:100%; }
   body{
     margin:0; color:var(--ink);
-    font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    background:
-      radial-gradient(900px 520px at 88% -120px, rgba(197,159,64,.16), transparent 60%),
-      radial-gradient(820px 560px at -160px 28%, rgba(124,163,255,.13), transparent 60%),
-      radial-gradient(760px 500px at 108% 82%, rgba(253,175,189,.12), transparent 62%),
-      #f7f3fc;
-    background-attachment:fixed;
+    font:16px/1.62 var(--ui);
+    -webkit-font-smoothing:antialiased;
+    /* the same real watercolour-paper stock the blooms are painted on, tiled across the page */
+    background:var(--paper) url("assets/brain/paper.jpg") repeat; background-size:620px 620px;
+    min-height:100vh;
   }
-  .wrap{ max-width:860px; margin:0 auto; padding:0 22px 72px; }
+  /* soft page vignette for depth (grain lives in the paper texture itself) */
+  body::after{ content:""; position:fixed; inset:0; pointer-events:none; z-index:40;
+    background:radial-gradient(120% 100% at 50% 44%, transparent 60%, rgba(43,40,31,.05) 100%); }
+  ::selection{ background:var(--ink); color:var(--paper); }
+  .wrap{ max-width:880px; margin:0 auto; padding:0 24px 84px; }
   a{ color:var(--purple); }
-  a:focus-visible{ outline:2px solid var(--purple); outline-offset:2px; }
+  a:focus-visible{ outline:2px solid var(--purple); outline-offset:3px; border-radius:4px; }
 
-  header.hero{ background:var(--purple); color:#fff; box-shadow:0 2px 18px rgba(79,39,89,.30); }
-  header.hero .wrap{ padding-top:40px; padding-bottom:40px; }
-  .eyebrow{ font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:#fff; font-weight:700; margin:0 0 10px; }
-  header.hero h1{ font-size:34px; line-height:1.1; margin:0 0 12px; letter-spacing:-.5px; color:var(--gold-light); font-weight:800; }
-  header.hero p{ font-size:17px; margin:0; max-width:60ch; color:#fff; }
-  .back{ display:inline-block; margin-top:22px; font-size:14px; font-weight:600; color:#fff; text-decoration:none; border:1.5px solid rgba(255,255,255,.4); border-radius:999px; padding:7px 15px; }
-  .back:hover{ background:rgba(255,255,255,.14); }
-  .back:focus-visible{ outline:2px solid #fff; outline-offset:2px; }
+  /* ---------- masthead: transparent, painted wordmark (matches .ww .bx-mast) ---------- */
+  header.mast{ display:flex; align-items:baseline; justify-content:space-between; gap:16px;
+    max-width:880px; margin:0 auto; padding:22px 24px 10px; }
+  .word{ position:relative; font-family:var(--display); font-weight:500; font-size:25px;
+    letter-spacing:-.015em; color:var(--purple); padding-bottom:7px; text-decoration:none; }
+  .word i{ font-style:italic; color:var(--gold); }
+  /* tapered gold brush-stroke underline (inline SVG) so the wordmark reads painted, not typed */
+  .word::after{ content:""; position:absolute; left:-2px; right:-3px; bottom:0; height:9px;
+    background:no-repeat center / 100% 100%
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 10' preserveAspectRatio='none'%3E%3Cpath d='M2 5.5 C 24 2.5 46 3 62 4.2 C 82 5.4 101 6 118 3.8 C 101 8.2 80 8.2 60 7 C 40 5.8 20 6.6 2 6.4 Z' fill='%23C59F40'/%3E%3C/svg%3E");
+    opacity:.9; }
+  .mast .back{ font-size:13px; font-weight:500; color:var(--ink); opacity:.8; text-decoration:none;
+    white-space:nowrap; }
+  .mast .back:hover{ opacity:1; text-decoration:underline; text-underline-offset:3px; }
 
-  h2{ font-size:22px; margin:44px 0 6px; letter-spacing:-.3px; color:var(--purple); }
-  h2 .num{ color:var(--label); font-variant-numeric:tabular-nums; margin-right:8px; }
-  h3{ font-size:16px; margin:20px 0 4px; }
-  p{ margin:10px 0; }
-  .lede{ font-size:17px; color:#2c2331; }
-  .rule{ height:3px; width:60px; background:var(--gold); border:0; border-radius:2px; margin:8px 0 0; }
+  /* ---------- hero ---------- */
+  .hero{ padding:34px 0 8px; }
+  .kicker{ font-size:12px; letter-spacing:.2em; text-transform:uppercase; color:var(--purple);
+    font-weight:600; margin:0 0 16px; }
+  .hero h1{ font-family:var(--display); font-weight:500; font-size:clamp(38px,6vw,66px);
+    line-height:1.02; letter-spacing:-.02em; margin:0; color:var(--ink); text-wrap:balance; }
+  .hero h1 em{ font-style:italic; color:var(--purple); }
+  .hero .lede{ margin:24px 0 0; font-size:clamp(16px,1.5vw,18.5px); line-height:1.6;
+    max-width:56ch; color:var(--ink-soft); }
+  .back-pill{ display:inline-flex; align-items:center; gap:8px; margin-top:28px;
+    background:var(--purple); color:#fff; text-decoration:none; font-weight:500; font-size:14px;
+    border-radius:44px; padding:9px 20px; box-shadow:0 6px 18px rgba(79,39,89,.22);
+    transition:transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s; }
+  .back-pill:hover{ transform:translateY(-2px); box-shadow:0 12px 28px rgba(79,39,89,.30); }
+  .back-pill:focus-visible{ outline:3px solid var(--gold); outline-offset:3px; }
 
-  .cards{ display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin-top:16px; }
-  .card{ background:var(--white); border:1.5px solid #e3d9ec; border-radius:20px; box-shadow:0 10px 30px rgba(60,40,90,.12); padding:16px 18px; }
-  .card .tag{ display:inline-block; font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--label); }
-  .card h3{ margin:4px 0 4px; color:var(--purple); font-size:15px; }
-  .card p{ margin:0; font-size:14.5px; color:#413a48; }
+  /* ---------- section headings (Fraunces + hand-inked gold rule) ---------- */
+  h2{ font-family:var(--display); font-weight:500; font-size:clamp(24px,3vw,34px);
+    letter-spacing:-.015em; margin:52px 0 0; color:var(--ink); }
+  h2 em{ font-style:italic; color:var(--purple); }
+  .rule{ height:0; border:0; border-top:2px solid var(--gold); width:56px; border-radius:2px;
+    margin:12px 0 4px; opacity:.85; }
+  h3{ font-family:var(--display); font-weight:500; font-size:17px; margin:20px 0 4px; color:var(--ink); }
+  p{ margin:12px 0; }
+  .lede-p{ font-size:17px; color:var(--ink-soft); }
 
-  ol.steps{ counter-reset:s; list-style:none; padding:0; margin:16px 0 0; }
-  ol.steps li{ position:relative; padding:10px 0 10px 44px; border-top:1px solid var(--line); }
+  /* ---------- the four slides ---------- */
+  .cards{ display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin-top:18px; }
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:16px;
+    box-shadow:var(--shadow); padding:16px 18px; }
+  .card .tag{ display:inline-block; font-size:11px; font-weight:600; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--purple); }
+  .card h3{ margin:4px 0 5px; color:var(--ink); font-style:italic; }
+  .card p{ margin:0; font-size:14.5px; color:var(--ink-soft); }
+  .caption{ margin-top:14px; color:var(--muted); font-size:14.5px; }
+
+  /* ---------- how to use it (numbered steps) ---------- */
+  ol.steps{ counter-reset:s; list-style:none; padding:0; margin:18px 0 0; }
+  ol.steps li{ position:relative; padding:12px 0 12px 46px; border-top:1px solid var(--line); }
   ol.steps li:first-child{ border-top:0; }
-  ol.steps li::before{ counter-increment:s; content:counter(s); position:absolute; left:0; top:9px; width:28px; height:28px; border-radius:50%; background:var(--purple); color:#fff; font-weight:700; font-size:14px; display:flex; align-items:center; justify-content:center; }
+  ol.steps li::before{ counter-increment:s; content:counter(s); position:absolute; left:0; top:10px;
+    width:28px; height:28px; border-radius:50%; background:var(--purple); color:#fff;
+    font-family:var(--display); font-weight:500; font-size:14px;
+    display:flex; align-items:center; justify-content:center; }
+  ol.steps strong{ color:var(--ink); font-weight:600; }
 
-  /* Colour-tinted callouts (distinct from plain white .card) keep their tint but adopt the
-     same rounded/shadowed depth language as cards for a consistent playful feel. */
-  .panel{ background:var(--purple-soft); border:1.5px solid #e4d9ea; border-radius:20px; box-shadow:0 10px 30px rgba(60,40,90,.12); padding:18px 20px; margin-top:16px; }
+  /* ---------- tinted callout panels (translucent white so paper shows through) ---------- */
+  .panel{ background:var(--panel); border:1px solid var(--line); border-top:2px solid var(--purple);
+    border-radius:12px; box-shadow:var(--shadow); padding:18px 20px; margin-top:16px; }
   .panel h3{ margin-top:0; color:var(--purple); }
   ul.tight{ margin:8px 0 0; padding-left:18px; }
   ul.tight li{ margin:6px 0; }
   .succes{ margin:12px 0 0; padding:0; list-style:none; }
-  .succes li{ padding:8px 0; border-top:1px dashed #dccfe3; }
+  .succes li{ padding:8px 0; border-top:1px dashed var(--line-strong); }
   .succes li:first-child{ border-top:0; }
   .succes b{ color:var(--purple); }
 
-  .note{ display:flex; gap:12px; align-items:flex-start; background:var(--gold-soft); border:1.5px solid #e8dcc0; border-radius:20px; box-shadow:0 10px 30px rgba(60,40,90,.12); padding:16px 18px; margin-top:16px; }
-  .note .ic{ font-size:20px; line-height:1.2; }
-  .note p{ margin:0; font-size:14.5px; }
-  .note strong{ color:#6b551f; }
+  /* privacy note — warm gold wash */
+  .note{ display:flex; gap:12px; align-items:flex-start;
+    background:color-mix(in srgb, var(--gold) 12%, var(--panel));
+    border:1px solid color-mix(in srgb, var(--gold) 42%, var(--line));
+    border-radius:12px; box-shadow:var(--shadow); padding:16px 18px; margin-top:16px; }
+  .note .ic{ font-size:20px; line-height:1.2; color:var(--purple); }
+  .note p{ margin:0; font-size:14.5px; color:var(--ink-soft); }
+  .note strong{ color:var(--ink); }
 
-  footer{ margin-top:52px; padding-top:20px; border-top:1px solid var(--line); color:var(--muted); font-size:13px; }
-  footer .brand{ font-weight:700; color:var(--purple); }
+  footer{ margin-top:56px; padding-top:22px; border-top:1px solid var(--line);
+    color:var(--muted); font-size:13px; line-height:1.6; }
+  footer .brand{ font-family:var(--display); font-weight:500; font-style:italic; color:var(--purple); }
 
   @media (max-width:640px){
-    header.hero h1{ font-size:27px; }
+    .hero h1{ font-size:32px; }
     .cards{ grid-template-columns:1fr; }
   }
-
-  @media (prefers-reduced-motion: reduce) { * { animation-duration: .001ms !important; transition-duration: .001ms !important; } }
+  @media (prefers-reduced-motion: reduce){ *{ animation-duration:.001ms !important; transition-duration:.001ms !important; } }
 </style>
 </head>
 <body>
-  <header class="hero">
-    <div class="wrap">
-      <p class="eyebrow">Wesley College · Digital Learning &amp; Practice</p>
-      <h1>Springboard — how it works</h1>
-      <p>Turn any stimulus — an image, a short video, or an article — into a ready-to-run, five-minute lesson launch for any subject and year level, exported as an editable Wesley PowerPoint.</p>
-      <a class="back" href="index.html">&larr; Back to Springboard</a>
-    </div>
+  <header class="mast">
+    <a class="word" href="index.html">Spring<i>board</i></a>
+    <a class="back" href="index.html">&larr; Back to Springboard</a>
   </header>
 
   <main class="wrap">
 
-    <h2><span class="num">·</span>What it's for</h2>
-    <hr class="rule" />
-    <p class="lede">Springboard removes the prep friction from starting a lesson well. You bring a spark — a picture, a clip, a news article — and in about two minutes you walk away with four editable slides that get students thinking hard from the very first minute. It works across the whole school, from Prep to VCE, and every deck comes out in the Wesley brand.</p>
+    <section class="hero">
+      <p class="kicker">Wesley College · Digital Learning &amp; Practice</p>
+      <h1>How <em>Springboard</em> works</h1>
+      <p class="lede">Turn any stimulus — an image, a short video, or an article — into a ready-to-run, five-minute lesson launch for any subject and year level, exported as an editable Wesley PowerPoint.</p>
+      <a class="back-pill" href="index.html">&larr; Back to Springboard</a>
+    </section>
 
-    <h2><span class="num">·</span>The four slides</h2>
+    <h2>What it's <em>for</em></h2>
+    <hr class="rule" />
+    <p class="lede-p">Springboard removes the prep friction from starting a lesson well. You bring a spark — a picture, a clip, a news article — and in about two minutes you walk away with four editable slides that get students thinking hard from the very first minute. It works across the whole school, from Prep to VCE, and every deck comes out in the Wesley brand.</p>
+
+    <h2>The four <em>slides</em></h2>
     <hr class="rule" />
     <div class="cards">
       <div class="card"><span class="tag">Slide 1</span><h3>Ignite</h3><p>A bold provocation built from your stimulus — a big question and the image itself — to hook attention in the first minute.</p></div>
@@ -105,9 +161,9 @@
       <div class="card"><span class="tag">Slide 3</span><h3>Launch</h3><p>The bridge into today's actual lesson and its curriculum focus, so the thinking connects to what you're teaching.</p></div>
       <div class="card"><span class="tag">Slide 4</span><h3>Reflect</h3><p>A short revisit at the end of the lesson, using "I used to think… now I think…" style prompts (optional).</p></div>
     </div>
-    <p style="margin-top:12px;color:var(--muted);font-size:14.5px;">Every field is editable in the live preview, any single slide can be regenerated on its own, and teacher notes (facilitation, timing, differentiation, curriculum links, extensions) travel in the PowerPoint's Notes pane.</p>
+    <p class="caption">Every field is editable in the live preview, any single slide can be regenerated on its own, and teacher notes (facilitation, timing, differentiation, curriculum links, extensions) travel in the PowerPoint's Notes pane.</p>
 
-    <h2><span class="num">·</span>How to use it</h2>
+    <h2>How to <em>use it</em></h2>
     <hr class="rule" />
     <ol class="steps">
       <li><strong>Set the class.</strong> Choose the curriculum, subject and year level. (For VCE Year 11 or 12, the Subject box becomes a dropdown of the 50 VCE studies — see below.)</li>
@@ -117,7 +173,7 @@
       <li><strong>Download.</strong> Save the editable Wesley PowerPoint and drop it straight into your lesson.</li>
     </ol>
 
-    <h2><span class="num">·</span>The thinking behind the lessons</h2>
+    <h2>The thinking <em>behind</em> the lessons</h2>
     <hr class="rule" />
     <p>Springboard doesn't just paraphrase your stimulus. Behind the scenes it writes every lesson against a small set of well-evidenced teaching ideas, so the output is designed to teach, not just to fill slides.</p>
 
@@ -149,7 +205,7 @@
       <p>The language and depth adapt to the band — concrete and inquiry-led for younger students, analytical and real-world for the middle years, and critical, ethical and conceptual for senior students.</p>
     </div>
 
-    <h2><span class="num">·</span>How the AI part works (and your privacy)</h2>
+    <h2>How the AI part works <em>(and your privacy)</em></h2>
     <hr class="rule" />
     <p>Lessons are written by an AI model. The key that runs it lives on a secure Wesley backend, not in the app and not on your device — so you never enter a key, and nothing is stored on your computer. Your stimulus text or image is sent to the model only to generate the lesson.</p>
     <div class="note">
