@@ -1125,6 +1125,174 @@
   .bw-chamber .bx-alert { background: rgba(143,29,46,.25); border-color: rgba(240,184,196,.4); color: #f6c9d2; }
   @media (max-width: 720px) { .bw-label { max-width: 46vw; white-space: normal; } .bw-label-name { white-space: normal; } }
   @media (prefers-reduced-motion: reduce) { .bw-night { transition: opacity .4s; } .bw-label { transition: none; } }
+
+  /* ============================================================================
+     WATERCOLOUR WORLD (2026-07-23): Wesley ink-and-wash on paper. Replaces the
+     space/neon scene CSS above (left in place but unused; cleanup pass later).
+     ============================================================================ */
+  .ww { --paper: #F7F4EE; --paper-deep: #EFEAE0; --ink: #2B281F; --ink-soft: #4b473d;
+    --purple: #4F2759; --gold: #C59F40;
+    position: relative; min-height: 100vh; background: var(--paper);
+    font-family: "Graphik", "Segoe UI", system-ui, sans-serif; color: var(--ink); }
+  /* paper grain: same fractal-noise data URI trick as the mock */
+  .ww-grain { position: fixed; inset: 0; pointer-events: none; opacity: .5; z-index: 40;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 .43 0 0 0 0 .40 0 0 0 0 .34 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  .ww .bx-mast { position: fixed; inset: 0 0 auto 0; z-index: 30; }
+  .ww .bx-word { color: var(--purple); } .ww .bx-word i { color: var(--gold); }
+  .ww .bx-nav a, .ww .bx-tog { color: var(--ink); opacity: .78; }
+  .ww .bx-nav a:hover, .ww .bx-tog:hover { opacity: 1; }
+
+  /* ---------- cover ---------- */
+  .ww-cover { position: relative; min-height: 100vh; display: flex; flex-direction: column;
+    justify-content: center; padding: 96px clamp(24px, 5vw, 72px) 56px; overflow: hidden; }
+  .ww-cover-art { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+  /* the painting (video while it paints itself in, then the still): contain-fit, biased
+     right; multiply melts the white paper of the artwork into the page's own paper */
+  .ww-cover-art img, .ww-cover-art video { position: absolute; right: -6vw; top: 50%;
+    transform: translateY(-50%); height: min(88vh, 62vw); width: auto; max-width: 88vw;
+    mix-blend-mode: multiply;
+    /* feather the artwork's rectangle away: its scanned-paper white is a touch cooler than
+       the page's paper, and multiply alone leaves a visible seam at the frame edge */
+    -webkit-mask-image: radial-gradient(74% 70% at 52% 50%, #000 52%, transparent 76%);
+            mask-image: radial-gradient(74% 70% at 52% 50%, #000 52%, transparent 76%); }
+  .ww-cover-art video { transition: opacity .9s ease; }
+  .ww-cover-art video.done { opacity: 0; }
+  .ww-cover-copy { position: relative; z-index: 1; max-width: 640px; }
+  .ww-kicker { font-size: 12.5px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--purple); margin-bottom: 22px; }
+  .ww-cover h1 { font-family: "Avenir Black", "Avenir", "Graphik", "Segoe UI", system-ui, sans-serif;
+    font-size: clamp(38px, 5vw, 70px); line-height: 1.04; letter-spacing: -.02em; font-weight: 800;
+    color: var(--gold); text-wrap: balance; margin: 0; }
+  .ww-cover h1 .pu { color: var(--purple); }
+  .ww-sub { margin: 26px 0 0; font-size: clamp(15px, 1.35vw, 17.5px); line-height: 1.6;
+    max-width: 44ch; color: var(--ink-soft); }
+  .ww-enter { margin-top: 38px; display: inline-flex; align-items: center; gap: 10px;
+    background: var(--purple); color: #fff; border: 0; border-radius: 999px;
+    font: 600 16px "Graphik", "Segoe UI", system-ui, sans-serif; padding: 15px 30px; cursor: pointer;
+    transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s; }
+  .ww-enter:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(79,39,89,.28); }
+  .ww-enter:focus-visible { outline: 3px solid var(--purple); outline-offset: 3px; }
+  .ww-credit { margin-top: 16px; font-size: 12.5px; color: #6f6a5d; } .ww-credit a { color: inherit; }
+  /* short windows (laptops with the browser chrome eating height): tighten the column so the
+     headline's first line never clips above the fold */
+  @media (max-height: 720px) {
+    .ww-cover { padding-top: clamp(64px, 9vh, 96px); }
+    .ww-cover h1 { font-size: clamp(32px, 4.1vw, 54px); }
+    .ww-sub { margin-top: 16px; }
+    .ww-enter { margin-top: 24px; }
+    .ww-credit { margin-top: 12px; }
+  }
+  /* sound toggle for the clip's score (autoplay must start muted) */
+  .ww-sound { position: absolute; right: clamp(24px, 4vw, 56px); bottom: 26px; z-index: 2;
+    background: none; border: 1px solid rgba(43,40,31,.3); border-radius: 999px; color: var(--ink-soft);
+    font: 500 12.5px "Graphik", "Segoe UI", system-ui, sans-serif; padding: 7px 14px; cursor: pointer; }
+  .ww-sound:hover { border-color: var(--ink); color: var(--ink); }
+
+  /* ---------- ink-wash scene transition (Enter, and the reverse) ---------- */
+  .ww-wash { position: fixed; inset: 0; z-index: 25; pointer-events: none; background: var(--paper-deep);
+    -webkit-mask-image: radial-gradient(circle at var(--wx, 50%) var(--wy, 50%), #000 0%, #000 30%, transparent 66%);
+            mask-image: radial-gradient(circle at var(--wx, 50%) var(--wy, 50%), #000 0%, #000 30%, transparent 66%);
+    -webkit-mask-size: 300% 300%; mask-size: 300% 300%;
+    -webkit-mask-position: center; mask-position: center;
+    transform: scale(0); opacity: 0; }
+  .ww-wash.on { animation: wwWashIn 1.1s cubic-bezier(.3,.1,.3,1) forwards; }
+  .ww-wash.tint { background: color-mix(in srgb, var(--wc, var(--gold)) 26%, var(--paper-deep)); }
+  @keyframes wwWashIn { 0% { transform: scale(.02); opacity: 0; } 18% { opacity: 1; } 100% { transform: scale(2.4); opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .ww-wash.on { animation: none; transform: scale(2.4); opacity: 1; } }
+
+  /* ---------- map ---------- */
+  .ww-map { position: fixed; inset: 0; overflow: hidden;
+    background: linear-gradient(180deg, var(--paper) 0%, var(--paper-deep) 100%); }
+  .ww-links { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1;
+    pointer-events: none; overflow: visible; }
+  .ww-links .cord { fill: none; stroke: rgba(43,40,31,.5); stroke-width: 1.7; stroke-linecap: round;
+    stroke-dasharray: 6 5; } /* hand-inked dashes; the wobble comes from the shared turbulence filter */
+  .ww-bloom { position: absolute; transform: translate(-50%, -50%); z-index: 1; pointer-events: none;
+    mix-blend-mode: multiply; transition: transform .45s cubic-bezier(.22,1,.36,1), filter .45s ease;
+    animation: wwBreath 12s ease-in-out infinite alternate; }
+  .ww-bloom.hot { transform: translate(-50%, -50%) scale(1.14); filter: saturate(1.25) brightness(1.02); }
+  .ww-bloom.hub-hot { transform: translate(-50%, -50%) scale(1.1); filter: saturate(1.3); }
+  @keyframes wwBreath { from { transform: translate(-50%, -50%) scale(1); } to { transform: translate(-50%, -50%) scale(1.04); } }
+  @media (prefers-reduced-motion: reduce) { .ww-bloom { animation: none; transition: none; } }
+  .ww-label { position: absolute; transform: translate(-50%, -50%); z-index: 2;
+    display: inline-flex; align-items: center; gap: 9px;
+    background: rgba(255,255,255,.85); border: 1px solid rgba(43,40,31,.16);
+    border-radius: 999px; padding: 8px 16px; font: 500 13.5px "Graphik", "Segoe UI", system-ui, sans-serif;
+    color: var(--ink); cursor: pointer; white-space: nowrap;
+    box-shadow: 0 2px 10px rgba(43,40,31,.07);
+    transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s; }
+  .ww-label:hover { transform: translate(-50%, -50%) translateY(-2px); box-shadow: 0 8px 22px rgba(43,40,31,.16); }
+  .ww-label:focus-visible { outline: 3px solid var(--purple); outline-offset: 2px; }
+  .ww-label i { width: 9px; height: 9px; border-radius: 50%; background: var(--dot);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--dot) 20%, transparent); }
+  .ww-title { position: absolute; transform: translate(-50%, -50%); z-index: 2; text-align: center;
+    pointer-events: none; margin: 0; }
+  .ww-title .k { display: block; font-size: 11.5px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: var(--gold); }
+  .ww-title .n { display: block; font-size: clamp(24px, 2.4vw, 34px); font-weight: 600; letter-spacing: -.015em; color: var(--purple); margin-top: 5px; }
+  .ww-pulse-dot { pointer-events: none; opacity: 0; } /* driven by the pulse engine, ink-droplet style */
+  .ww-listbtn { position: absolute; right: 26px; bottom: 22px; z-index: 2;
+    background: none; border: 1px solid rgba(43,40,31,.3); border-radius: 999px; color: var(--ink-soft);
+    font: 500 13px "Graphik", "Segoe UI", system-ui, sans-serif; padding: 8px 16px; cursor: pointer; }
+  .ww-listbtn:hover { border-color: var(--ink); color: var(--ink); }
+
+  /* ---------- chamber (inside a thinking move) — light paper theme ---------- */
+  .ww-chamber { position: fixed; inset: 0; z-index: 2; overflow: auto; animation: wwChamberIn .5s ease both;
+    background: var(--paper); }
+  @keyframes wwChamberIn { from { opacity: 0; } to { opacity: 1; } }
+  .ww-chamber.out { animation: wwChamberOut .4s ease forwards; }
+  @keyframes wwChamberOut { from { opacity: 1; } to { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .ww-chamber { animation: none; } .ww-chamber.out { animation: none; opacity: 0; } }
+  .ww-chamber-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+  .ww-chamber-bg img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+    mix-blend-mode: multiply; opacity: 0; transition: opacity .8s ease; }
+  .ww-chamber-bg img.ready { opacity: .85; }
+  /* per-move colour: a huge soft wash bloom behind the panels (works with or without wc-chamber.png) */
+  .ww-chamber-bg .tintwash { position: absolute; inset: -10%;
+    background: radial-gradient(52% 46% at 50% 30%, color-mix(in srgb, var(--mv, #C59F40) 26%, transparent) 0%, transparent 70%),
+                radial-gradient(70% 60% at 82% 88%, color-mix(in srgb, var(--mv, #C59F40) 14%, transparent) 0%, transparent 72%);
+    animation: wwTintBreath 9s ease-in-out infinite alternate; }
+  @keyframes wwTintBreath { from { opacity: .75; transform: scale(1); } to { opacity: 1; transform: scale(1.05); } }
+  @media (prefers-reduced-motion: reduce) { .ww-chamber-bg .tintwash { animation: none; } }
+  .ww-chamber .bx-tool { position: relative; z-index: 1; padding-top: 92px; min-height: 100%; }
+  .ww-chamber .bx-tool-head { display: block; }
+  .ww-chamber .bx-tool-head .bx-back { display: block; margin-bottom: 14px; font-size: 13px;
+    color: var(--ink-soft); border: 0; background: none; cursor: pointer; padding: 0; }
+  .ww-chamber .bx-tool-head .bx-back:hover { color: var(--ink); }
+  .ww-chamber .bx-tool-head h2 { color: var(--bwt, var(--purple)); }
+  .ww-chamber .bx-tool-sub { color: var(--ink-soft); max-width: 62ch; }
+  .ww-chamber .bx-panel { border-top: 2px solid var(--bwt, var(--ink));
+    background: rgba(255,255,255,.72); border-radius: 10px; padding: 18px 18px 22px;
+    box-shadow: 0 3px 14px rgba(43,40,31,.06); }
+  .ww-chamber .bx-btn.mv { background: var(--purple); color: #fff; } /* purple = the only interactive voice */
+  .ww-chamber .bx-alert { background: #FDAFBD33; border-color: #8F1D2E55; color: #8F1D2E; }
+
+  /* ---------- ink fades: scenes swap on the same paper ---------- */
+  .ww-cover { transition: opacity .55s ease; }
+  .ww-cover.fading { opacity: 0; }
+  .ww-map.entering { animation: wwFadeIn .6s ease both; }
+  .ww-map.fading { opacity: 0; transition: opacity .5s ease; }
+  @keyframes wwFadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) {
+    .ww-cover, .ww-map.fading { transition: none; }
+    .ww-map.entering { animation: none; }
+  }
+  /* bloom sizing (the map composes them at place()-set positions); the circular feather
+     melts each sliced grid-cell's own paper square into the page */
+  .ww-bloom { width: clamp(96px, 11.5vw, 168px); height: auto;
+    -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 50%, transparent 72%);
+            mask-image: radial-gradient(circle at 50% 50%, #000 50%, transparent 72%); }
+  .ww-bloom--hub { width: clamp(120px, 14vw, 205px); }
+  /* "See as a list" overlay, re-grounded on paper (the old night styling died with the theme) */
+  .ww .bw-list { position: fixed; inset: 0; z-index: 50; background: rgba(247,244,238,.96);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 60px 20px; overflow: auto; }
+  .ww .bw-list-close { position: absolute; top: 18px; right: 24px; font-size: 30px; background: none; border: 0; cursor: pointer; color: var(--ink); }
+  .ww .bw-list-row { display: grid; grid-template-columns: 14px minmax(180px, 240px) 1fr; gap: 14px; align-items: center;
+    width: min(760px, 94vw); text-align: left; background: rgba(255,255,255,.85); border: 1px solid rgba(43,40,31,.14);
+    border-radius: 12px; padding: 12px 18px; cursor: pointer; font-family: inherit; }
+  .ww .bw-list-row:hover { border-color: var(--purple); }
+  .ww .bw-list-row i { width: 10px; height: 10px; border-radius: 50%; background: var(--bwt, var(--ink)); }
+  .ww .bw-list-row b { color: var(--ink); font-size: 14.5px; }
+  .ww .bw-list-row span { color: var(--ink-soft); font-size: 13px; }
 </style>
 
 <script type="text/babel" data-presets="react-classic">
@@ -2628,83 +2796,48 @@ const bxColor = (name) => BX_COLOR[name] || "#17171b";
 
 // North-star art (sandbox): AI-generated brain-journey images/clip, loaded from a
 // git-ignored local folder. PRE-MERGE: must be committed/hosted before this ships to main.
+// Watercolour theme (2026-07-23 rebuild, approved by Nathan): Wesley ink-and-wash on paper.
+// The space/neon assets are retired; see docs/superpowers/2026-07-23-watercolour-rebuild-plan.md
 const BX_ASSETS = {
-  base: "docs/superpowers/inspiration/2026-07-21-brain-journey/north-star/",
-  cover: "cover.png",        // 2752x1536 (still; a slow CSS drift makes it breathe — the old
-                             // cover-living.mp4 loop was really a bake of the dive flight, so
-                             // looping it left the cover mid-zoom/tunnel at any given moment)
-  tunnel: "tunnel-dive.mp4", // full-viewport dive flight played on Enter; frame 0 matches
-                             // cover.png's framing exactly, so the still -> video handoff is a match-cut
-  inside: "inside.png",      // 2752x1536 (H3 hyper-real neurons)
-  chamber: "chamber.png",
-  interior: "neuron-interior.png" // inside-a-giant-neuron backdrop for the chamber (may not exist yet -> onError falls back to chamber.png)
+  base: "docs/superpowers/inspiration/2026-07-23-watercolour/",
+  cover: "wc-cover.png",          // approved blue ink-wash brain on warm white, 2752x1536
+  coverPaint: "wc-cover-paint.mp4", // Seedance paint-in (mirrored + warmed, muted); crossfades to the still
+  coverMusic: "wc-cover-music.m4a", // the clip's calm score — optional, behind a sound toggle (autoplay must stay muted)
+  chamber: "wc-chamber.png",      // soft grey-cream wash, tinted per move (may not exist yet -> CSS wash fallback)
+  bloom: (name) => "bloom-" + name + ".png" // 683px watercolour blooms, multiply-blended onto the paper
 };
-const BX_AR = { cover: 2752 / 1536, inside: 2752 / 1536 }; // image aspect ratios
+const BX_AR = { cover: 2752 / 1536 }; // cover art aspect ratio
 
-// Inside view (H3 hyper-real neurons): each move is anchored to its colour-matched
-// neuron's CELL BODY (fx/fy) and its label sits OFFSET into nearby dark space (lx/ly),
-// joined by a connector line (see the place() effect + .bw-links SVG). All four are
-// fractions of the SOURCE image (0..1), not the viewport; keys match MOVES[].name
-// exactly. fx/fy also drive the pulsing glow, the connector's neuron-end dot, and the
-// move-select zoom origin (computeMoveOrigin) so the camera dives INTO the cell body.
-// Calibrated at 1440x900 / 1280x720; bxImagePoint replays the same cover-fit math the
-// .bx-stage-media CSS does, turning any fraction into stage px.
-// `c` = signed curvature of the hover signal-pulse path (quadratic Bézier, neuron -> hub):
-// the control point sits at the segment midpoint, offset perpendicular by c * segment-length.
-// Positive c bows toward the (-dy, dx) side of the neuron->hub vector (90° CW on screen,
-// where +y is down). Tuned in the browser against inside.png so each path hugs that neuron's
-// drawn axon as closely as a single quadratic allows (see the pulse-path maths in place()).
-// `via` = waypoints ([fx, fy] image fractions) traced along the DRAWN axon cord from that
-// neuron to the hub (read off inside.png against a 10% grid) — the pulse path is a smooth
-// Catmull-Rom curve through soma -> via... -> hub, so the dots ride the visible cable
-// instead of a single approximate bow (the old `c` quadratic, kept as a fallback).
+// Map of Understanding, watercolour edition: positions are VIEWPORT fractions (0..1 of the
+// map stage), not artwork coordinates — the scene is composed in code (paper + bloom PNGs +
+// code-drawn ink cords), so there is no photo to calibrate against and nothing can drift.
+// bx/by = bloom centre · lx/ly = label pill centre · bloom = which bloom-*.png · dark = the
+// AA-checked ink used for the label dot/pulses (Wesley harmony darks, substituted where the
+// brand dark fails contrast). `c` = signed curvature of the cord's lazy hand-drawn bow
+// (control point = midpoint pushed perpendicular by c * segment length; +c bows toward
+// (-dy, dx), 90° clockwise of the bloom->hub direction, +y down).
 const IMG_MOVE_POS = {
-  // via = waypoints RIDGE-TRACED from inside.png's drawn cables (canvas brightness-following,
-  // soma -> hub), not eyeballed — the pulse path is a Catmull-Rom through soma -> via -> hub
-  "Capture the Heart & Form Conclusions": { fx: 0.128, fy: 0.224, lx: 0.205, ly: 0.352, c: 0.08,   // crimson red — top-left
-    via: [[0.243, 0.304], [0.3187, 0.3697], [0.4011, 0.4006], [0.4616, 0.4505]] },
-  "Uncovering Complexity":                { fx: 0.345, fy: 0.161, lx: 0.345, ly: 0.298, c: -0.08,  // royal purple — top-centre-left
-    via: [[0.4095, 0.2738], [0.455, 0.3227], [0.479, 0.3659], [0.4955, 0.4175]] },
-  "Reason with Evidence":                 { fx: 0.618, fy: 0.184, lx: 0.610, ly: 0.322, c: -0.12,  // warm gold — top-centre-right
-    via: [[0.5564, 0.2718], [0.5432, 0.3269], [0.5319, 0.3832], [0.5255, 0.4109]] },
-  "Wondering":                            { fx: 0.860, fy: 0.211, lx: 0.845, ly: 0.352, c: -0.18,  // sky blue — top-right
-    via: [[0.7519, 0.322], [0.6913, 0.373], [0.6171, 0.4565], [0.5683, 0.4894]] },
-  "Build Explanations":                   { fx: 0.143, fy: 0.784, lx: 0.170, ly: 0.650, c: -0.16,  // leaf green — lower-left
-    via: [[0.2492, 0.6675], [0.323, 0.5945], [0.4009, 0.541], [0.4671, 0.5173]] },
-  "Consider Different Viewpoints":        { fx: 0.383, fy: 0.820, lx: 0.383, ly: 0.678, c: 0.08,   // bright yellow — bottom-centre-left
-    via: [[0.4371, 0.6907], [0.4608, 0.6465], [0.4779, 0.595], [0.4832, 0.5308]] },
-  "Make Connections":                     { fx: 0.658, fy: 0.802, lx: 0.668, ly: 0.662, c: 0.10,   // orange — bottom-centre-right
-    via: [[0.6006, 0.6778], [0.5782, 0.6337], [0.5634, 0.5784], [0.5381, 0.5387]] },
-  "Describe What's There":                { fx: 0.895, fy: 0.739, lx: 0.862, ly: 0.605, c: -0.10,  // muted violet-grey — mid/bottom-right
-    via: [[0.775, 0.6838], [0.6986, 0.6241], [0.6243, 0.5551], [0.5557, 0.5372]] },
+  "Capture the Heart & Form Conclusions": { bx: 0.155, by: 0.20, lx: 0.155, ly: 0.335, bloom: "red",        dark: "#8F1D2E", c: 0.10 },
+  "Uncovering Complexity":                { bx: 0.365, by: 0.15, lx: 0.365, ly: 0.285, bloom: "purple",     dark: "#4F2759", c: -0.08 },
+  "Reason with Evidence":                 { bx: 0.635, by: 0.16, lx: 0.635, ly: 0.295, bloom: "olive",      dark: "#4f523f", c: 0.08 },
+  "Wondering":                            { bx: 0.845, by: 0.22, lx: 0.845, ly: 0.355, bloom: "blue",       dark: "#2b3f8f", c: -0.10 },
+  "Build Explanations":                   { bx: 0.150, by: 0.78, lx: 0.150, ly: 0.645, bloom: "green",      dark: "#3f5c38", c: -0.10 },
+  "Consider Different Viewpoints":        { bx: 0.385, by: 0.86, lx: 0.385, ly: 0.725, bloom: "yellow",     dark: "#7A5012", c: 0.08 },
+  "Make Connections":                     { bx: 0.625, by: 0.85, lx: 0.625, ly: 0.715, bloom: "orange",     dark: "#8A4B12", c: -0.08 },
+  "Describe What's There":                { bx: 0.850, by: 0.76, lx: 0.850, ly: 0.625, bloom: "periwinkle", dark: "#4242A1", c: 0.10 },
 };
 // The central PALE/UNLIT neuron every other neuron's axon runs into (see inside.png — it's
-// already drawn as the artwork's hub, wired to all eight). Same fx/fy fraction convention as
-// IMG_MOVE_POS, read with the same bxImagePoint helper. Calibrated by eye against the source
-// artwork (docs/superpowers/inspiration/2026-07-21-brain-journey/north-star/inside.png), not
-// a live render — re-check visually if inside.png is ever swapped. Feeds the hover signal-
-// pulse endpoint (neuron -> here) and the hub's own faint "receiving" glow.
-const BX_CENTER = { fx: 0.512, fy: 0.48 }; // hub soma's bright core (re-read off the artwork grid — 0.505 sat a touch left of it)
-// Anchor for the centre "Thinking Moves" title lockup: same x as the hub, lifted into the
-// dark pocket just above the hub neuron's soma (clears the breathing hub glow AND the
-// "Uncovering Complexity" / "Reason with Evidence" label pills either side). Tuned visually.
-const BX_TITLE = { fx: 0.512, fy: 0.375 }; // same x as BX_CENTER so the lockup is centred ON the hub, not on the viewport
-// Cover-fit an image of aspect `ar` into the stage, then return the px position of the
-// image-space fraction (fx, fy). Mirrors object-fit:cover + centred translate exactly.
-function bxImagePoint(stage, fx, fy, ar) {
-  const w = stage.clientWidth, h = stage.clientHeight;
-  const scale = Math.max(w / ar, h);          // cover-fit: rendered image height
-  const iw = scale * ar, ih = scale;          // rendered image size
-  return { left: (w - iw) / 2 + fx * iw, top: (h - ih) / 2 + fy * ih };
+// Hub (gold bloom) and title lockup — same viewport-fraction convention as IMG_MOVE_POS.
+const BX_CENTER = { bx: 0.5, by: 0.52 };  // the gold hub bloom every cord runs into
+const BX_TITLE = { bx: 0.5, by: 0.295 };  // "Thinking Moves" lockup: above the hub, clear of the top blooms AND the masthead
+// Viewport-fraction -> stage px (the whole map is composed in code, no artwork mapping).
+function bxStagePoint(stage, bx, by) {
+  return { left: bx * stage.clientWidth, top: by * stage.clientHeight };
 }
 
-// Night-world text tint: move colour lifted toward white for AA on #101017.
-const BW_TINT = Object.fromEntries(Object.entries(BX_COLOR).map(([k, v]) => {
-  const c = parseInt(v.slice(1), 16), r = c >> 16, g = (c >> 8) & 255, b = c & 255;
-  const L = (x) => Math.round(x + (255 - x) * 0.45);
-  return [k, "rgb(" + L(r) + "," + L(g) + "," + L(b) + ")"];
-}));
-const bwTint = (name) => BW_TINT[name] || "#e6e6ee";
+// Paper-world text tint: the move's AA-safe DARK ink (headings on the light chamber, label
+// dots, pulse droplets). The old night-world lift-to-white is gone with the dark theme.
+const bwTint = (name) => (IMG_MOVE_POS[name] && IMG_MOVE_POS[name].dark) || "#2B281F";
 // Move colour as an rgba() at alpha `a` (e.g. the label pill's coloured border at 55%).
 const bxColorRGBA = (name, a) => {
   const c = parseInt((BX_COLOR[name] || "#ffffff").slice(1), 16);
@@ -2740,8 +2873,10 @@ function App() {
   const pulseDotEls = useRef([]);                     // per move: [3 <circle>s] reused round-robin for hover signal pulses
   const pulsePathEls = useRef([]);                    // per move: hidden Bézier <path> the pulses ride (never painted, pure geometry)
   const pulseGeomRef = useRef([]);                    // per move: {path, len} cached by place(); firePulse samples getPointAtLength
-  const neuronPosRef = useRef([]);                    // per move: {left, top} stage px of the cell body (cached by place() for the hover mask)
-  const brightenRef = useRef(null);                   // .bw-brighten artwork copy (hover mask centre set in startMoveHover)
+  const neuronPosRef = useRef([]);                    // (space-theme leftover, unused)
+  const brightenRef = useRef(null);                   // (space-theme leftover, unused)
+  const bloomEls = useRef([]);                        // per move: its watercolour bloom <img> (placed + hover-swelled)
+  const hubBloomRef = useRef(null);                   // the gold hub bloom at BX_CENTER
   const pulseSpawnerRef = useRef([]);                 // per move: setInterval id spawning pulses while hovered/focused
   const pulseTweensRef = useRef([]);                  // per move: in-flight GSAP pulse tweens (for clean kill)
   const centreGlowRef = useRef(null);                 // shared "receiving" glow at BX_CENTER, tinted to whichever move is signalling it
@@ -3546,23 +3681,22 @@ function App() {
     } finally { busyRef.current.exporting = false; setExporting(false); }
   }
 
-  /* ---------- Brain World: image/CSS scenes (sandbox, no 3D engine) ---------- */
+  /* ---------- Brain World: watercolour scenes (paper + ink fades, no engine) ---------- */
   useEffect(() => { sceneRef.current = bxScene; }, [bxScene]);
-  // Reset dive-tween leftovers (opacity 0, mid-zoom scale) the moment the cover MOUNTS, pre-
-  // paint — doing this in finishDive, while the outgoing cover was still on screen, flashed
-  // the full cover over the freshly arrived map for a frame.
-  useLayoutEffect(() => {
-    if (bxScene !== "cover" || typeof gsap === "undefined") return;
-    gsap.set(".bw-cover .bx-stage", { clearProps: "all" });
-    gsap.set(".bw-cover", { clearProps: "all" });
-  }, [bxScene]);
-  // Warm the transition-critical assets' HTTP cache while the teacher reads the cover: the
-  // flight clip (so the <video> mounted on Enter plays from disk instead of buffering — slow
-  // wifi -> stall -> safety skip) and the chamber's interior art (7.6MB; fetched on dive it
-  // used to arrive seconds after the chamber opened).
+  // Cover music: the paint clip's calm score, strictly opt-in (autoplay must stay muted).
+  const [musicOn, setMusicOn] = useState(false);
+  const musicRef = useRef(null);
+  const paintSeenRef = useRef(false); // the paint-in clip plays once per visit, not on every cover return
+  const toggleMusic = () => {
+    const a = musicRef.current; if (!a) return;
+    if (musicOn) { a.pause(); setMusicOn(false); }
+    else { const p = a.play(); if (p && p.catch) p.catch(() => {}); setMusicOn(true); }
+  };
+  // Warm the scene-critical art while the teacher reads the cover: the chamber wash and the
+  // nine blooms, so the map and every chamber arrive painted, not popping in.
   useEffect(() => {
-    fetch(BX_ASSETS.base + BX_ASSETS.tunnel).catch(() => {});
-    fetch(BX_ASSETS.base + BX_ASSETS.interior).catch(() => {});
+    fetch(BX_ASSETS.base + BX_ASSETS.chamber).catch(() => {});
+    ["gold", ...MOVES.map(m => IMG_MOVE_POS[m.name].bloom)].forEach(b => fetch(BX_ASSETS.base + BX_ASSETS.bloom(b)).catch(() => {}));
   }, []);
   useEffect(() => { // scene-based experience: the page never scrolls in brain view. Locks BOTH
     // <html> (via .bx-lock) and <body> so a scaled dive stage / mounting video can't briefly
@@ -3577,160 +3711,41 @@ function App() {
   const liveRef = useRef(null);
   const announce = (msg) => { if (liveRef.current) liveRef.current.textContent = msg; };
   const enterMind = () => diveToInside();
-  // Land on the resting inside scene and wipe every dive-time transform/timer so a later
-  // cover visit (and the label geometry) starts clean. Called on normal completion, on the
-  // tunnel's end-crossfade, on skip, and on the reduced-motion instant path.
+  // Watercolour scene changes (Nathan's call, 2026-07-23): NO dives, NO washes, NO videos —
+  // the paper never changes; the current scene's INK FADES AWAY and the next scene's ink
+  // fades in over the same ground. Plain timers + CSS opacity, nothing else.
   const finishDive = () => {
     clearTimeout(diveSafetyTimer.current);
-    if (typeof gsap !== "undefined") {
-      gsap.killTweensOf([".bw-cover", ".bw-cover .bx-stage", insideStageRef.current, bloomRef.current, tunnelVideoRef.current].filter(Boolean));
-      // DON'T clearProps the cover here: it's still mounted for a frame until React commits
-      // the scene change, and restoring its opacity flashed the whole cover over the freshly
-      // arrived map. It stays at opacity 0 and unmounts; the cover-mount effect below resets
-      // its leftover tween props pre-paint on the next visit instead.
-      if (insideStageRef.current) gsap.set(insideStageRef.current, { clearProps: "all" });
-      if (bloomRef.current) gsap.set(bloomRef.current, { clearProps: "all" });
-    }
-    diveTl.current = null;
-    setDiveMode(null);
     setBxScene("inside");
     announce("Inside the mind. Eight thinking moves around you.");
   };
   const diveToInside = () => {
-    if (prefersReducedMotion) { finishDive(); return; } // no dive animation, no video: instant switch
-    tunnelEnded.current = false;
-    setDiveMode("tunnel");    // optimistically try the flight; onError downgrades to "fallback"
-    setBxScene("transport");  // mounts the inside layer + tunnel video NOW — the timeline effect below picks them up
-  };
-  // Tunnel handoff (the match-cut that kills the old "flash/skip"): begin the inside's arrival
-  // ~0.8s before the clip ends (onTunnelTime), or on onEnded / the safety net. The inside
-  // decelerates from overscaled + dim to rest — a CONTINUATION of the rushing neurons — while
-  // the video crossfades out over it. The video keeps PLAYING through its fade and is never
-  // paused before it's invisible. No bloom on this path (that belongs to the fallback dive
-  // only). Guarded so timeupdate + onEnded + safety can only fire the arrival once.
-  const beginArrival = () => {
-    if (tunnelEnded.current) return;
-    tunnelEnded.current = true;
+    if (prefersReducedMotion) { finishDive(); return; } // instant switch
+    setBxScene("transport");  // cover ink fading out, map ink fading in (both mounted)
     clearTimeout(diveSafetyTimer.current);
-    if (typeof gsap === "undefined") { finishDive(); return; }
-    const v = tunnelVideoRef.current, insideStage = insideStageRef.current;
-    const tl = gsap.timeline({ onComplete: finishDive });
-    if (insideStage) tl.to(insideStage, { scale: 1, filter: "brightness(1)", duration: 0.9, ease: "power2.out" }, 0);
-    if (v) tl.to(v, { opacity: 0, duration: 0.5, ease: "power1.inOut" }, 0);      // fades while still playing
-    else if (!insideStage) tl.to({}, { duration: 0.1 });                          // never-empty timeline still resolves
-    diveTl.current = tl;
+    diveSafetyTimer.current = setTimeout(finishDive, 650);
   };
-  // Video clock: trip the arrival once the clip is within ~0.8s of its end (duration - current).
-  const onTunnelTime = (e) => {
-    const v = e.currentTarget;
-    if (v && v.duration && !isNaN(v.duration) && v.duration - v.currentTime <= 0.8) beginArrival();
-  };
-  // Esc / click-to-skip at any point in the dive: kill the timeline + every timer/tween and land
-  // straight on the resting inside scene. Killing the arrival timeline first stops its onComplete
-  // from also firing finishDive.
-  const skipDive = () => {
-    tunnelEnded.current = true; // block a late timeupdate/onEnded/safety from re-running the arrival
-    clearTimeout(diveSafetyTimer.current);
-    if (diveTl.current) { diveTl.current.kill(); diveTl.current = null; }
-    const v = tunnelVideoRef.current; if (v) { try { v.pause(); } catch (_) {} }
-    finishDive();
-  };
+  // Esc mid-fade: land straight on the map.
+  const skipDive = () => { clearTimeout(diveSafetyTimer.current); finishDive(); };
   skipDiveRef.current = skipDive;
-  // Builds the dive once "transport" has mounted the inside stage (and, in tunnel mode, the
-  // video). Runs after the DOM commit but before paint, so the inside artwork never flashes
-  // at its default full-scale/full-bright look before we pin it to the dive's starting point.
-  //   tunnel:   cover zooms as before; ~0.5s in the flight video fades over it and plays
-  //             through (~5s) while the cover fades out UNDER it and the inside rises to rest
-  //             beneath — onEnded/safety then crossfade the video out onto the resting inside.
-  //   fallback: the original match-dissolve (cover zoom + crossfade + inside rise + bloom).
-  useLayoutEffect(() => {
-    if (bxScene !== "transport") return;
-    if (typeof gsap === "undefined") { finishDive(); return; } // no engine -> don't strand on transport
-    const insideStage = insideStageRef.current;
-
-    if (diveMode === "fallback") {
-      // fallback starting point: small + dim, "already rising" the moment the plunge begins
-      if (insideStage) gsap.set(insideStage, { scale: 0.72, filter: "brightness(0.55)", transformOrigin: "50% 50%" });
-      // clean restart in case the tunnel path zoomed the cover a touch before erroring
-      gsap.set(".bw-cover .bx-stage", { scale: 1, clearProps: "transformOrigin" });
-      gsap.set(".bw-cover", { opacity: 1 });
-      const ZOOM = 1.7, CROSS = 0.5, CROSS_START = ZOOM - CROSS, RISE = 2.2, BLOOM_PEAK = CROSS_START + CROSS / 2;
-      const tl = gsap.timeline({ onComplete: finishDive });
-      tl.to(".bw-cover .bx-stage", { scale: 2.4, transformOrigin: "62% 45%", duration: ZOOM, ease: "power2.in" }, 0)
-        .to(".bw-cover", { opacity: 0, duration: CROSS, ease: "power1.in" }, CROSS_START);
-      if (insideStage) tl.to(insideStage, { scale: 1, filter: "brightness(1)", duration: RISE, ease: "power2.out" }, 0);
-      if (bloomRef.current) {
-        tl.fromTo(bloomRef.current, { opacity: 0 }, { opacity: 0.35, duration: 0.3, ease: "sine.out" }, BLOOM_PEAK - 0.3)
-          .to(bloomRef.current, { opacity: 0, duration: 0.3, ease: "sine.in" }, BLOOM_PEAK);
-      }
-      diveTl.current = tl;
-      return () => { tl.kill(); diveTl.current = null; };
-    }
-
-    // tunnel mode: the inside is HELD overscaled + dim beneath the opaque flight video (no early
-    // rise) so its arrival can be a continuation of the video's rushing neurons — beginArrival
-    // (tripped ~0.8s before the clip ends) runs the decelerating settle. Held under the video +
-    // the still-opaque cover, this overscaled inside is never visible before the handoff.
-    // held bright-ish (0.85, not 0.7): the reveal under the video fade must not read as a
-    // dim-then-brighten "fade out and back in" — the settle is a small lift, not a relight
-    if (insideStage) gsap.set(insideStage, { scale: 1.35, filter: "brightness(0.85)", transformOrigin: "50% 50%" });
-    const tl = gsap.timeline();
-    // The flight clip's frame 0 matches cover.png's framing (both contain-fit now), so the
-    // COVER DOES NOT MOVE AT ALL on Enter — the video fades in over the identical frame and
-    // its own baked-in motion is the entire zoom. Any cover push here races the clip and
-    // reads as a stutter. The clip runs at 1.45x (the full 5s flight dragged).
-    tl.to(".bw-cover", { opacity: 0, duration: 0.4, ease: "power1.in" }, 0.8); // fades UNDER the opaque video (unseen)
-    const v = tunnelVideoRef.current;
-    if (v) {
-      gsap.set(v, { opacity: 0 });
-      v.playbackRate = 1.45;
-      tl.to(v, { opacity: 1, duration: 0.25, ease: "power1.out" }, 0.1); // near-immediate: frame 0 == the still
-      const p = v.play && v.play(); if (p && p.catch) p.catch(() => {}); // muted autoplay; ignore rejects
-    }
-    diveTl.current = tl;
-    clearTimeout(diveSafetyTimer.current);
-    diveSafetyTimer.current = setTimeout(beginArrival, 4300); // backstop if timeupdate/onEnded never fire (~3.5s at 1.45x)
-    return () => { tl.kill(); diveTl.current = null; clearTimeout(diveSafetyTimer.current); };
-  }, [bxScene, diveMode]);
-  // Move select -> glide -> chamber. With the engine gone, plain timing runs the handoff:
-  // play the glide (the inside stage zooms INTO the chosen neuron, see the zoom effect below),
-  // then once the zoom lands cross to the chamber. Reduced motion: skip the glide and land on
-  // the chamber immediately. BX_ZOOM_MS mirrors the zoom's own duration (see the zoom effect)
-  // so the chamber crossfades in right as the zoom completes, not before/after it.
-  const BX_ZOOM_MS = 800; // chamber crosses in while the ~1.0s immersive zoom is still finishing (match-cut overlap)
-  // Same cover-fit math the labels use (bxImagePoint), turned into (a) a transform-origin
-  // css string for the GSAP zoom and (b) %ages for the move-bloom's radial-gradient centre.
-  // Reads insideStageRef's clientWidth/Height, which is transform-immune, so this stays
-  // correct even mid-animation or while the "See as a list" overlay is covering the artwork.
-  const computeMoveOrigin = (name) => {
-    const stage = insideStageRef.current, pos = IMG_MOVE_POS[name];
-    if (!stage || !pos) return { css: "50% 50%", xPct: "50%", yPct: "50%" };
-    const p = bxImagePoint(stage, pos.fx, pos.fy, BX_AR.inside);
-    const w = stage.clientWidth || 1, h = stage.clientHeight || 1;
-    return {
-      css: p.left.toFixed(1) + "px " + p.top.toFixed(1) + "px",
-      xPct: ((p.left / w) * 100).toFixed(1) + "%",
-      yPct: ((p.top / h) * 100).toFixed(1) + "%",
-      x: p.left, y: p.top, w, h, // raw px — the glide's centre-first pan needs the actual point
-    };
-  };
+  // Move select -> the map's ink fades while the chamber's fades in ("glide" = the overlap
+  // beat, both mounted), then the map unmounts. Reduced motion: instant switch.
+  const BX_FADE_MS = 550;
   const chooseMove = (name) => {
     pickMove(name);
     if (prefersReducedMotion) { setBxScene("chamber"); announce(name + ". Build the lesson here."); return; }
-    zoomOriginRef.current = computeMoveOrigin(name); // zoom targets THIS neuron, not the stage centre
     setGlideDir("in");
     setBxScene("glide");
     clearTimeout(glideTimer.current);
-    glideTimer.current = setTimeout(() => { setBxScene("chamber"); announce(name + ". Build the lesson here."); }, BX_ZOOM_MS);
+    glideTimer.current = setTimeout(() => { setBxScene("chamber"); announce(name + ". Build the lesson here."); }, BX_FADE_MS);
   };
   const leaveChamber = () => {
-    const wasMove = selectedMove; // keep selectedMove alive through the closing glide so the
-    if (prefersReducedMotion) { pickMove(""); setBxScene("inside"); return; } // chamber (still tinted/labelled by it) can fade out instead of popping
-    if (wasMove) zoomOriginRef.current = computeMoveOrigin(wasMove); // zoom back out from the same neuron
+    if (prefersReducedMotion) { pickMove(""); setBxScene("inside"); return; }
     setGlideDir("out");
-    setBxScene("glide"); // labels hidden for the ride home — nothing on screen can jump
+    setGlideDir("out");
+    setBxScene("glide"); // chamber ink fading out, map ink fading back in
     clearTimeout(glideTimer.current);
-    glideTimer.current = setTimeout(() => { pickMove(""); setBxScene("inside"); }, BX_ZOOM_MS);
+    glideTimer.current = setTimeout(() => { pickMove(""); setBxScene("inside"); }, BX_FADE_MS);
   };
   const leaveChamberRef = useRef(leaveChamber); leaveChamberRef.current = leaveChamber;
   useEffect(() => {
@@ -3753,104 +3768,49 @@ function App() {
     }, 80);
     if (bxScene === "chamber") setTimeout(() => { const b = document.querySelector(".bw-chamber .bx-back"); if (b) b.focus(); }, 80);
   }, [bxScene]);
-  // Anchor each move to its colour-matched neuron on inside.png: the pulsing glow + the
-  // connector's end-dot sit on the neuron's CELL BODY (fx/fy), while the label is offset into
-  // nearby dark space (lx/ly) and joined to the neuron by a thin connector line so it reads as
-  // "this label belongs to that neuron" without covering the cell body. Runs after layout
-  // (pre-paint, no flash) and on resize; the scene's own opacity transition handles show/hide,
-  // so we only compute geometry here.
+  // Compose the Map of Understanding: hub bloom, eight move blooms, their label pills, and
+  // the hand-inked cords bloom->hub. Everything is placed from viewport fractions (no source
+  // artwork), and each cord's <path> doubles as its move's pulse rail (pulseGeomRef), so the
+  // droplets ride EXACTLY the drawn line at any window size — nothing to calibrate, ever.
   useLayoutEffect(() => {
     if (bxScene !== "inside" && bxScene !== "chamber" && bxScene !== "glide") return;
     const stage = insideStageRef.current; if (!stage) return;
+    // a11y: only the resting inside scene exposes the labels — visibility (not just the
+    // scene fade) pulls them out of the Tab order while the chamber covers the map.
     const vis = bxScene === "inside" ? "visible" : "hidden";
     const place = () => {
-      // hub neuron (BX_CENTER): positions the shared "receiving" glow div + anchors every
-      // move's pulse path below, so hovering keeps streaming to the right spot through a resize.
-      const pC = bxImagePoint(stage, BX_CENTER.fx, BX_CENTER.fy, BX_AR.inside);
-      const cg = centreGlowRef.current;
-      if (cg) { cg.style.left = pC.left.toFixed(1) + "px"; cg.style.top = pC.top.toFixed(1) + "px"; }
-      // centre "Thinking Moves" lockup: pinned just above the hub soma (BX_TITLE), shown and
-      // hidden with the labels (same visibility toggle — it's an h2, keep it out of the
-      // accessibility tree while glide/chamber cover the scene).
+      const pC = bxStagePoint(stage, BX_CENTER.bx, BX_CENTER.by);
+      const hub = hubBloomRef.current;
+      if (hub) { hub.style.left = pC.left.toFixed(1) + "px"; hub.style.top = pC.top.toFixed(1) + "px"; }
       const title = centreTitleRef.current;
       if (title) {
-        const pT = bxImagePoint(stage, BX_TITLE.fx, BX_TITLE.fy, BX_AR.inside);
+        const pT = bxStagePoint(stage, BX_TITLE.bx, BX_TITLE.by);
         title.style.left = pT.left.toFixed(1) + "px";
         title.style.top = pT.top.toFixed(1) + "px";
         title.style.visibility = vis;
       }
       MOVES.forEach((m, i) => {
         const pos = IMG_MOVE_POS[m.name]; if (!pos) return;
-        const pN = bxImagePoint(stage, pos.fx, pos.fy, BX_AR.inside);          // neuron cell body
-        neuronPosRef.current[i] = pN;                                          // cached for the hover-brighten mask
-        const pL = bxImagePoint(stage, pos.lx, pos.ly, BX_AR.inside);          // label centre (dark pocket)
-        // hover signal-pulse path (neuron -> hub): quadratic Bézier whose control point is the
-        // segment midpoint pushed perpendicular by c * segment-length, so the pulse rides the
-        // artwork's gently curved axon rather than cutting straight across. The perp offset is
-        // (-dy, dx) * c — see the IMG_MOVE_POS comment for the sign convention. firePulse
-        // samples this path element live every frame, so a resize mid-flight just redraws the
-        // next frame on the fresh geometry, no restart needed.
-        const ppath = pulsePathEls.current[i];
-        if (ppath) {
-          let d;
-          if (pos.via && pos.via.length) {
-            // Catmull-Rom through soma -> traced waypoints -> hub, emitted as cubic Béziers:
-            // the dots ride the artwork's actual drawn cable, bends and all.
-            const pts = [pN, ...pos.via.map(v => bxImagePoint(stage, v[0], v[1], BX_AR.inside)), pC];
-            d = "M " + pts[0].left.toFixed(1) + " " + pts[0].top.toFixed(1);
-            for (let k = 0; k < pts.length - 1; k++) {
-              const p0 = pts[k - 1] || pts[k], p1 = pts[k], p2 = pts[k + 1], p3 = pts[k + 2] || p2;
-              const c1x = p1.left + (p2.left - p0.left) / 6, c1y = p1.top + (p2.top - p0.top) / 6;
-              const c2x = p2.left - (p3.left - p1.left) / 6, c2y = p2.top - (p3.top - p1.top) / 6;
-              d += " C " + c1x.toFixed(1) + " " + c1y.toFixed(1) + " " + c2x.toFixed(1) + " " + c2y.toFixed(1) +
-                   " " + p2.left.toFixed(1) + " " + p2.top.toFixed(1);
-            }
-          } else {
-            // fallback: the original single-bow quadratic (control point = midpoint pushed
-            // perpendicular by c * segment-length)
-            const dx = pC.left - pN.left, dy = pC.top - pN.top, ccurve = pos.c || 0;
-            const qx = pN.left + dx / 2 - dy * ccurve, qy = pN.top + dy / 2 + dx * ccurve;
-            d = "M " + pN.left.toFixed(1) + " " + pN.top.toFixed(1) +
-              " Q " + qx.toFixed(1) + " " + qy.toFixed(1) +
-              " " + pC.left.toFixed(1) + " " + pC.top.toFixed(1);
-          }
-          ppath.setAttribute("d", d);
-          pulseGeomRef.current[i] = { path: ppath, len: ppath.getTotalLength() };
-        }
+        const pN = bxStagePoint(stage, pos.bx, pos.by);   // bloom centre
+        const pL = bxStagePoint(stage, pos.lx, pos.ly);   // label pill centre
+        const bloom = bloomEls.current[i];
+        if (bloom) { bloom.style.left = pN.left.toFixed(1) + "px"; bloom.style.top = pN.top.toFixed(1) + "px"; }
         const el = labelEls.current[i];
         if (el) {
           el.style.left = pL.left.toFixed(1) + "px";
           el.style.top = pL.top.toFixed(1) + "px";
-          el.style.transform = "translate(-50%, -50%)";
-          // a11y: only the resting inside scene exposes the labels. During glide/chamber the
-          // layer is faded (opacity/parent), but opacity alone leaves the buttons Tab-reachable
-          // — visibility:hidden pulls the invisible labels out of the keyboard tab order, and
-          // it returns to visible the moment we settle back on inside.
           el.style.visibility = vis;
         }
-        const glow = glowEls.current[i];
-        if (glow) {
-          glow.style.left = pN.left.toFixed(1) + "px";
-          glow.style.top = pN.top.toFixed(1) + "px";
-          // inline centring is a reduced-motion fallback only — the running pulse animation
-          // (see .bw-glow's keyframes) overrides this transform every other frame.
-          glow.style.transform = "translate(-50%, -50%)";
-        }
-        // connector: line from the label pill's nearest edge to the neuron, dot at the neuron.
-        const line = linkLineEls.current[i], dot = linkDotEls.current[i];
-        if (line && el) {
-          const wl = (el.offsetWidth || 0) / 2 + 2, hl = (el.offsetHeight || 0) / 2 + 2;
-          const vx = pN.left - pL.left, vy = pN.top - pL.top; // label centre -> neuron
-          // parameter where the centre->neuron ray exits the label's box (clamped inside seg)
-          const t = Math.min(wl / (Math.abs(vx) || 1e6), hl / (Math.abs(vy) || 1e6), 1);
-          const ex = pL.left + vx * t, ey = pL.top + vy * t;  // point on the label edge
-          line.setAttribute("x1", ex.toFixed(1)); line.setAttribute("y1", ey.toFixed(1));
-          line.setAttribute("x2", pN.left.toFixed(1)); line.setAttribute("y2", pN.top.toFixed(1));
-          line.style.visibility = vis;
-        }
-        if (dot) {
-          dot.setAttribute("cx", pN.left.toFixed(1)); dot.setAttribute("cy", pN.top.toFixed(1));
-          dot.style.visibility = vis;
+        // the cord: one lazy hand-bowed quadratic from the bloom into the hub — VISIBLE ink
+        // (stroked, dashed, wobbled by the shared turbulence filter) and the pulse rail in one
+        const ppath = pulsePathEls.current[i];
+        if (ppath) {
+          const dx = pC.left - pN.left, dy = pC.top - pN.top, c = pos.c || 0;
+          const qx = pN.left + dx / 2 - dy * c, qy = pN.top + dy / 2 + dx * c;
+          ppath.setAttribute("d", "M " + pN.left.toFixed(1) + " " + pN.top.toFixed(1) +
+            " Q " + qx.toFixed(1) + " " + qy.toFixed(1) +
+            " " + pC.left.toFixed(1) + " " + pC.top.toFixed(1));
+          pulseGeomRef.current[i] = { path: ppath, len: ppath.getTotalLength() };
         }
       });
     };
@@ -3904,125 +3864,36 @@ function App() {
     firePulse(i, slot); slot = (slot + 1) % 3;
     pulseSpawnerRef.current[i] = setInterval(() => { firePulse(i, slot); slot = (slot + 1) % 3; }, PULSE_GAP_MS);
   };
-  // Stops every move's pulses/brighten + the hub glow in one go — called on scene changes away
-  // from "inside" and on unmount so nothing keeps animating once the scene isn't showing it.
+  // Stops every move's pulses + hover swells in one go — called on scene changes away from
+  // "inside" and on unmount so nothing keeps animating once the scene isn't showing it.
   const stopAllHoverPulses = () => {
     hoveredMovesRef.current.clear();
     MOVES.forEach((_, i) => stopPulses(i));
-    glowEls.current.forEach((g) => { if (g) g.classList.remove("bw-glow--hot"); });
-    const br = brightenRef.current; if (br) br.classList.remove("on");
-    const cg = centreGlowRef.current; if (cg) cg.classList.remove("on");
+    bloomEls.current.forEach((b) => { if (b) b.classList.remove("hot"); });
+    const hub = hubBloomRef.current; if (hub) hub.classList.remove("hub-hot");
   };
   useEffect(() => {
     if (bxScene !== "inside") stopAllHoverPulses();
     return stopAllHoverPulses; // scene change or unmount — always leave clean
   }, [bxScene]);
-  // Point the brighten layer's mask at move i's neuron and reveal it (the artwork's own pixels
-  // light up — see .bw-brighten). Stage px == element px (the media is sized 1:1 to the stage).
-  const aimBrighten = (i) => {
-    const br = brightenRef.current, np = neuronPosRef.current[i];
-    if (!br || !np) return;
-    br.style.setProperty("--bwx", np.left.toFixed(1) + "px");
-    br.style.setProperty("--bwy", np.top.toFixed(1) + "px");
-    br.classList.add("on");
-  };
+  // Hover/focus a move: its watercolour bloom swells and deepens (.hot), ink droplets stream
+  // down its cord into the hub, and the hub bloom answers with a small swell of its own.
   const startMoveHover = (i) => {
     hoveredMovesRef.current.add(i);
-    const glow = glowEls.current[i]; if (glow) glow.classList.add("bw-glow--hot"); // dims the painted disc away
-    aimBrighten(i); // the neuron itself brightens, always (even reduced motion — it's a static reveal there)
-    if (prefersReducedMotion) return; // no travelling pulses, no breathing hub — static brighten only
+    const bloom = bloomEls.current[i]; if (bloom) bloom.classList.add("hot"); // static swell, always (even reduced motion)
+    if (prefersReducedMotion) return; // no travelling droplets, no hub answer
     startPulses(i);
-    const cg = centreGlowRef.current;
-    if (cg) { cg.style.setProperty("--bwg", bxColor(MOVES[i].name)); cg.classList.add("on"); }
+    const hub = hubBloomRef.current; if (hub) hub.classList.add("hub-hot");
   };
   const endMoveHover = (i) => {
     hoveredMovesRef.current.delete(i);
-    const glow = glowEls.current[i]; if (glow) glow.classList.remove("bw-glow--hot");
+    const bloom = bloomEls.current[i]; if (bloom) bloom.classList.remove("hot");
     stopPulses(i); // harmless no-op under reduced motion (nothing was started)
-    const br = brightenRef.current;
-    if (br) {
-      if (hoveredMovesRef.current.size === 0) br.classList.remove("on");
-      else aimBrighten(hoveredMovesRef.current.values().next().value); // hand the mask to a still-active move
-    }
-    const cg = centreGlowRef.current; if (!cg) return;
-    if (hoveredMovesRef.current.size === 0) { cg.classList.remove("on"); return; }
-    // mouse + keyboard focus can target two different moves at once (tab to one, then hover
-    // another) — hand the hub glow's colour to a move that's still actually active rather than
-    // leaving it tinted to the one that just ended.
-    const stillIdx = hoveredMovesRef.current.values().next().value;
-    cg.style.setProperty("--bwg", bxColor(MOVES[stillIdx].name));
+    const hub = hubBloomRef.current;
+    if (hub && hoveredMovesRef.current.size === 0) hub.classList.remove("hub-hot");
   };
-  // Zoom into the neuron: on move select, the inside stage's transform-origin is pinned to
-  // the chosen neuron's pixel point (computeMoveOrigin, above) and GSAP scales it up so the
-  // camera reads as diving INTO that neuron, with a colour bloom (tinted to the move) at the
-  // crossover moment; the chamber then crossfades in on top once the zoom lands (BX_ZOOM_MS
-  // timeout in chooseMove). Leaving the chamber is the in-leg's mirror, not a repeat: zoom
-  // back down to resting scale from the same origin (same duration, power2.out easing —
-  // the reverse of the in-leg's power2.in) with NO bloom this time — the chamber's own
-  // opacity fade (see renderBrain's .bw-chamber, "glide" branch) is the only crossfade on
-  // the way out, overlapping the zoom so it reads as pulling back out of the neuron rather
-  // than fade-then-teleport. transformOrigin clears once settled so later dives/resizes
-  // start clean. Reduced motion: no zoom, no bloom — scene changes are instant (see
-  // chooseMove/leaveChamber's reduced-motion branches, which skip "glide" entirely).
-  useEffect(() => {
-    const stage = insideStageRef.current; if (!stage || typeof gsap === "undefined") return;
-    if (prefersReducedMotion) { gsap.set(stage, { scale: 1, clearProps: "transformOrigin" }); return; }
-    const ZOOM_S = 1.0, ZOOM_SCALE = 5.0; // immersive dive INTO the neuron, matching the cover plunge's depth
-    if (bxScene === "glide") {
-      const origin = (zoomOriginRef.current && zoomOriginRef.current.css) || "50% 50%";
-      gsap.set(stage, { transformOrigin: origin });
-      if (glideDir === "in") {
-        // Two beats, not one: first the chosen neuron GLIDES TO CENTRE STAGE (pan + gentle
-        // push), then the camera dives into it. Origin is pinned at the neuron, so scaling
-        // never moves it — only the x/y pan does — and the two tweens overlap 0.1s so the
-        // motion is one continuous gesture. The chamber crossfades in at BX_ZOOM_MS (0.8s),
-        // while the dive is still accelerating — the cut lands mid-motion, never on a freeze.
-        const o = zoomOriginRef.current || {};
-        const dx = (o.w != null) ? o.w / 2 - o.x : 0, dy = (o.h != null) ? o.h / 2 - o.y : 0;
-        // Pan and zoom share ONE power2.in curve: with the origin pinned at the neuron, the
-        // artwork's edge coverage grows exactly as fast as the pan spends it, so the frame
-        // never shows blank page even for edge neurons (a strict pan-first/zoom-later split
-        // exposed the artwork's edge at low scale — the film caught it). Lands dead-centre.
-        const tl = gsap.timeline();
-        tl.to(stage, { x: dx, y: dy, scale: ZOOM_SCALE, duration: 1.15, ease: "power2.in", overwrite: "auto" }, 0);
-        if (moveBloomRef.current) {
-          // brighter, longer bloom at the cut — the same "light swallows the frame" beat the
-          // cover flight lands on, so arriving inside reads as one continuous plunge
-          tl.fromTo(moveBloomRef.current, { opacity: 0 }, { opacity: 0.75, duration: 0.35, ease: "sine.out" }, 0.6)
-            .to(moveBloomRef.current, { opacity: 0, duration: 0.45, ease: "sine.in" }, 0.95);
-        }
-      } else {
-        // Return leg: no bloom (the coloured flash the "All moves" path used to fire on
-        // return) — just the mirrored pull-back: zoom down AND pan home from the centred
-        // point. See the .bw-inside render for why this is now actually visible: that layer
-        // no longer fades in from 0 on this leg, so the full tween plays on an already-
-        // opaque stage under the fading chamber.
-        gsap.to(stage, { scale: 1, x: 0, y: 0, duration: ZOOM_S, ease: "power2.out", overwrite: "auto" });
-      }
-    } else if (bxScene === "inside") {
-      // settle back to resting scale/position + wipe the pinned origin so a later move-select
-      // or the dive-to-inside timeline (which sets its own transformOrigin) starts clean.
-      gsap.to(stage, { scale: 1, x: 0, y: 0, duration: 0.5, ease: "power2.out", overwrite: "auto", clearProps: "transformOrigin" });
-    }
-    // chamber: leave the stage at ZOOM_SCALE, hidden (the whole .bw-inside layer fades to
-    // opacity 0) — the "glide"/dir "out" branch above reverses it from there once the tool closes.
-  }, [bxScene, glideDir]);
-  // Chamber arrival/return settle — same match-cut grammar as the tunnel handoff. On arrival the
-  // interior backdrop decelerates scale 1.25 -> 1 (0.9s) as it fades in over the still-zooming
-  // inside; leaving, it scales 1 -> 1.15 while fading out, mirroring the inside's 4.2 -> 1 pull-
-  // back. Only the backdrop stage scales — the tool panel (a sibling) stays crisp. useLayoutEffect
-  // so the 1.25 start is set pre-paint (no flash). Reduced motion: instant. Cleaned up on unmount.
-  useLayoutEffect(() => {
-    const stage = chamberStageRef.current;
-    if (!stage || typeof gsap === "undefined") return;
-    if (prefersReducedMotion) { gsap.set(stage, { scale: 1 }); return; }
-    if (bxScene === "chamber") {
-      gsap.fromTo(stage, { scale: 1.25 }, { scale: 1, duration: 0.9, ease: "power2.out", overwrite: "auto" });
-    } else if (bxScene === "glide" && glideDir === "out") {
-      gsap.to(stage, { scale: 1.15, duration: 0.4, ease: "power2.in", overwrite: "auto" });
-    }
-    return () => { gsap.killTweensOf(stage); };
-  }, [bxScene, glideDir]);
+  // (The GSAP camera-zoom and chamber-settle effects died with the space theme: watercolour
+  // scene changes are pure ink fades — see chooseMove/leaveChamber and the .ww-* CSS.)
 
   const scrollToId = (id) => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); };
   const onPickBrainMove = (name) => { pickMove(name); setTimeout(() => scrollToId("bx-tool"), 80); };
@@ -4150,9 +4021,8 @@ function App() {
   );
 
   const renderBrain = () => (
-    <div className={"bx" + (bxScene !== "cover" ? " bw-on-night" : "")} ref={brainRootRef}>
-      <div className="bx-grain" aria-hidden="true" />
-      <div className="bw-night" ref={nightRef} aria-hidden="true" />
+    <div className="ww" ref={brainRootRef}>
+      <div className="ww-grain" aria-hidden="true" />
       <span className="sr-only" aria-live="polite" ref={liveRef} />
       <header className="bx-mast">
         <div className="bx-word">Spring<i>board</i></div>
@@ -4163,139 +4033,96 @@ function App() {
       </header>
 
       {(bxScene === "cover" || bxScene === "transport") && (
-        <div className={"bw-scene bw-cover" + (bxScene === "transport" ? " bw-cover--diving" : "")}>
-          <div className="bx-stage" aria-hidden="true">
-            {/* ambient fill: blurred cover-cropped copy behind the contain-fit art, so wide
-                windows get glowing starfield in the side bands instead of black strips */}
-            <img className="bx-stage-media bw-cover-fill" src={BX_ASSETS.base + BX_ASSETS.cover} alt="" aria-hidden="true" />
-            <img className="bx-stage-media bw-cover-art" src={BX_ASSETS.base + BX_ASSETS.cover} alt="" />
-            <div className="bx-scrim-left" />
+        <section className={"ww-cover" + (bxScene === "transport" ? " fading" : "")}>
+          <div className="ww-cover-art" aria-hidden="true">
+            {/* the approved still is ALWAYS underneath; the paint-in clip plays over it once
+                per visit and dissolves away on its final frame (.done), so slow networks and
+                video failures simply show the finished painting */}
+            <img src={BX_ASSETS.base + BX_ASSETS.cover} alt="" />
+            {!prefersReducedMotion && !paintSeenRef.current && (
+              <video src={BX_ASSETS.base + BX_ASSETS.coverPaint} muted playsInline autoPlay preload="auto"
+                onEnded={(e) => { paintSeenRef.current = true; e.currentTarget.classList.add("done"); }}
+                onError={(e) => { paintSeenRef.current = true; e.currentTarget.classList.add("done"); }} />
+            )}
           </div>
-          <div className="bw-top">
-            <span className="bx-kicker">A thinking tool for Wesley teachers</span>
-            <h1>Start with the <em>thinking</em>, not the topic.</h1>
-            <p className="bw-sub">Pick one of eight thinking moves from the Map of Understanding, add a photograph, a film or an article, and Springboard builds a lesson that moves your class beyond remembering into understanding.</p>
+          <div className="ww-cover-copy">
+            <div className="ww-kicker">A thinking tool for Wesley teachers</div>
+            <h1>Start with the <span className="pu">thinking</span>, not the topic.</h1>
+            <p className="ww-sub">Pick one of eight thinking moves from the Map of Understanding, add a photograph, a film or an article, and Springboard builds a lesson that moves your class beyond remembering into understanding.</p>
+            <button className="ww-enter" autoFocus onClick={enterMind}>Enter the mind →</button>
+            <p className="ww-credit">Eight thinking moves · Cultures of Thinking · <a href="https://pz.harvard.edu/thinking-routines" target="_blank" rel="noopener">Harvard Project Zero</a> · build 19</p>
           </div>
-          <div className="bw-bottom">
-            <button className="bw-enter" autoFocus onClick={enterMind}>Enter the mind →</button>
-            <p className="bw-sub bw-credit" style={{ fontSize: 12.5, opacity: .8, marginTop: 14 }}>Eight thinking moves · Cultures of Thinking · <a href="https://pz.harvard.edu/thinking-routines" target="_blank" rel="noopener">Harvard Project Zero</a> · build 18</p>
-          </div>
-        </div>
+          {/* the paint clip's calm score, off by default (autoplay must stay muted) */}
+          <audio ref={musicRef} src={BX_ASSETS.base + BX_ASSETS.coverMusic} loop preload="none" />
+          <button className="ww-sound" onClick={toggleMusic} aria-pressed={musicOn}>
+            {musicOn ? "Sound off" : "Sound on"}
+          </button>
+        </section>
       )}
 
-      {/* Sits on top of .bw-cover (same stacking layer, later in DOM) while the dive plays:
-          catches every click so mid-dive taps skip instead of hitting "Enter the mind" again. */}
-      {bxScene === "transport" && (
-        <button className="bw-scene" style={{ background: "none", border: 0, cursor: "default" }} aria-label="Skip the flight"
-          onClick={() => skipDive()} />
-      )}
-      {/* Tunnel-dive flight: full-viewport video above the cover, below the masthead. Fades in
-          ~0.5s after Enter and plays through while the inside scene rises beneath it (see the
-          transport timeline). onError -> "fallback" swaps in the old match-dissolve dive so a
-          missing/half-rendered mp4 never breaks the app. pointer-events none so the skip
-          button underneath still catches clicks. */}
-      {bxScene === "transport" && diveMode === "tunnel" && !prefersReducedMotion && (
-        <video className="bw-tunnel" ref={tunnelVideoRef} aria-hidden="true"
-          src={BX_ASSETS.base + BX_ASSETS.tunnel} muted playsInline preload="auto"
-          onTimeUpdate={onTunnelTime} onEnded={beginArrival}
-          onError={() => { if (sceneRef.current === "transport") setDiveMode("fallback"); }} />
-      )}
-      {/* Light bloom (not black) at the dive's crossfade moment — see the timeline effect. */}
-      {bxScene === "transport" && <div className="bw-dive-bloom" ref={bloomRef} aria-hidden="true" />}
-
-      {(bxScene === "inside" || bxScene === "chamber" || bxScene === "glide" || bxScene === "transport") && (
-        // Visible through inside/glide/transport (the artwork carries the ride — fading this
-        // layer out would leave a dead black screen); only the chamber scene fades the whole
-        // layer away under the chamber's own fade-in. During transport it mounts UNDER the
-        // still-visible cover (zIndex 1 < the cover's 2) so the dive is a genuine crossfade,
-        // not a pop — see diveToInside/the dive-timeline effect for how it rises into view.
-        <div className={"bw-inside" + ((bxScene === "glide" || bxScene === "transport") ? " bw-inside--glide" : "")}
-          // chamber: this layer STAYS fully opaque under the chamber's own fade-in. Fading both
-          // at once dipped the screen to near-black mid-crossfade ("zooms in, disappears, then
-          // appears inside"). The chamber is a full-viewport opaque scene, so once its fade-in
-          // lands this layer is simply covered — same grammar as the tunnel handoff.
-          style={bxScene === "chamber" ? { pointerEvents: "none", opacity: 1, transition: "none" }
-            : bxScene === "glide" ? (glideDir === "out"
-                // Return leg: snap straight to visible, no fade-in. At this instant the
-                // chamber (still opaque) is fully covering it anyway, so the flip is unseen —
-                // but it means the GSAP zoom-out (see the effect above) plays on an already-
-                // opaque layer for its full duration, instead of racing a .4s opacity ramp
-                // and losing its fast/early motion to near-invisibility. Only the chamber's
-                // own fade-out (below) uncovers it, mirroring the in-leg where this layer
-                // never fades and the chamber isn't rendered at all during the zoom.
-                ? { pointerEvents: "none", opacity: 1, transition: "none" }
-                : { pointerEvents: "none", opacity: 1, transition: prefersReducedMotion ? "none" : "opacity .4s" })
-            : bxScene === "transport" ? { pointerEvents: "none", opacity: 1, zIndex: 1 }
-            : { opacity: 1, transition: prefersReducedMotion ? "none" : "opacity .4s" }}>
-          {/* Neuron artwork backdrop: cover-fit still, no video. Sits under the move labels
-              (same absolute layer, earlier in the DOM). bxImagePoint reads this stage's box
-              to anchor each label to its colour-matched neuron. */}
-          <div className="bx-stage bx-stage--inside" aria-hidden="true" ref={insideStageRef}>
-            <img className="bx-stage-media" src={BX_ASSETS.base + BX_ASSETS.inside} alt="" />
-            <div className="bx-inside-scrim" />
-            {/* hover brighten layer: same artwork, brightness-boosted, masked to the hovered
-                neuron (mask centre set by startMoveHover) — "the neuron itself lights up" */}
-            <img className="bx-stage-media bw-brighten" src={BX_ASSETS.base + BX_ASSETS.inside} alt="" ref={brightenRef} />
-          </div>
-          {/* one pulsing colour glow per move, sitting on its neuron's cell body (see
-              .bw-glow) — rendered before the labels so it sits behind them (z-index 1 < 2). */}
-          {MOVES.map((m, i) => (
-            <div key={m.name} ref={el => { glowEls.current[i] = el; }} className="bw-glow" aria-hidden="true"
-              style={{ "--bwg": bxColor(m.name), animationDelay: (i * 0.44) + "s" }} />
-          ))}
-          {/* central hub neuron's faint "receiving" glow — one shared node, off until a move is
-              hovered/focused (startMoveHover adds .on + tints --bwg to that move's colour). */}
-          <div ref={centreGlowRef} className="bw-centre-glow" aria-hidden="true" />
-          {/* connector overlay: one thin line from each label's nearest edge to its neuron,
-              with a colour dot at the neuron end (endpoints computed in the place() effect).
-              Non-interactive + aria-hidden; sits under the labels and fades with them. Also
-              carries each move's hidden pulse path (the curved axon the hover dots ride —
-              geometry only, never painted) + its 3 signal-pulse dots (idle/off, see firePulse). */}
-          <svg className="bw-links" aria-hidden="true" preserveAspectRatio="none">
+      {(bxScene === "transport" || bxScene === "inside" || bxScene === "glide") && (
+        // The map: paper stays put; only its INK fades. transport / glide-out = fading in
+        // under (or behind) the outgoing scene; glide-in = fading away beneath the chamber.
+        <div className={"ww-map" + ((bxScene === "transport" || (bxScene === "glide" && glideDir === "out")) ? " entering"
+              : (bxScene === "glide" && glideDir === "in") ? " fading" : "")}
+          ref={insideStageRef}>
+          {/* hand-inked cords, bloom -> hub: each <path> is BOTH the visible ink line and its
+              move's pulse rail (same element feeds pulseGeomRef), so the droplets can never
+              leave the drawn line. The turbulence filter gives the ink its hand wobble. */}
+          <svg className="ww-links" aria-hidden="true" preserveAspectRatio="none">
+            <defs>
+              <filter id="wwWobble" x="-10%" y="-10%" width="120%" height="120%">
+                <feTurbulence type="fractalNoise" baseFrequency="0.013" numOctaves="2" seed="3" result="n" />
+                <feDisplacementMap in="SourceGraphic" in2="n" scale="7" />
+              </filter>
+            </defs>
+            <g filter="url(#wwWobble)">
+              {MOVES.map((m, i) => (
+                <path key={m.name} className="cord" ref={el => { pulsePathEls.current[i] = el; }} />
+              ))}
+            </g>
             {MOVES.map((m, i) => (
               <React.Fragment key={m.name}>
-                <line ref={el => { linkLineEls.current[i] = el; }} />
-                <circle ref={el => { linkDotEls.current[i] = el; }} r="3" fill={bxColor(m.name)} />
-                <path ref={el => { pulsePathEls.current[i] = el; }} fill="none" stroke="none" />
                 {[0, 1, 2].map((slot) => (
-                  <circle key={slot} r="4" fill={bxColor(m.name)} className="bw-pulse-dot"
-                    style={{ filter: "drop-shadow(0 0 3px " + bxColor(m.name) + ") drop-shadow(0 0 7px " + bxColor(m.name) + ")" }}
+                  <circle key={slot} r="4.5" fill={bwTint(m.name)} className="ww-pulse-dot"
                     ref={el => { (pulseDotEls.current[i] || (pulseDotEls.current[i] = []))[slot] = el; }} />
                 ))}
               </React.Fragment>
             ))}
           </svg>
-          {/* Centre title lockup naming the map — a real h2 (this scene's only heading; the
-              cover's h1 is unmounted here) but purely presentational to the pointer. Positioned
-              at BX_TITLE + shown/hidden with the labels by place(); fades during glide via CSS. */}
-          <h2 ref={centreTitleRef} className="bw-centre-title">
-            <span className="bw-centre-kicker">The Map of Understanding</span>
-            <span className="bw-centre-name">Thinking Moves</span>
+          {/* the gold hub bloom every cord runs into */}
+          <img className="ww-bloom ww-bloom--hub" ref={hubBloomRef} aria-hidden="true"
+            src={BX_ASSETS.base + BX_ASSETS.bloom("gold")} alt="" />
+          {/* eight watercolour move-blooms (multiply melts their white paper into ours) */}
+          {MOVES.map((m, i) => (
+            <img key={m.name} className="ww-bloom" ref={el => { bloomEls.current[i] = el; }} aria-hidden="true"
+              src={BX_ASSETS.base + BX_ASSETS.bloom(IMG_MOVE_POS[m.name].bloom)} alt=""
+              style={{ animationDelay: (i * 0.6) + "s" }} />
+          ))}
+          {/* the map's nameplate — a real h2 (this scene's only heading) */}
+          <h2 ref={centreTitleRef} className="ww-title">
+            <span className="k">The Map of Understanding</span>
+            <span className="n">Thinking Moves</span>
           </h2>
           {MOVES.map((m, i) => (
-            <button key={m.name} ref={el => { labelEls.current[i] = el; }} className="bw-label"
-              style={{ "--bwt": bwTint(m.name), "--bwc": bxColor(m.name), "--bwbd": bxColorRGBA(m.name, 0.55) }}
+            <button key={m.name} ref={el => { labelEls.current[i] = el; }} className="ww-label"
+              style={{ "--dot": bwTint(m.name) }}
               onClick={() => chooseMove(m.name)}
               onMouseEnter={() => startMoveHover(i)} onMouseLeave={() => endMoveHover(i)}
-              // :focus-visible gate: the return-from-chamber focus restore (programmatic, after a
-              // mouse click) must not stream pulses as if the teacher were hovering — only real
-              // keyboard focus (Tab/Esc journeys) reads as intent to look at this move.
+              // :focus-visible gate: the return-from-chamber focus restore (programmatic, after
+              // a mouse click) must not stream droplets — only real keyboard focus reads as
+              // intent to look at this move.
               onFocus={(e) => { try { if (e.target.matches(":focus-visible")) startMoveHover(i); } catch (_) { startMoveHover(i); } }}
               onBlur={() => endMoveHover(i)}>
-              <i className="bw-label-dot" aria-hidden="true" />
-              <span className="bw-label-name">{m.name}</span>
+              <i aria-hidden="true" />
+              <span>{m.name}</span>
             </button>
           ))}
-          {/* mounted through glide too so it fades with the labels instead of popping out */}
-          {(bxScene === "inside" || bxScene === "glide") && <button className="bw-listbtn" onClick={() => setListOpen(true)}>See as a list</button>}
+          {(bxScene === "inside" || bxScene === "glide") && <button className="ww-listbtn" onClick={() => setListOpen(true)}>See as a list</button>}
           {listOpen && bxScene === "inside" && (
             <div className="bw-list" role="dialog" aria-modal="true" aria-label="The eight thinking moves">
               <button className="bw-list-close" aria-label="Close list" onClick={() => setListOpen(false)}>×</button>
               {MOVES.map((m) => (
-                // chooseMove (called here too) computes the zoom origin from IMG_MOVE_POS,
-                // which only reads the artwork stage's own box — unaffected by this overlay
-                // sitting on top of it — so picking from the list still zooms from the
-                // correct neuron, not a centre-origin fallback.
                 <button key={m.name} className="bw-list-row" style={{ "--bwt": bwTint(m.name) }} onClick={() => { setListOpen(false); chooseMove(m.name); }}>
                   <i /><b>{m.name}</b><span>{m.question}</span>
                 </button>
@@ -4305,49 +4132,24 @@ function App() {
         </div>
       )}
 
-      {/* Colour bloom at the neuron-zoom's crossover moment (see the zoom effect) — tinted
-          to the selected move and centred on the neuron itself. */}
-      {bxScene === "glide" && (
-        <div className="bw-move-bloom" ref={moveBloomRef} aria-hidden="true"
-          style={{ "--move-colour": bxColor(selectedMove), "--bxbx": zoomOriginRef.current.xPct, "--bxby": zoomOriginRef.current.yPct }} />
-      )}
-
-      {(bxScene === "chamber" || (bxScene === "glide" && glideDir === "out")) && selectedMoveObj && (
-        // chamber.png backdrop under a dim veil, with a halo ring in the chosen move's colour
-        // (--move-colour) glowing behind the tool panel. The tool is lifted above the backdrop.
-        // Stays mounted (not fading to a pop) through the closing glide so "All moves" reverses
-        // the zoom-in crossfade instead of just vanishing; selectedMove is only cleared once
-        // leaveChamber's timeout lands back on "inside" (see leaveChamber). The glide branch
-        // swaps in bwChamberOut (see its CSS, above) in place of the entrance animation, so
-        // the fade-out actually plays instead of silently no-op'ing against the held-open
-        // entrance animation.
-        <div className={"bw-chamber" + (interiorOk ? " bw-chamber--interior" : "")} style={{
-            "--bwt": bwTint(selectedMove), "--move-colour": bxColor(selectedMove),
-            ...(bxScene === "glide" ? { pointerEvents: "none", animation: prefersReducedMotion ? "none" : "bwChamberOut .4s ease forwards" } : null),
-          }}>
-          <div className="bx-stage bx-stage--chamber" aria-hidden="true" ref={chamberStageRef}>
-            {interiorOk ? (
-              // Inside the giant neuron: interior art tinted to the move, with a vignette + dim
-              // halo ring. If neuron-interior.png isn't there yet, onError drops to chamber.png.
-              <React.Fragment>
-                <img className="bx-stage-media bx-interior-art" src={BX_ASSETS.base + BX_ASSETS.interior} alt=""
-                  // fade the art in when its pixels actually arrive (a 7.6MB png fetched on dive
-                  // used to POP in over the black chamber); the ref covers the already-cached case
-                  // where onLoad can beat the handler attach.
-                  ref={(el) => { if (el && el.complete && el.naturalWidth) el.classList.add("ready"); }}
-                  onLoad={(e) => e.currentTarget.classList.add("ready")}
-                  onError={() => setInteriorOk(false)} />
-                <div className="bx-interior-tint" style={{ background: bxColor(selectedMove) }} />
-                <div className="bx-interior-vignette" />
-                <div className="bx-ring bx-ring--interior" />
-              </React.Fragment>
-            ) : (
-              <React.Fragment>
-                <img className="bx-stage-media" src={BX_ASSETS.base + BX_ASSETS.chamber} alt="" />
-                <div className="bx-chamber-veil" />
-                <div className="bx-ring" />
-              </React.Fragment>
+      {(bxScene === "chamber" || bxScene === "glide") && selectedMoveObj && (
+        // Inside a thinking move: light paper chamber. Mounting during glide-in plays the
+        // fade-in animation over the fading map; glide-out swaps in the .out fade so "All
+        // moves" reverses the ink instead of popping. selectedMove clears once leaveChamber's
+        // timeout lands back on "inside".
+        <div className={"ww-chamber" + ((bxScene === "glide" && glideDir === "out") ? " out" : "")}
+          style={{ "--bwt": bwTint(selectedMove), "--mv": bxColor(selectedMove),
+            ...(bxScene === "glide" ? { pointerEvents: "none" } : null) }}>
+          <div className="ww-chamber-bg" aria-hidden="true">
+            {interiorOk && (
+              // soft watercolour wash field (wc-chamber.png); fades in when loaded, and the
+              // tintwash beneath carries the move's colour with or without it
+              <img src={BX_ASSETS.base + BX_ASSETS.chamber} alt=""
+                ref={(el) => { if (el && el.complete && el.naturalWidth) el.classList.add("ready"); }}
+                onLoad={(e) => e.currentTarget.classList.add("ready")}
+                onError={() => setInteriorOk(false)} />
             )}
+            <div className="tintwash" />
           </div>
           {renderBrainTool()}
         </div>
