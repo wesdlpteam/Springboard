@@ -774,10 +774,9 @@
   /* soft page vignette for depth (the grain now lives in the paper texture itself) */
   .ww-grain { position: fixed; inset: 0; pointer-events: none; z-index: 40;
     background: radial-gradient(120% 100% at 50% 44%, transparent 60%, rgba(43,40,31,.05) 100%); }
-  /* transparent masthead — no cream bar; the paper texture and art show straight through.
-     A whisper of paper only at the very top keeps the wordmark/nav crisp over busy art. */
-  .ww .bx-mast { position: fixed; inset: 0 0 auto 0; z-index: 30;
-    background: linear-gradient(to bottom, rgba(244,239,230,.55), transparent); }
+  /* fully transparent masthead — no cream bar at all; the paper + art show straight through.
+     Legibility comes from a faint paper halo on the text itself, not a background band. */
+  .ww .bx-mast { position: fixed; inset: 0 0 auto 0; z-index: 30; background: transparent; }
   /* hand-painted wordmark: Fraunces, "Spring" roman ink-purple + "board" flowing italic gold,
      with a tapered gold brush-stroke underline (inline SVG) so it reads as painted, not typed */
   .ww .bx-word { position: relative; font-family: var(--bx-display); font-weight: 500;
@@ -791,7 +790,8 @@
     .ww .bx-word::after { transform: scaleX(0); transform-origin: left center; animation: wwInk .9s cubic-bezier(.5,0,.2,1) .3s both; }
     @keyframes wwInk { to { transform: scaleX(1); } }
   }
-  .ww .bx-nav a, .ww .bx-tog { color: var(--ink); opacity: .78; }
+  .ww .bx-nav a, .ww .bx-tog { color: var(--ink); opacity: .78;
+    text-shadow: 0 0 9px rgba(247,244,238,.95), 0 0 4px rgba(247,244,238,.95); }
   .ww .bx-nav a:hover, .ww .bx-tog:hover { opacity: 1; }
 
   /* ---------- cover ---------- */
@@ -818,7 +818,7 @@
      line), softly covering the text column and fading to clear before the brain. Sits above
      the art, below the copy. */
   .ww-cover::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
-    background: linear-gradient(90deg, var(--paper) 0%, var(--paper) 20%, rgba(244,239,230,0) 44%); }
+    background: linear-gradient(90deg, var(--paper) 0%, var(--paper) 34%, rgba(244,239,230,0) 64%); }
   .ww-cover-copy { position: relative; z-index: 2; max-width: 620px; }
   .ww-kicker { font-size: clamp(11px, 1.2vw, 12.5px); font-weight: 600; letter-spacing: .18em; text-transform: uppercase;
     color: var(--purple); margin-bottom: 20px; }
@@ -1130,7 +1130,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.8.6 · 2026-07-23";
+const APP_VERSION = "v0.8.7 · 2026-07-23";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
