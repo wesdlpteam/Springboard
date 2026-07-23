@@ -581,6 +581,8 @@
   var a = document.getElementById('sb-music'); if(!a) return;
   var KEY = 'sb_music_t';
   a.volume = 0;
+  // persisted mute preference (set by the header mute button) — apply before first play
+  try{ if(localStorage.getItem('sb_music_muted') === '1') a.muted = true; }catch(_){}
   var raf, started = false;
   function restore(){
     var t = parseFloat(sessionStorage.getItem(KEY) || '');
@@ -685,6 +687,16 @@
   .bx-mast .bx-nav a:hover, .bx-mast .bx-nav button:hover { color: var(--ink); }
   .bx-mast .bx-nav .on { color: var(--ink); }
   .bx-tog { border: 1px solid var(--line-strong); border-radius: 999px; padding: 5px 12px; }
+  /* mute-music toggle: icon button that lives in the masthead nav on every scene */
+  .bx-mute { align-self: center; display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 8px; }
+  .bx-mute svg { width: 20px; height: 20px; display: block; }
+  .bx-mute .spk { fill: currentColor; }
+  .bx-mute .waves path, .bx-mute .slash { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
+  .bx-mute .slash { display: none; }
+  .bx-mute.is-muted .waves { display: none; }
+  .bx-mute.is-muted .slash { display: inline; }
+  .bx-mute:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
 
   /* a single named kicker — masthead voice, used once, not a per-section eyebrow */
   .bx-kicker { font-size: 11.5px; letter-spacing: .28em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
@@ -867,9 +879,11 @@
     .ww .bx-word::after { transform: scaleX(0); transform-origin: left center; animation: wwInk .9s cubic-bezier(.5,0,.2,1) .3s both; }
     @keyframes wwInk { to { transform: scaleX(1); } }
   }
-  .ww .bx-nav a, .ww .bx-tog { color: var(--ink); opacity: .78;
+  .ww .bx-nav a, .ww .bx-tog, .ww .bx-mute { color: var(--ink); opacity: .78;
     text-shadow: 0 0 9px rgba(247,244,238,.95), 0 0 4px rgba(247,244,238,.95); }
-  .ww .bx-nav a:hover, .ww .bx-tog:hover { opacity: 1; }
+  .ww .bx-nav a:hover, .ww .bx-tog:hover, .ww .bx-mute:hover { opacity: 1; }
+  /* text-shadow doesn't reach the SVG, so give the icon the same paper halo via drop-shadow */
+  .ww .bx-mute svg { filter: drop-shadow(0 0 4px rgba(247,244,238,.95)) drop-shadow(0 0 2px rgba(247,244,238,.95)); }
   /* About reads in the same painted Fraunces as the wordmark (Nathan's call) */
   .ww .bx-nav a { font-family: var(--bx-display); font-weight: 500; font-size: 15px; letter-spacing: -.01em; }
 
@@ -1240,7 +1254,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.14 · 2026-07-24";
+const APP_VERSION = "v0.9.15 · 2026-07-24";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -3547,6 +3561,17 @@ function App() {
   useEffect(() => { sceneRef.current = bxScene; }, [bxScene]);
   const paintSeenRef = useRef(false); // the paint-in clip plays once per visit; on return the still (its last frame) shows
   const [paintFailed, setPaintFailed] = useState(false); // cover video errored -> reveal the still fallback
+  // mute-music toggle — reflects/sets #sb-music.muted and remembers the choice across pages
+  const [musicMuted, setMusicMuted] = useState(() => { try { return localStorage.getItem("sb_music_muted") === "1"; } catch (_) { return false; } });
+  const toggleMusic = () => {
+    setMusicMuted(prev => {
+      const next = !prev;
+      const a = document.getElementById("sb-music");
+      if (a) a.muted = next;                 // clicking is itself a gesture, so this also lets a blocked track start (silently)
+      try { localStorage.setItem("sb_music_muted", next ? "1" : "0"); } catch (_) {}
+      return next;
+    });
+  };
   // Soundtrack now lives in the standalone #sb-music script in <body> (it must start BEFORE this
   // in-browser React boot so the music resumes instantly on return from About). This ref is left
   // deliberately UNATTACHED, so the effect below early-returns and does nothing — kept only to
@@ -3951,6 +3976,15 @@ function App() {
       <header className="bx-mast">
         <button type="button" className="bx-word" onClick={goHome} aria-label="Springboard — back to the start" title="Back to the start">Spring<i>board</i></button>
         <nav className="bx-nav">
+          <button type="button" className={"bx-mute" + (musicMuted ? " is-muted" : "")} onClick={toggleMusic}
+            aria-pressed={musicMuted} aria-label={musicMuted ? "Unmute music" : "Mute music"}
+            title={musicMuted ? "Unmute music" : "Mute music"}>
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path className="spk" d="M4 9.5v5h3.2L12 18.5V5.5L7.2 9.5H4z" />
+              <g className="waves"><path d="M15 9.2a4 4 0 0 1 0 5.6" /><path d="M17.4 7a7.2 7.2 0 0 1 0 10" /></g>
+              <path className="slash" d="M15.5 9.5l5 5M20.5 9.5l-5 5" />
+            </svg>
+          </button>
           <a href="about.html" onClick={fadeToAbout}>About</a>
         </nav>
       </header>

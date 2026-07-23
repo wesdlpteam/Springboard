@@ -65,6 +65,18 @@
   .mast .back{ font-size:13px; font-weight:500; color:var(--ink); opacity:.8; text-decoration:none;
     white-space:nowrap; }
   .mast .back:hover{ opacity:1; text-decoration:underline; text-underline-offset:3px; }
+  .mast-right{ display:flex; align-items:center; gap:14px; }
+  /* mute-music toggle — matches the home page's masthead control */
+  .bx-mute{ display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px;
+    padding:0; border:0; background:none; cursor:pointer; border-radius:8px; color:var(--ink); opacity:.8; }
+  .bx-mute:hover{ opacity:1; }
+  .bx-mute svg{ width:20px; height:20px; display:block; }
+  .bx-mute .spk{ fill:currentColor; }
+  .bx-mute .waves path, .bx-mute .slash{ fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; }
+  .bx-mute .slash{ display:none; }
+  .bx-mute.is-muted .waves{ display:none; }
+  .bx-mute.is-muted .slash{ display:inline; }
+  .bx-mute:focus-visible{ outline:2px solid var(--purple); outline-offset:3px; }
 
   /* ---------- hero ---------- */
   .hero{ padding:34px 0 8px; }
@@ -147,7 +159,16 @@
   <div class="page-veil" aria-hidden="true"></div>
   <header class="mast">
     <a class="word" href="index.html">Spring<i>board</i></a>
-    <a class="back" href="index.html">&larr; Back to Springboard</a>
+    <div class="mast-right">
+      <button type="button" id="sb-mute" class="bx-mute" aria-pressed="false" aria-label="Mute music" title="Mute music">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path class="spk" d="M4 9.5v5h3.2L12 18.5V5.5L7.2 9.5H4z" />
+          <g class="waves"><path d="M15 9.2a4 4 0 0 1 0 5.6" /><path d="M17.4 7a7.2 7.2 0 0 1 0 10" /></g>
+          <path class="slash" d="M15.5 9.5l5 5M20.5 9.5l-5 5" />
+        </svg>
+      </button>
+      <a class="back" href="index.html">&larr; Back to Springboard</a>
+    </div>
   </header>
 
   <main class="wrap">
@@ -269,6 +290,24 @@
     var a = document.getElementById('sb-music'); if(!a) return;
     var KEY = 'sb_music_t';
     a.volume = 0;
+    // mute-music toggle: apply the saved preference, then wire the masthead button
+    try{ if(localStorage.getItem('sb_music_muted') === '1') a.muted = true; }catch(_){}
+    (function(){
+      var btn = document.getElementById('sb-mute'); if(!btn) return;
+      function paint(){
+        var m = a.muted;
+        btn.classList.toggle('is-muted', m);
+        btn.setAttribute('aria-pressed', m ? 'true' : 'false');
+        btn.setAttribute('aria-label', m ? 'Unmute music' : 'Mute music');
+        btn.setAttribute('title', m ? 'Unmute music' : 'Mute music');
+      }
+      paint();
+      btn.addEventListener('click', function(){
+        a.muted = !a.muted;                  // the click is a gesture, so a blocked track can also start (silently)
+        try{ localStorage.setItem('sb_music_muted', a.muted ? '1' : '0'); }catch(_){}
+        paint();
+      });
+    })();
     var raf, started = false;
     function restore(){
       var t = parseFloat(sessionStorage.getItem(KEY) || '');
