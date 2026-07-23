@@ -769,7 +769,7 @@
     position: relative; min-height: 100vh;
     /* real watercolour-paper stock (assets/brain/paper.jpg) tiled across the WHOLE page, so
        the blooms — which carry the same paper baked in — sit on matching ground everywhere */
-    background: var(--paper) url("assets/brain/paper.jpg") repeat; background-size: 360px 360px;
+    background: var(--paper) url("assets/brain/paper.jpg") repeat; background-size: 620px 620px;
     font-family: "Inter", "Segoe UI", system-ui, sans-serif; color: var(--ink); }
   /* soft page vignette for depth (the grain now lives in the paper texture itself) */
   .ww-grain { position: fixed; inset: 0; pointer-events: none; z-index: 40;
@@ -895,7 +895,7 @@
   /* the SAME paper texture as the page — so the blooms (mix-blend multiply) blend against
      matching paper (a transparent map bg made them show their own lighter paper = a halo) */
   .ww-map { position: fixed; inset: 0; overflow: hidden;
-    background: var(--paper) url("assets/brain/paper.jpg") repeat; background-size: 360px 360px; }
+    background: var(--paper) url("assets/brain/paper.jpg") repeat; background-size: 620px 620px; }
   .ww-links { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1;
     pointer-events: none; overflow: visible; }
   .ww-links .cord { fill: none; stroke: rgba(43,40,31,.5); stroke-width: 1.7; stroke-linecap: round;
@@ -969,7 +969,7 @@
 
   /* ---------- chamber (inside a thinking move) — light paper theme ---------- */
   .ww-chamber { position: fixed; inset: 0; z-index: 2; overflow: auto; outline: none; animation: wwChamberIn 1.3s ease both;
-    background: var(--paper) url("assets/brain/paper.jpg") repeat; background-size: 360px 360px; }
+    background: var(--paper) url("assets/brain/paper.jpg") repeat; background-size: 620px 620px; }
   @keyframes wwChamberIn { from { opacity: 0; } to { opacity: 1; } }
   .ww-chamber.out { animation: wwChamberOut 1s ease forwards; }
   @keyframes wwChamberOut { from { opacity: 1; } to { opacity: 0; } }
@@ -1133,7 +1133,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.8.9 · 2026-07-23";
+const APP_VERSION = "v0.9.0 · 2026-07-23";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
