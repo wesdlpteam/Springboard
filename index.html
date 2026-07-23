@@ -1133,7 +1133,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.0 · 2026-07-23";
+const APP_VERSION = "v0.9.1 · 2026-07-23";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2553,15 +2553,20 @@ const BX_ASSETS = {
 // brand dark fails contrast). `c` = signed curvature of the cord's lazy hand-drawn bow
 // (control point = midpoint pushed perpendicular by c * segment length; +c bows toward
 // (-dy, dx), 90° clockwise of the bloom->hub direction, +y down).
+// Every caption rests directly UNDER its splotch (Nathan's call): same circle, labels tucked
+// beneath each bloom (ly = by + ~0.135) so the eye reads one tidy pass, no in/out zigzag. Two
+// minimal moves keep it legal on a short/wide viewport: the two lowest blooms (yellow/orange)
+// were lifted off the very bottom so their captions don't fall off-screen, and the long red
+// caption is eased right of centre so it clears the title. Verified 1163/1908/1024/1280/1440.
 const IMG_MOVE_POS = {
-  "Capture the Heart & Form Conclusions": { bx: 0.155, by: 0.30, lx: 0.165, ly: 0.175, bloom: "red",        dark: "#8F1D2E", c: 0.10 },
+  "Capture the Heart & Form Conclusions": { bx: 0.155, by: 0.25, lx: 0.170, ly: 0.385, bloom: "red",        dark: "#8F1D2E", c: 0.10 },
   "Uncovering Complexity":                { bx: 0.365, by: 0.15, lx: 0.365, ly: 0.285, bloom: "purple",     dark: "#4F2759", c: -0.08 },
   "Reason with Evidence":                 { bx: 0.635, by: 0.16, lx: 0.635, ly: 0.295, bloom: "olive",      dark: "#4f523f", c: 0.08 },
-  "Wondering":                            { bx: 0.845, by: 0.31, lx: 0.845, ly: 0.185, bloom: "blue",       dark: "#2b3f8f", c: -0.10 },
-  "Build Explanations":                   { bx: 0.150, by: 0.68, lx: 0.160, ly: 0.815, bloom: "green",      dark: "#3f5c38", c: -0.10 },
-  "Consider Different Viewpoints":        { bx: 0.385, by: 0.86, lx: 0.385, ly: 0.725, bloom: "yellow",     dark: "#7A5012", c: 0.08 },
-  "Make Connections":                     { bx: 0.625, by: 0.85, lx: 0.625, ly: 0.715, bloom: "orange",     dark: "#8A4B12", c: -0.08 },
-  "Describe What's There":                { bx: 0.850, by: 0.68, lx: 0.840, ly: 0.815, bloom: "periwinkle", dark: "#4242A1", c: 0.10 },
+  "Wondering":                            { bx: 0.845, by: 0.25, lx: 0.845, ly: 0.385, bloom: "blue",       dark: "#2b3f8f", c: -0.10 },
+  "Build Explanations":                   { bx: 0.150, by: 0.68, lx: 0.150, ly: 0.815, bloom: "green",      dark: "#3f5c38", c: -0.10 },
+  "Consider Different Viewpoints":        { bx: 0.385, by: 0.81, lx: 0.385, ly: 0.945, bloom: "yellow",     dark: "#7A5012", c: 0.08 },
+  "Make Connections":                     { bx: 0.625, by: 0.81, lx: 0.625, ly: 0.945, bloom: "orange",     dark: "#8A4B12", c: -0.08 },
+  "Describe What's There":                { bx: 0.850, by: 0.68, lx: 0.845, ly: 0.815, bloom: "periwinkle", dark: "#4242A1", c: 0.10 },
 };
 // The central PALE/UNLIT neuron every other neuron's axon runs into (see inside.png — it's
 // Hub (gold bloom) and title lockup — same viewport-fraction convention as IMG_MOVE_POS.
