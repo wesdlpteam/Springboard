@@ -1155,7 +1155,7 @@
        the page's paper, and multiply alone leaves a visible seam at the frame edge */
     -webkit-mask-image: radial-gradient(74% 70% at 52% 50%, #000 52%, transparent 76%);
             mask-image: radial-gradient(74% 70% at 52% 50%, #000 52%, transparent 76%); }
-  .ww-cover-art video { transition: opacity .9s ease; }
+  .ww-cover-art video { transition: opacity 1.5s ease; } /* long, soft settle onto the still — a fast fade read as a "flash" */
   .ww-cover-art video.done { opacity: 0; }
   .ww-cover-copy { position: relative; z-index: 1; max-width: 640px; }
   .ww-kicker { font-size: 12.5px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase;
@@ -1214,21 +1214,25 @@
   .ww-bloom.hub-hot { transform: translate(-50%, -50%) scale(1.1); filter: saturate(1.3); }
   @keyframes wwBreath { from { transform: translate(-50%, -50%) scale(1); } to { transform: translate(-50%, -50%) scale(1.04); } }
   @media (prefers-reduced-motion: reduce) { .ww-bloom { animation: none; transition: none; } }
-  .ww-label { position: absolute; transform: translate(-50%, -50%); z-index: 2;
-    display: inline-flex; align-items: center; gap: 9px;
-    background: rgba(255,255,255,.85); border: 1px solid rgba(43,40,31,.16);
-    border-radius: 999px; padding: 8px 16px; font: 500 13.5px "Graphik", "Segoe UI", system-ui, sans-serif;
-    color: var(--ink); cursor: pointer; white-space: nowrap;
-    box-shadow: 0 2px 10px rgba(43,40,31,.07);
-    transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s; }
-  .ww-label:hover { transform: translate(-50%, -50%) translateY(-2px); box-shadow: 0 8px 22px rgba(43,40,31,.16); }
-  .ww-label:focus-visible { outline: 3px solid var(--purple); outline-offset: 2px; }
-  .ww-label i { width: 9px; height: 9px; border-radius: 50%; background: var(--dot);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--dot) 20%, transparent); }
+  /* Gallery captions, not UI pills: each move's name is hand-set in the display serif, in
+     that move's own dark ink, resting straight on the paper with a tiny hand-placed tilt —
+     like titles pencilled under paintings. Buttons still (hit area, focus ring). */
+  .ww-label { position: absolute; transform: translate(-50%, -50%) rotate(var(--tilt, 0deg)); z-index: 2;
+    background: none; border: 0; padding: 8px 12px; cursor: pointer; white-space: nowrap;
+    font-family: "Fraunces", Georgia, serif; font-style: italic; font-weight: 500;
+    font-size: clamp(15px, 1.4vw, 19.5px); letter-spacing: .01em; color: var(--dot);
+    transition: transform .25s cubic-bezier(.22,1,.36,1); }
+  .ww-label span { text-underline-offset: 5px; }
+  .ww-label:hover { transform: translate(-50%, -50%) rotate(var(--tilt, 0deg)) scale(1.08); }
+  .ww-label:hover span { text-decoration: underline 1.5px; }
+  .ww-label:focus-visible { outline: 3px solid var(--purple); outline-offset: 2px; border-radius: 10px; }
+  .ww-label i { display: none; }
+  @media (prefers-reduced-motion: reduce) { .ww-label { transition: none; } }
+  /* the map's name sits ON the gold hub bloom — kicker in soft ink (gold-on-gold would sink) */
   .ww-title { position: absolute; transform: translate(-50%, -50%); z-index: 2; text-align: center;
     pointer-events: none; margin: 0; }
-  .ww-title .k { display: block; font-size: 11.5px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: var(--gold); }
-  .ww-title .n { display: block; font-size: clamp(24px, 2.4vw, 34px); font-weight: 600; letter-spacing: -.015em; color: var(--purple); margin-top: 5px; }
+  .ww-title .k { display: block; font-size: 10.5px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: #5c5442; }
+  .ww-title .n { display: block; font-size: clamp(22px, 2.2vw, 31px); font-weight: 600; letter-spacing: -.015em; color: var(--purple); margin-top: 4px; }
   .ww-pulse-dot { pointer-events: none; opacity: 0; } /* driven by the pulse engine, ink-droplet style */
   .ww-listbtn { position: absolute; right: 26px; bottom: 22px; z-index: 2;
     background: none; border: 1px solid rgba(43,40,31,.3); border-radius: 999px; color: var(--ink-soft);
@@ -2829,7 +2833,7 @@ const IMG_MOVE_POS = {
 // The central PALE/UNLIT neuron every other neuron's axon runs into (see inside.png — it's
 // Hub (gold bloom) and title lockup — same viewport-fraction convention as IMG_MOVE_POS.
 const BX_CENTER = { bx: 0.5, by: 0.52 };  // the gold hub bloom every cord runs into
-const BX_TITLE = { bx: 0.5, by: 0.295 };  // "Thinking Moves" lockup: above the hub, clear of the top blooms AND the masthead
+const BX_TITLE = { bx: 0.5, by: 0.52 };   // the map's name sits ON the gold hub bloom — the heart of the map names it, and nothing can ever collide with it
 // Viewport-fraction -> stage px (the whole map is composed in code, no artwork mapping).
 function bxStagePoint(stage, bx, by) {
   return { left: bx * stage.clientWidth, top: by * stage.clientHeight };
@@ -3801,17 +3805,6 @@ function App() {
           el.style.top = pL.top.toFixed(1) + "px";
           el.style.visibility = vis;
         }
-        // the cord: one lazy hand-bowed quadratic from the bloom into the hub — VISIBLE ink
-        // (stroked, dashed, wobbled by the shared turbulence filter) and the pulse rail in one
-        const ppath = pulsePathEls.current[i];
-        if (ppath) {
-          const dx = pC.left - pN.left, dy = pC.top - pN.top, c = pos.c || 0;
-          const qx = pN.left + dx / 2 - dy * c, qy = pN.top + dy / 2 + dx * c;
-          ppath.setAttribute("d", "M " + pN.left.toFixed(1) + " " + pN.top.toFixed(1) +
-            " Q " + qx.toFixed(1) + " " + qy.toFixed(1) +
-            " " + pC.left.toFixed(1) + " " + pC.top.toFixed(1));
-          pulseGeomRef.current[i] = { path: ppath, len: ppath.getTotalLength() };
-        }
       });
     };
     place();
@@ -3876,19 +3869,16 @@ function App() {
     if (bxScene !== "inside") stopAllHoverPulses();
     return stopAllHoverPulses; // scene change or unmount — always leave clean
   }, [bxScene]);
-  // Hover/focus a move: its watercolour bloom swells and deepens (.hot), ink droplets stream
-  // down its cord into the hub, and the hub bloom answers with a small swell of its own.
+  // Hover/focus a move: its watercolour bloom swells and deepens (.hot) and the hub bloom
+  // answers with a small swell of its own. No travelling pulses — quiet, like the medium.
   const startMoveHover = (i) => {
     hoveredMovesRef.current.add(i);
-    const bloom = bloomEls.current[i]; if (bloom) bloom.classList.add("hot"); // static swell, always (even reduced motion)
-    if (prefersReducedMotion) return; // no travelling droplets, no hub answer
-    startPulses(i);
+    const bloom = bloomEls.current[i]; if (bloom) bloom.classList.add("hot");
     const hub = hubBloomRef.current; if (hub) hub.classList.add("hub-hot");
   };
   const endMoveHover = (i) => {
     hoveredMovesRef.current.delete(i);
     const bloom = bloomEls.current[i]; if (bloom) bloom.classList.remove("hot");
-    stopPulses(i); // harmless no-op under reduced motion (nothing was started)
     const hub = hubBloomRef.current;
     if (hub && hoveredMovesRef.current.size === 0) hub.classList.remove("hub-hot");
   };
@@ -4050,7 +4040,7 @@ function App() {
             <h1>Start with the <span className="pu">thinking</span>, not the topic.</h1>
             <p className="ww-sub">Pick one of eight thinking moves from the Map of Understanding, add a photograph, a film or an article, and Springboard builds a lesson that moves your class beyond remembering into understanding.</p>
             <button className="ww-enter" autoFocus onClick={enterMind}>Enter the mind →</button>
-            <p className="ww-credit">Eight thinking moves · Cultures of Thinking · <a href="https://pz.harvard.edu/thinking-routines" target="_blank" rel="noopener">Harvard Project Zero</a> · build 19</p>
+            <p className="ww-credit">Eight thinking moves · Cultures of Thinking · <a href="https://pz.harvard.edu/thinking-routines" target="_blank" rel="noopener">Harvard Project Zero</a> · build 20</p>
           </div>
           {/* the paint clip's calm score, off by default (autoplay must stay muted) */}
           <audio ref={musicRef} src={BX_ASSETS.base + BX_ASSETS.coverMusic} loop preload="none" />
@@ -4066,31 +4056,9 @@ function App() {
         <div className={"ww-map" + ((bxScene === "transport" || (bxScene === "glide" && glideDir === "out")) ? " entering"
               : (bxScene === "glide" && glideDir === "in") ? " fading" : "")}
           ref={insideStageRef}>
-          {/* hand-inked cords, bloom -> hub: each <path> is BOTH the visible ink line and its
-              move's pulse rail (same element feeds pulseGeomRef), so the droplets can never
-              leave the drawn line. The turbulence filter gives the ink its hand wobble. */}
-          <svg className="ww-links" aria-hidden="true" preserveAspectRatio="none">
-            <defs>
-              <filter id="wwWobble" x="-10%" y="-10%" width="120%" height="120%">
-                <feTurbulence type="fractalNoise" baseFrequency="0.013" numOctaves="2" seed="3" result="n" />
-                <feDisplacementMap in="SourceGraphic" in2="n" scale="7" />
-              </filter>
-            </defs>
-            <g filter="url(#wwWobble)">
-              {MOVES.map((m, i) => (
-                <path key={m.name} className="cord" ref={el => { pulsePathEls.current[i] = el; }} />
-              ))}
-            </g>
-            {MOVES.map((m, i) => (
-              <React.Fragment key={m.name}>
-                {[0, 1, 2].map((slot) => (
-                  <circle key={slot} r="4.5" fill={bwTint(m.name)} className="ww-pulse-dot"
-                    ref={el => { (pulseDotEls.current[i] || (pulseDotEls.current[i] = []))[slot] = el; }} />
-                ))}
-              </React.Fragment>
-            ))}
-          </svg>
-          {/* the gold hub bloom every cord runs into */}
+          {/* (No cords, no light pulses — Nathan's call: they belonged to the neon world.
+              The blooms and their captions carry the map alone; hover is a quiet swell.) */}
+          {/* the gold hub bloom at the centre of the map */}
           <img className="ww-bloom ww-bloom--hub" ref={hubBloomRef} aria-hidden="true"
             src={BX_ASSETS.base + BX_ASSETS.bloom("gold")} alt="" />
           {/* eight watercolour move-blooms (multiply melts their white paper into ours) */}
@@ -4106,7 +4074,7 @@ function App() {
           </h2>
           {MOVES.map((m, i) => (
             <button key={m.name} ref={el => { labelEls.current[i] = el; }} className="ww-label"
-              style={{ "--dot": bwTint(m.name) }}
+              style={{ "--dot": bwTint(m.name), "--tilt": ([-1.6, 1.2, -1, 1.7, 1.3, -1.7, 1, -1.2][i] || 0) + "deg" }}
               onClick={() => chooseMove(m.name)}
               onMouseEnter={() => startMoveHover(i)} onMouseLeave={() => endMoveHover(i)}
               // :focus-visible gate: the return-from-chamber focus restore (programmatic, after
