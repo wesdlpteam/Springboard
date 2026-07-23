@@ -860,11 +860,12 @@
     .ww-cover h1 { font-size: clamp(30px, 4.4vw, 52px); }
     .ww-sub { margin-top: 16px; } .ww-enter { margin-top: 22px; } .ww-credit { margin-top: 12px; }
   }
-  /* below a comfortable wide desktop the right-biased brain would cross into the copy, so at
-     <=1200px it becomes a soft full-bleed watermark centred behind the copy and the scrim veils
-     the WHOLE width — text always crisp, brain always present, NO overlap at any in-between size.
-     (keeps the edge-feather mask so the watermark rectangle never shows a rim either.) */
-  @media (max-width: 1200px) {
+  /* the right-biased brain only crosses into the copy on TALL / squarish windows (a wide-short
+     window has room beside the text). So key the watermark fallback off window SHAPE, not width:
+     at aspect <=7/5 the brain becomes a soft full-bleed watermark centred behind the copy with a
+     full-width paper veil; wide-short desktops (incl. Nathan's ~2:1) keep the vivid brain beside
+     the text. (keeps the edge-feather mask so the watermark rectangle never shows a rim either.) */
+  @media (max-aspect-ratio: 7/5) {
     .ww-cover-still, .ww-cover-still.on, .ww-cover-art video { right: 50%; transform: translate(50%, -50%);
       height: auto; width: 118vw; max-width: 118vw; opacity: .4; animation: none; }
     .ww-cover::before { background: rgba(244,239,230,.66); }
@@ -1132,7 +1133,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.8.8 · 2026-07-23";
+const APP_VERSION = "v0.8.9 · 2026-07-23";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
