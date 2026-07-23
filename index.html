@@ -1240,7 +1240,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.12 · 2026-07-24";
+const APP_VERSION = "v0.9.13 · 2026-07-24";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -3279,7 +3279,14 @@ function App() {
         reflect: "REFLECT — revisit at the end of the lesson.",
       };
       const noteFor = (key) => {
-        const body = ((deck.notes && deck.notes[key]) || "").trim();
+        let body = ((deck.notes && deck.notes[key]) || "").trim();
+        // The model returns the five labelled sections run together on one line. Break each onto its
+        // own line so the exported speaker-notes pane is readable (FACILITATION stays first).
+        body = body.replace(/\s+(TIMING|DIFFERENTIATION|CURRICULUM LINKS|EXTENSIONS):/g, "\n$1:");
+        // On LAUNCH the study-design-aligned "Curriculum connection" appended below says the same thing
+        // as the generic CURRICULUM LINKS line, so drop that line to remove the double-up (the
+        // connection is the richer one — it carries the real study-design / AC codes).
+        if (key === "launch") body = body.replace(/\nCURRICULUM LINKS:[^\n]*/, "").trim();
         let out = NOTE_HEAD[key] + (body ? "\n\n" + body : "");
         if (key === "ignite" && kw.length) out += "\n\nKeywords: " + kw.join(", ");
         // Curriculum connection is teacher-only — it rides in the LAUNCH speaker notes, never the projected slide.
