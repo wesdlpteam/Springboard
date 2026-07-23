@@ -1135,7 +1135,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.8.2 · 2026-07-23";
+const APP_VERSION = "v0.8.3 · 2026-07-23";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -3411,7 +3411,9 @@ function App() {
     a.volume = 0;
     let raf, started = false;
     const fadeIn = () => {
-      const step = () => { if (a.volume < 0.3) { a.volume = Math.min(0.3, a.volume + 0.3 / (2.2 * 60)); raf = requestAnimationFrame(step); } };
+      // soft target 0.12: comfortable with the system volume around 50% (Nathan's 20% ≈ this at 0.3)
+      const target = 0.12;
+      const step = () => { if (a.volume < target) { a.volume = Math.min(target, a.volume + target / (2.2 * 60)); raf = requestAnimationFrame(step); } };
       step();
     };
     const tryPlay = () => {
