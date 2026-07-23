@@ -43,11 +43,10 @@
      changes. Fade-IN is a CSS animation (plays from its first frame on every load, so it can
      never skip the way JS-timed rAF can); fade-OUT (leaving) is a JS-added transition. */
   .page-veil{ position:fixed; inset:0; z-index:100; background:var(--paper); pointer-events:none;
-    opacity:0; animation:veilFadeIn 1.1s ease; }
-  @keyframes veilFadeIn { from { opacity:1; } to { opacity:0; } }
-  .page-veil.leaving{ animation:none; opacity:1; pointer-events:auto; transition:opacity 1.1s ease; }
-  @media (prefers-reduced-motion: reduce){ .page-veil{ animation:none; opacity:0; }
-    .page-veil.leaving{ transition:none; } }
+    opacity:1; transition:opacity 1.1s ease; }
+  .page-veil.revealed{ opacity:0; }
+  .page-veil.leaving{ opacity:1; pointer-events:auto; }
+  @media (prefers-reduced-motion: reduce){ .page-veil{ opacity:0; transition:none; } }
   .wrap{ max-width:880px; margin:0 auto; padding:0 24px 84px; }
   a{ color:var(--purple); }
   a:focus-visible{ outline:2px solid var(--purple); outline-offset:3px; border-radius:4px; }
@@ -234,9 +233,12 @@
   (function(){
     var v = document.querySelector('.page-veil');
     if(!v) return;
-    // fade-in is handled entirely by the CSS veilFadeIn animation (see <style>) — nothing to do.
     var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if(reduce) return;
+    // fade IN: the veil starts opaque (covering the page); reveal it on the next frame so the
+    // 1.1s opacity transition actually runs. A JS-driven reveal is reliable where a CSS
+    // autoplay animation can visually skip (it was landing already-transparent).
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ v.classList.add('revealed'); }); });
     // fade back to paper when returning into the app (same-origin links only)
     document.addEventListener('click', function(e){
       var a = e.target.closest ? e.target.closest('a[href]') : null;
@@ -246,6 +248,8 @@
       if(url.origin !== location.origin) return;                 // external -> normal nav
       if(url.pathname === location.pathname && url.hash) return; // in-page anchor
       e.preventDefault();
+      // tell the home page to fade IN from paper when we land back on it
+      try { sessionStorage.setItem('sb_fadehome','1'); } catch(_){}
       v.classList.add('leaving');
       var go = function(){ location.href = a.href; };
       v.addEventListener('transitionend', go, { once:true });
