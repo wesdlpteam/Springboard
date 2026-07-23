@@ -1195,7 +1195,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.9 · 2026-07-23";
+const APP_VERSION = "v0.9.10 · 2026-07-23";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -3486,10 +3486,15 @@ function App() {
     const save = () => { try { if (a.currentTime) sessionStorage.setItem(KEY, String(a.currentTime)); } catch (_) {} };
     const saver = setInterval(save, 1000);
     window.addEventListener("pagehide", save); // persist right before we navigate away
+    // If we're RESUMING across a page hop (a saved position already exists), ramp back FAST (~0.3s)
+    // so the brief navigation gap isn't stretched by a slow fade; only a true first visit gets the
+    // gentle 2.2s intro. This is what makes home <-> About feel continuous rather than "stop, restart".
+    const resuming = (() => { const t = parseFloat(sessionStorage.getItem(KEY) || ""); return isFinite(t) && t > 0.2; })();
     const fadeIn = () => {
       // soft target 0.12: comfortable with the system volume around 50% (Nathan's 20% ≈ this at 0.3)
       const target = 0.12;
-      const step = () => { if (a.volume < target) { a.volume = Math.min(target, a.volume + target / (2.2 * 60)); raf = requestAnimationFrame(step); } };
+      const inc = target / ((resuming ? 0.3 : 2.2) * 60);
+      const step = () => { if (a.volume < target) { a.volume = Math.min(target, a.volume + inc); raf = requestAnimationFrame(step); } };
       step();
     };
     const tryPlay = () => {

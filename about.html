@@ -278,9 +278,13 @@
     function save(){ try{ if(a.currentTime) sessionStorage.setItem(KEY, String(a.currentTime)); }catch(_){} }
     setInterval(save, 1000);
     window.addEventListener('pagehide', save);
+    // resuming across a page hop -> ramp back fast (~0.3s) so the nav gap isn't stretched by a slow
+    // fade; a true first visit here (rare) still gets the gentle 2.2s. Keeps home <-> About seamless.
+    var resuming = (function(){ var t = parseFloat(sessionStorage.getItem(KEY)||''); return isFinite(t) && t > 0.2; })();
     function fadeIn(){
       var target = 0.12; // match index.html's soft target
-      (function step(){ if(a.volume < target){ a.volume = Math.min(target, a.volume + target/(2.2*60)); raf = requestAnimationFrame(step); } })();
+      var inc = target / ((resuming ? 0.3 : 2.2) * 60);
+      (function step(){ if(a.volume < target){ a.volume = Math.min(target, a.volume + inc); raf = requestAnimationFrame(step); } })();
     }
     function tryPlay(){
       if(started) return;
