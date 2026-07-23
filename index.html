@@ -12,7 +12,7 @@
      Fraunces (display serif) + Inter (grotesque body); GSAP/ScrollTrigger + Lenis from CDN. -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Inter:wght@400;450;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Inter:wght@400;450;500;600;700&family=Kaushan+Script&display=swap" rel="stylesheet" />
 
 <!-- React + Babel (in-browser JSX, no build step) -->
 <script crossorigin="anonymous" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
@@ -762,57 +762,113 @@
      WATERCOLOUR WORLD (2026-07-23): Wesley ink-and-wash on paper. This is the
      whole brain experience — the earlier space/neon scene code has been removed.
      ============================================================================ */
-  .ww { --paper: #F7F4EE; --paper-deep: #EFEAE0; --ink: #2B281F; --ink-soft: #4b473d;
+  /* Blackrush brush font (real brush-stroke texture) for the "Enter the mind" CTA */
+  @font-face { font-family: "Blackrush"; src: url("assets/fonts/blackrush.ttf"); font-display: swap; }
+  .ww { --paper: #F4EFE6; --paper-deep: #EBE4D7; --ink: #2B281F; --ink-soft: #4b473d;
     --purple: #4F2759; --gold: #C59F40;
-    position: relative; min-height: 100vh; background: var(--paper);
-    font-family: "Graphik", "Segoe UI", system-ui, sans-serif; color: var(--ink); }
-  /* paper grain: same fractal-noise data URI trick as the mock */
-  .ww-grain { position: fixed; inset: 0; pointer-events: none; opacity: .5; z-index: 40;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 .43 0 0 0 0 .40 0 0 0 0 .34 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E"); }
-  .ww .bx-mast { position: fixed; inset: 0 0 auto 0; z-index: 30; }
-  .ww .bx-word { color: var(--purple); } .ww .bx-word i { color: var(--gold); }
+    position: relative; min-height: 100vh;
+    /* real watercolour-paper stock (assets/brain/paper.jpg) tiled across the WHOLE page, so
+       the blooms — which carry the same paper baked in — sit on matching ground everywhere */
+    background: var(--paper) url("assets/brain/paper.jpg") repeat; background-size: 360px 360px;
+    font-family: "Inter", "Segoe UI", system-ui, sans-serif; color: var(--ink); }
+  /* soft page vignette for depth (the grain now lives in the paper texture itself) */
+  .ww-grain { position: fixed; inset: 0; pointer-events: none; z-index: 40;
+    background: radial-gradient(120% 100% at 50% 44%, transparent 60%, rgba(43,40,31,.05) 100%); }
+  /* transparent masthead — no cream bar; the paper texture and art show straight through.
+     A whisper of paper only at the very top keeps the wordmark/nav crisp over busy art. */
+  .ww .bx-mast { position: fixed; inset: 0 0 auto 0; z-index: 30;
+    background: linear-gradient(to bottom, rgba(244,239,230,.55), transparent); }
+  /* hand-painted wordmark: Fraunces, "Spring" roman ink-purple + "board" flowing italic gold,
+     with a tapered gold brush-stroke underline (inline SVG) so it reads as painted, not typed */
+  .ww .bx-word { position: relative; font-family: var(--bx-display); font-weight: 500;
+    font-size: 25px; letter-spacing: -.015em; color: var(--purple); padding-bottom: 7px; }
+  .ww .bx-word i { font-style: italic; font-weight: 500; color: var(--gold); }
+  .ww .bx-word::after { content: ""; position: absolute; left: -2px; right: -3px; bottom: 0; height: 9px;
+    background: no-repeat center / 100% 100%
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 10' preserveAspectRatio='none'%3E%3Cpath d='M2 5.5 C 24 2.5 46 3 62 4.2 C 82 5.4 101 6 118 3.8 C 101 8.2 80 8.2 60 7 C 40 5.8 20 6.6 2 6.4 Z' fill='%23C59F40'/%3E%3C/svg%3E");
+    opacity: .9; }
+  @media (prefers-reduced-motion: no-preference) {
+    .ww .bx-word::after { transform: scaleX(0); transform-origin: left center; animation: wwInk .9s cubic-bezier(.5,0,.2,1) .3s both; }
+    @keyframes wwInk { to { transform: scaleX(1); } }
+  }
   .ww .bx-nav a, .ww .bx-tog { color: var(--ink); opacity: .78; }
   .ww .bx-nav a:hover, .ww .bx-tog:hover { opacity: 1; }
 
   /* ---------- cover ---------- */
-  .ww-cover { position: relative; min-height: 100vh; display: flex; flex-direction: column;
-    justify-content: center; padding: 96px clamp(24px, 5vw, 72px) 56px; overflow: hidden; }
+  .ww-cover { position: relative; min-height: 100vh; min-height: 100svh; display: flex; flex-direction: column;
+    justify-content: center; padding: 104px clamp(22px, 5vw, 72px) 48px; overflow: hidden; }
   .ww-cover-art { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
-  /* the painting (video while it paints itself in, then the still): contain-fit, biased
-     right; multiply melts the white paper of the artwork into the page's own paper */
-  .ww-cover-art img, .ww-cover-art video { position: absolute; right: -6vw; top: 50%;
-    transform: translateY(-50%); height: min(88vh, 62vw); width: auto; max-width: 88vw;
+  /* the painting (video while it paints in, then freezes): contain-fit, biased right; multiply
+     melts the artwork's paper into the page paper; the mask feathers the rectangle edge away */
+  .ww-cover-art img, .ww-cover-art video { position: absolute; right: -4vw; top: 50%;
+    transform: translateY(-50%); height: min(86vh, 60vw); width: auto; max-width: 92vw;
     mix-blend-mode: multiply;
-    /* feather the artwork's rectangle away: its scanned-paper white is a touch cooler than
-       the page's paper, and multiply alone leaves a visible seam at the frame edge */
-    -webkit-mask-image: radial-gradient(74% 70% at 52% 50%, #000 52%, transparent 76%);
-            mask-image: radial-gradient(74% 70% at 52% 50%, #000 52%, transparent 76%); }
-  .ww-cover-art video { transition: opacity 1.5s ease; } /* long, soft settle onto the still — a fast fade read as a "flash" */
-  .ww-cover-art video.done { opacity: 0; }
-  .ww-cover-copy { position: relative; z-index: 1; max-width: 640px; }
-  .ww-kicker { font-size: 12.5px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase;
-    color: var(--purple); margin-bottom: 22px; }
-  .ww-cover h1 { font-family: "Avenir Black", "Avenir", "Graphik", "Segoe UI", system-ui, sans-serif;
-    font-size: clamp(38px, 5vw, 70px); line-height: 1.04; letter-spacing: -.02em; font-weight: 800;
+    -webkit-mask-image: radial-gradient(74% 70% at 54% 50%, #000 50%, transparent 76%);
+            mask-image: radial-gradient(74% 70% at 54% 50%, #000 50%, transparent 76%); }
+  /* readability scrim: TEXTURED paper (not flat) veiling the left column, opaque enough that
+     the brain can never overlap the words no matter the window size, fading to clear on the
+     right where the painting lives. Sits above the art, below the copy. */
+  .ww-cover::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background: var(--paper) url("assets/brain/paper.jpg") repeat; background-size: 360px 360px;
+    -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 36%, transparent 64%);
+            mask-image: linear-gradient(90deg, #000 0%, #000 36%, transparent 64%); }
+  .ww-cover-copy { position: relative; z-index: 2; max-width: 620px; }
+  .ww-kicker { font-size: clamp(11px, 1.2vw, 12.5px); font-weight: 600; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--purple); margin-bottom: 20px; }
+  /* Fraunces display voice (matches the map title + labels); "thinking" italic-purple accent */
+  .ww-cover h1 { font-family: var(--bx-display); font-weight: 500;
+    font-size: clamp(36px, 5.4vw, 72px); line-height: 1.03; letter-spacing: -.02em;
     color: var(--gold); text-wrap: balance; margin: 0; }
-  .ww-cover h1 .pu { color: var(--purple); }
-  .ww-sub { margin: 26px 0 0; font-size: clamp(15px, 1.35vw, 17.5px); line-height: 1.6;
-    max-width: 44ch; color: var(--ink-soft); }
-  .ww-enter { margin-top: 38px; display: inline-flex; align-items: center; gap: 10px;
-    background: var(--purple); color: #fff; border: 0; border-radius: 999px;
-    font: 600 16px "Graphik", "Segoe UI", system-ui, sans-serif; padding: 15px 30px; cursor: pointer;
-    transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s; }
-  .ww-enter:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(79,39,89,.28); }
-  .ww-enter:focus-visible { outline: 3px solid var(--purple); outline-offset: 3px; }
-  .ww-credit { margin-top: 16px; font-size: 12.5px; color: #6f6a5d; } .ww-credit a { color: inherit; }
-  /* short windows (laptops with the browser chrome eating height): tighten the column so the
-     headline's first line never clips above the fold */
-  @media (max-height: 720px) {
-    .ww-cover { padding-top: clamp(64px, 9vh, 96px); }
-    .ww-cover h1 { font-size: clamp(32px, 4.1vw, 54px); }
-    .ww-sub { margin-top: 16px; }
-    .ww-enter { margin-top: 24px; }
-    .ww-credit { margin-top: 12px; }
+  .ww-cover h1 .pu { color: var(--purple); font-style: italic; }
+  .ww-sub { margin: 24px 0 0; font-size: clamp(15px, 1.35vw, 17.5px); line-height: 1.6;
+    max-width: 46ch; color: var(--ink-soft); }
+  /* Enter: Fraunces italic on a purple pill with a gold arrow that slides on hover + a soft
+     hand-drawn gold ring that blooms behind it — playful, not a plain button */
+  .ww-enter { margin-top: 34px; display: inline-flex; align-items: center; justify-content: center; position: relative;
+    background: var(--purple); color: #fff; border: 0; border-radius: 44px;
+    font-family: "Blackrush", "Segoe Script", cursive; font-weight: 400; font-size: 58px;
+    padding: 2px 40px; cursor: pointer; box-shadow: 0 6px 18px rgba(79,39,89,.22);
+    transition: transform .3s cubic-bezier(.22,1,.36,1), box-shadow .3s; }
+  /* the brush font fills the oval; the ink-roughen filter frays its edges into dry-brush ink.
+     Blackrush sits high in its em box, so a small negative top margin optically centres it. */
+  .ww-enter span { display: block; line-height: 1; transform: translateY(4px); filter: url(#wwInkRoughen); }
+  .ww-enter::before { content: ""; position: absolute; inset: -5px; border-radius: 48px;
+    border: 1.5px solid var(--gold); opacity: 0; transform: scale(.9) rotate(-1deg);
+    transition: opacity .3s, transform .3s cubic-bezier(.22,1,.36,1); pointer-events: none; }
+  .ww-enter:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(79,39,89,.3); }
+  .ww-enter:hover::before { opacity: .8; transform: scale(1) rotate(-1deg); }
+  .ww-enter:focus-visible { outline: 3px solid var(--gold); outline-offset: 4px; }
+  /* quiet cover footer: attributions pinned along the bottom, out of the hero */
+  .ww-foot { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 24px;
+    padding: 0 clamp(22px, 5vw, 72px) 22px; font-size: 12px; color: #7c766a; pointer-events: auto; }
+  .ww-foot a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+  .ww-foot span:last-child { color: var(--purple); font-weight: 500; }
+
+  /* ---------- cover responsiveness (looks good at every size) ---------- */
+  /* short/laptop heights: keep the headline + CTA above the fold */
+  @media (max-height: 760px) {
+    .ww-cover { padding-top: clamp(88px, 12vh, 104px); }
+    .ww-cover h1 { font-size: clamp(30px, 4.4vw, 52px); }
+    .ww-sub { margin-top: 16px; } .ww-enter { margin-top: 22px; } .ww-credit { margin-top: 12px; }
+  }
+  /* tablet + phone: the brain becomes a soft full-bleed watermark centred behind the copy,
+     and the scrim veils the WHOLE width so the text is always crisp over it */
+  @media (max-width: 820px) {
+    .ww-cover-art img, .ww-cover-art video { right: 50%; transform: translate(50%, -50%);
+      height: auto; width: 116vw; max-width: 116vw; opacity: .5;
+      -webkit-mask-image: radial-gradient(60% 50% at 50% 46%, #000 40%, transparent 78%);
+              mask-image: radial-gradient(60% 50% at 50% 46%, #000 40%, transparent 78%); }
+    .ww-cover::before { -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,.72) 0%, rgba(0,0,0,.86) 100%);
+              mask-image: linear-gradient(180deg, rgba(0,0,0,.72) 0%, rgba(0,0,0,.86) 100%); }
+    .ww-cover-copy { max-width: 640px; }
+  }
+  @media (max-width: 520px) {
+    .ww-cover { padding: 92px 20px 36px; justify-content: flex-start; padding-top: 24vh; }
+    .ww-cover h1 { font-size: clamp(32px, 9vw, 44px); }
+    .ww-sub { font-size: 15px; max-width: none; }
+    .ww-enter { font-size: 18px; padding: 13px 26px; }
+    .ww-credit { font-size: 11.5px; }
   }
 
   /* ---------- ink-wash scene transition (Enter, and the reverse) ---------- */
@@ -828,8 +884,10 @@
   @media (prefers-reduced-motion: reduce) { .ww-wash.on { animation: none; transform: scale(2.4); opacity: 1; } }
 
   /* ---------- map ---------- */
+  /* the SAME paper texture as the page — so the blooms (mix-blend multiply) blend against
+     matching paper (a transparent map bg made them show their own lighter paper = a halo) */
   .ww-map { position: fixed; inset: 0; overflow: hidden;
-    background: linear-gradient(180deg, var(--paper) 0%, var(--paper-deep) 100%); }
+    background: var(--paper) url("assets/brain/paper.jpg") repeat; background-size: 360px 360px; }
   .ww-links { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1;
     pointer-events: none; overflow: visible; }
   .ww-links .cord { fill: none; stroke: rgba(43,40,31,.5); stroke-width: 1.7; stroke-linecap: round;
@@ -881,18 +939,29 @@
   @media (prefers-reduced-motion: reduce) { .ww-title .k, .ww-title .n { animation: none; clip-path: none; } }
   .ww-pulse-dot { pointer-events: none; opacity: 0; } /* driven by the pulse engine, ink-droplet style */
   /* DLP credit under the map, centred along the bottom */
-  .ww-mapcredit { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 2;
-    margin: 0; font-size: 12px; letter-spacing: .04em; color: #7c766a; pointer-events: none;
-    animation: wwLabelIn 1s ease 1.9s both; }
-  @media (prefers-reduced-motion: reduce) { .ww-mapcredit { animation: none; opacity: 1; } }
-  .ww-listbtn { position: absolute; right: 26px; bottom: 22px; z-index: 2;
-    background: none; border: 1px solid rgba(43,40,31,.3); border-radius: 999px; color: var(--ink-soft);
-    font: 500 13px "Graphik", "Segoe UI", system-ui, sans-serif; padding: 8px 16px; cursor: pointer; }
-  .ww-listbtn:hover { border-color: var(--ink); color: var(--ink); }
+  /* Mobile map: the positioned circle can't hold eight long names on a phone, so it's hidden
+     and a clean scrollable list takes its place */
+  .ww-maplist { display: none; }
+  @media (max-width: 720px) {
+    .ww-map .ww-bloom, .ww-map .ww-label, .ww-map .ww-title { display: none; }
+    .ww-maplist { display: flex; flex-direction: column; gap: 8px; position: absolute; inset: 0;
+      overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 84px 16px 28px; }
+    .ww-maplist-head { text-align: center; margin: 4px 0 18px; }
+    .ww-maplist-head .k { display: block; font-size: 11px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: var(--gold); }
+    .ww-maplist-head .n { display: block; font-family: var(--bx-display); font-style: italic; font-weight: 600; font-size: clamp(30px, 9vw, 40px); color: var(--purple); margin-top: 4px; }
+    .ww-maplist-row { display: flex; align-items: center; gap: 12px; width: 100%;
+      background: rgba(255,255,255,.55); border: 1px solid rgba(43,40,31,.12); border-radius: 16px;
+      padding: 7px 14px; cursor: pointer; text-align: left;
+      font-family: var(--bx-display); font-style: italic; font-weight: 500; font-size: 18.5px; color: var(--dot); }
+    .ww-maplist-row img { width: 46px; height: 46px; flex: none; object-fit: contain; mix-blend-mode: multiply;
+      -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 46%, transparent 70%);
+              mask-image: radial-gradient(circle at 50% 50%, #000 46%, transparent 70%); }
+    .ww-maplist-row:active { background: rgba(255,255,255,.85); }
+  }
 
   /* ---------- chamber (inside a thinking move) — light paper theme ---------- */
-  .ww-chamber { position: fixed; inset: 0; z-index: 2; overflow: auto; outline: none; animation: wwChamberIn 1s ease both;
-    background: var(--paper); }
+  .ww-chamber { position: fixed; inset: 0; z-index: 2; overflow: auto; outline: none; animation: wwChamberIn 1.3s ease both;
+    background: var(--paper) url("assets/brain/paper.jpg") repeat; background-size: 360px 360px; }
   @keyframes wwChamberIn { from { opacity: 0; } to { opacity: 1; } }
   .ww-chamber.out { animation: wwChamberOut 1s ease forwards; }
   @keyframes wwChamberOut { from { opacity: 1; } to { opacity: 0; } }
@@ -1056,7 +1125,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.8.0 · 2026-07-23";
+const APP_VERSION = "v0.8.1 · 2026-07-23";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2464,6 +2533,7 @@ const BX_ASSETS = {
   cover: "wc-cover.jpg",            // approved blue ink-wash brain on warm white
   coverPaint: "wc-cover-paint.mp4", // Seedance paint-in (mirrored + paper-matched, muted); freezes on its last frame
   chamber: "wc-chamber.jpg",        // soft grey-cream wash, tinted per move behind the chamber panels
+  music: "cover-music.m4a",         // dreamy soundtrack — fades in soft on first interaction (autoplay-with-sound is blocked)
   bloom: (name) => "bloom-" + name + ".jpg" // nine watercolour blooms, multiply-blended onto the paper
 };
 
@@ -2476,14 +2546,14 @@ const BX_ASSETS = {
 // (control point = midpoint pushed perpendicular by c * segment length; +c bows toward
 // (-dy, dx), 90° clockwise of the bloom->hub direction, +y down).
 const IMG_MOVE_POS = {
-  "Capture the Heart & Form Conclusions": { bx: 0.155, by: 0.20, lx: 0.155, ly: 0.335, bloom: "red",        dark: "#8F1D2E", c: 0.10 },
+  "Capture the Heart & Form Conclusions": { bx: 0.155, by: 0.30, lx: 0.155, ly: 0.435, bloom: "red",        dark: "#8F1D2E", c: 0.10 },
   "Uncovering Complexity":                { bx: 0.365, by: 0.15, lx: 0.365, ly: 0.285, bloom: "purple",     dark: "#4F2759", c: -0.08 },
   "Reason with Evidence":                 { bx: 0.635, by: 0.16, lx: 0.635, ly: 0.295, bloom: "olive",      dark: "#4f523f", c: 0.08 },
-  "Wondering":                            { bx: 0.845, by: 0.22, lx: 0.845, ly: 0.355, bloom: "blue",       dark: "#2b3f8f", c: -0.10 },
-  "Build Explanations":                   { bx: 0.150, by: 0.78, lx: 0.150, ly: 0.645, bloom: "green",      dark: "#3f5c38", c: -0.10 },
+  "Wondering":                            { bx: 0.845, by: 0.31, lx: 0.845, ly: 0.445, bloom: "blue",       dark: "#2b3f8f", c: -0.10 },
+  "Build Explanations":                   { bx: 0.150, by: 0.68, lx: 0.150, ly: 0.555, bloom: "green",      dark: "#3f5c38", c: -0.10 },
   "Consider Different Viewpoints":        { bx: 0.385, by: 0.86, lx: 0.385, ly: 0.725, bloom: "yellow",     dark: "#7A5012", c: 0.08 },
   "Make Connections":                     { bx: 0.625, by: 0.85, lx: 0.625, ly: 0.715, bloom: "orange",     dark: "#8A4B12", c: -0.08 },
-  "Describe What's There":                { bx: 0.850, by: 0.76, lx: 0.850, ly: 0.625, bloom: "periwinkle", dark: "#4242A1", c: 0.10 },
+  "Describe What's There":                { bx: 0.850, by: 0.68, lx: 0.850, ly: 0.555, bloom: "periwinkle", dark: "#4242A1", c: 0.10 },
 };
 // The central PALE/UNLIT neuron every other neuron's axon runs into (see inside.png — it's
 // Hub (gold bloom) and title lockup — same viewport-fraction convention as IMG_MOVE_POS.
@@ -3320,11 +3390,39 @@ function App() {
   /* ---------- Brain World: watercolour scenes (paper + ink fades, no engine) ---------- */
   useEffect(() => { sceneRef.current = bxScene; }, [bxScene]);
   const paintSeenRef = useRef(false); // the paint-in clip plays once per visit, not on every cover return
+  const [paintFailed, setPaintFailed] = useState(false); // cover video errored -> reveal the still fallback
+  // Dreamy background music: browsers block autoplay WITH sound, so we try on mount and, if
+  // rejected, start it on the very first user interaction. Either way it FADES IN softly
+  // (volume ramps 0 -> 0.28 over ~4s) so it never jars. Loops. Muted-friendly: never blares.
+  const musicRef = useRef(null);
+  useEffect(() => {
+    const a = musicRef.current; if (!a) return;
+    a.volume = 0;
+    let raf, started = false;
+    const fadeIn = () => {
+      const step = () => { if (a.volume < 0.3) { a.volume = Math.min(0.3, a.volume + 0.3 / (2.2 * 60)); raf = requestAnimationFrame(step); } };
+      step();
+    };
+    const tryPlay = () => {
+      if (started) return;
+      const p = a.play();
+      if (p && p.then) p.then(() => { started = true; fadeIn(); }).catch(() => {}); else { started = true; fadeIn(); }
+    };
+    tryPlay(); // attempt autoplay (usually blocked with sound until a gesture)
+    // start the music AND (belt-and-braces) the cover paint-in video on the first gesture, in
+    // case the browser also blocked the muted video autoplay
+    const onFirst = () => {
+      tryPlay();
+      const v = document.querySelector(".ww-cover-art video"); if (v && v.paused && !v.ended) { const p = v.play(); if (p && p.catch) p.catch(() => {}); }
+    };
+    ["pointerdown", "keydown", "touchstart"].forEach(e => window.addEventListener(e, onFirst));
+    return () => { cancelAnimationFrame(raf); ["pointerdown", "keydown", "touchstart"].forEach(e => window.removeEventListener(e, onFirst)); };
+  }, []);
   // Warm the scene-critical art while the teacher reads the cover: the chamber wash and the
   // nine blooms, so the map and every chamber arrive painted, not popping in.
   useEffect(() => {
     fetch(BX_ASSETS.base + BX_ASSETS.chamber).catch(() => {});
-    ["gold", ...MOVES.map(m => IMG_MOVE_POS[m.name].bloom)].forEach(b => fetch(BX_ASSETS.base + BX_ASSETS.bloom(b)).catch(() => {}));
+    MOVES.forEach(m => fetch(BX_ASSETS.base + BX_ASSETS.bloom(IMG_MOVE_POS[m.name].bloom)).catch(() => {}));
   }, []);
   useEffect(() => { // scene-based experience: the page never scrolls in brain view. Locks BOTH
     // <html> (via .bx-lock) and <body> so a scaled dive stage / mounting video can't briefly
@@ -3359,7 +3457,7 @@ function App() {
   // Calm timings: the enter dissolve and the move crossfade are long and unhurried. Each timer
   // matches its CSS fade duration so the outgoing scene has fully lifted as the incoming lands.
   const BX_ENTER_MS = 1300; // cover ink dissolving away into the map
-  const BX_FADE_MS = 1000;  // map <-> chamber crossfade
+  const BX_FADE_MS = 1300;  // map <-> chamber crossfade (unhurried)
   const chooseMove = (name) => {
     pickMove(name);
     if (prefersReducedMotion) { setBxScene("chamber"); announce(name + ". Build the lesson here."); return; }
@@ -3592,36 +3690,52 @@ function App() {
   const renderBrain = () => (
     <div className="ww" ref={brainRootRef}>
       <div className="ww-grain" aria-hidden="true" />
+      {/* ink-roughen filter: displaces the smooth font outline into irregular, dry-brush ink
+          edges — the only way to get *visible* brush texture from live (non-image) text */}
+      <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden="true">
+        <filter id="wwInkRoughen" x="-8%" y="-20%" width="116%" height="140%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.028 0.045" numOctaves="2" seed="7" result="n" />
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="3.2" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+      </svg>
       <span className="sr-only" aria-live="polite" ref={liveRef} />
       <header className="bx-mast">
         <div className="bx-word">Spring<i>board</i></div>
         <nav className="bx-nav">
           <a href="about.html" target="_blank" rel="noopener">About</a>
-          <button className="bx-tog" onClick={() => setBrainView(false)}>Classic view</button>
         </nav>
       </header>
+      {/* dreamy soundtrack, fades in soft on first interaction (see the music effect) */}
+      <audio ref={musicRef} src={BX_ASSETS.base + BX_ASSETS.music} loop preload="auto" />
 
       {(bxScene === "cover" || bxScene === "transport") && (
         <section className={"ww-cover" + (bxScene === "transport" ? " fading" : "")}>
           <div className="ww-cover-art" aria-hidden="true">
-            {/* the approved still sits underneath as the fallback (return visits, reduced
-                motion, video error). On a first visit the paint-in clip plays over it and
-                FREEZES on its last painted frame — no crossfade to the still, because swapping
-                two slightly different paintings read as a "flash". The frozen frame just stays. */}
-            <img src={BX_ASSETS.base + BX_ASSETS.cover} alt="" />
-            {!prefersReducedMotion && !paintSeenRef.current && (
+            {/* Start from BLANK paper and draw in: the paint-in clip plays over the paper and
+                FREEZES on its last painted frame. The finished-brain still is only revealed if
+                there's no video (reduced motion, return visit, or the clip failed) — otherwise
+                showing it would flash the finished brain before the drawing even begins. */}
+            {(prefersReducedMotion || paintSeenRef.current || paintFailed) && (
+              <img src={BX_ASSETS.base + BX_ASSETS.cover} alt="" />
+            )}
+            {!prefersReducedMotion && !paintSeenRef.current && !paintFailed && (
+              // NO onEnded swap: the clip stays mounted and FREEZES on its last (fully detailed)
+              // frame. Swapping to the still at the end cut off the final detail strokes and
+              // read as a jump. paintSeenRef only flips when leaving the cover (enterMind).
               <video src={BX_ASSETS.base + BX_ASSETS.coverPaint} muted playsInline autoPlay preload="auto"
-                onEnded={() => { paintSeenRef.current = true; }}
-                onError={(e) => { paintSeenRef.current = true; e.currentTarget.classList.add("done"); }} />
+                onError={() => { setPaintFailed(true); }} />
             )}
           </div>
           <div className="ww-cover-copy">
             <div className="ww-kicker">A thinking tool for Wesley teachers</div>
             <h1>Start with the <span className="pu">thinking</span>, not the topic.</h1>
-            <p className="ww-sub">Pick one of eight thinking moves from the Map of Understanding, add a photograph, a film or an article, and Springboard builds a lesson that moves your class beyond remembering into understanding.</p>
-            <button className="ww-enter" autoFocus onClick={enterMind}>Enter the mind →</button>
-            <p className="ww-credit">Eight thinking moves · Cultures of Thinking · <a href="https://pz.harvard.edu/thinking-routines" target="_blank" rel="noopener">Harvard Project Zero</a></p>
+            <p className="ww-sub">Pick a thinking move, add a photo, film or article, and Springboard builds a lesson that takes your class from remembering into understanding.</p>
+            <button className="ww-enter" autoFocus onClick={enterMind}><span>Enter the mind</span></button>
           </div>
+          <footer className="ww-foot">
+            <span>Built on <a href="https://pz.harvard.edu/thinking-routines" target="_blank" rel="noopener">Harvard Project Zero</a> Thinking Routines &amp; Cultures of Thinking</span>
+            <span>Brought to you by the DLP team</span>
+          </footer>
         </section>
       )}
 
@@ -3663,19 +3777,19 @@ function App() {
               <span>{m.name}</span>
             </button>
           ))}
-          <button className="ww-listbtn" onClick={() => setListOpen(true)}>See as a list</button>
-          <p className="ww-mapcredit">Brought to you by the DLP team</p>
+          {/* Mobile map: the circle can't hold eight long labels on a phone, so narrow screens
+              get a clean scrollable list instead (bloom + name rows). Hidden on desktop via CSS;
+              the positioned circle above is hidden on mobile. */}
+          <div className="ww-maplist" aria-label="The eight thinking moves">
+            <div className="ww-maplist-head"><span className="k">The Map of Understanding</span><span className="n">Thinking Moves</span></div>
+            {MOVES.map((m) => (
+              <button key={m.name} className="ww-maplist-row" style={{ "--dot": bwTint(m.name) }} onClick={() => chooseMove(m.name)}>
+                <img src={BX_ASSETS.base + BX_ASSETS.bloom(IMG_MOVE_POS[m.name].bloom)} alt="" aria-hidden="true" />
+                <span>{m.name}</span>
+              </button>
+            ))}
+          </div>
           </React.Fragment>)}
-          {listOpen && bxScene === "inside" && (
-            <div className="bw-list" role="dialog" aria-modal="true" aria-label="The eight thinking moves">
-              <button className="bw-list-close" aria-label="Close list" onClick={() => setListOpen(false)}>×</button>
-              {MOVES.map((m) => (
-                <button key={m.name} className="bw-list-row" style={{ "--bwt": bwTint(m.name) }} onClick={() => { setListOpen(false); chooseMove(m.name); }}>
-                  <i /><b>{m.name}</b><span>{m.question}</span>
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       )}
 
