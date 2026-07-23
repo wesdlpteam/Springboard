@@ -806,22 +806,25 @@
     /* generous feather: only softens the extreme rectangle rim, so the artwork's loose blue
        wash bleeds well outside the brain outline (a tight oval was cropping that bleed) */
     -webkit-mask-image: radial-gradient(97% 94% at 54% 50%, #000 80%, transparent 99%);
-            mask-image: radial-gradient(97% 94% at 54% 50%, #000 80%, transparent 99%); }
-  /* still starts hidden (so the finished brain never shows before the paint), crossfades in
-     when the clip ends — bringing the full loose blue wash. Video fades out under it. */
-  .ww-cover-still { opacity: 0; transition: opacity 1.2s ease; }
-  .ww-cover-still.on { opacity: 1; }
-  .ww-cover-art video { transition: opacity 1.2s ease; }
-  .ww-cover-art video.done { opacity: 0; }
-  /* readability scrim: TEXTURED paper (not flat) veiling the left column, opaque enough that
-     the brain can never overlap the words no matter the window size, fading to clear on the
-     right where the painting lives. Sits above the art, below the copy. */
+            mask-image: radial-gradient(97% 94% at 54% 50%, #000 80%, transparent 99%);
+    -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+    -webkit-mask-position: 54% 50%; mask-position: 54% 50%; }
+  /* watercolour wash-in: the artwork's own feather mask grows from a small central patch to
+     full while it fades up — the brain paints itself in, from the exact image (no video, so no
+     flip and no paper seam). Plays once on load. */
+  .ww-cover-still { animation: wwPaintIn 2.6s cubic-bezier(.3,.1,.3,1) both; }
+  @keyframes wwPaintIn {
+    from { opacity: 0; -webkit-mask-size: 30% 30%; mask-size: 30% 30%; }
+    60%  { opacity: 1; }
+    to   { opacity: 1; -webkit-mask-size: 100% 100%; mask-size: 100% 100%; } /* 100% keeps the rim feather at the edge */
+  }
+  @media (prefers-reduced-motion: reduce) { .ww-cover-still { animation: none; opacity: 1;
+    -webkit-mask-size: 100% 100%; mask-size: 100% 100%; } }
+  /* readability veil: a SMOOTH paper-colour gradient (no texture image, so no seam or edge
+     line), softly covering the text column and fading to clear before the brain. Sits above
+     the art, below the copy. */
   .ww-cover::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
-    background: var(--paper) url("assets/brain/paper.jpg") repeat; background-size: 360px 360px;
-    /* barely veils the far-left wordmark/kicker column; clears by 28% so the brain's loose
-       blue wash bleeds freely (a wider scrim was washing the cloud out) */
-    -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 14%, transparent 30%);
-            mask-image: linear-gradient(90deg, #000 0%, #000 14%, transparent 30%); }
+    background: linear-gradient(90deg, var(--paper) 0%, var(--paper) 20%, rgba(244,239,230,0) 44%); }
   .ww-cover-copy { position: relative; z-index: 2; max-width: 620px; }
   .ww-kicker { font-size: clamp(11px, 1.2vw, 12.5px); font-weight: 600; letter-spacing: .18em; text-transform: uppercase;
     color: var(--purple); margin-bottom: 20px; }
@@ -865,12 +868,10 @@
   /* tablet + phone: the brain becomes a soft full-bleed watermark centred behind the copy,
      and the scrim veils the WHOLE width so the text is always crisp over it */
   @media (max-width: 820px) {
-    .ww-cover-art img, .ww-cover-art video { right: 50%; transform: translate(50%, -50%);
-      height: auto; width: 116vw; max-width: 116vw; opacity: .5;
-      -webkit-mask-image: radial-gradient(60% 50% at 50% 46%, #000 40%, transparent 78%);
-              mask-image: radial-gradient(60% 50% at 50% 46%, #000 40%, transparent 78%); }
-    .ww-cover::before { -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,.72) 0%, rgba(0,0,0,.86) 100%);
-              mask-image: linear-gradient(180deg, rgba(0,0,0,.72) 0%, rgba(0,0,0,.86) 100%); }
+    .ww-cover-still { right: 50%; transform: translate(50%, -50%);
+      height: auto; width: 116vw; max-width: 116vw; opacity: .42; animation: none; mask: none; -webkit-mask: none; }
+    /* a soft paper veil over the whole cover keeps the text crisp over the watermark brain */
+    .ww-cover::before { background: rgba(244,239,230,.66); }
     .ww-cover-copy { max-width: 640px; }
   }
   @media (max-width: 520px) {
@@ -1135,7 +1136,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.8.3 · 2026-07-23";
+const APP_VERSION = "v0.8.4 · 2026-07-23";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -3422,12 +3423,7 @@ function App() {
       if (p && p.then) p.then(() => { started = true; fadeIn(); }).catch(() => {}); else { started = true; fadeIn(); }
     };
     tryPlay(); // attempt autoplay (usually blocked with sound until a gesture)
-    // start the music AND (belt-and-braces) the cover paint-in video on the first gesture, in
-    // case the browser also blocked the muted video autoplay
-    const onFirst = () => {
-      tryPlay();
-      const v = document.querySelector(".ww-cover-art video"); if (v && v.paused && !v.ended) { const p = v.play(); if (p && p.catch) p.catch(() => {}); }
-    };
+    const onFirst = () => { tryPlay(); }; // start the soundtrack on the first gesture
     ["pointerdown", "keydown", "touchstart"].forEach(e => window.addEventListener(e, onFirst));
     return () => { cancelAnimationFrame(raf); ["pointerdown", "keydown", "touchstart"].forEach(e => window.removeEventListener(e, onFirst)); };
   }, []);
@@ -3724,19 +3720,11 @@ function App() {
       {(bxScene === "cover" || bxScene === "transport") && (
         <section className={"ww-cover" + (bxScene === "transport" ? " fading" : "")}>
           <div className="ww-cover-art" aria-hidden="true">
-            {/* Start BLANK (the .ww-cover-art paper bg shows while the video buffers), paint in
-                via the clip, then CROSSFADE to the still — the still carries the full loose blue
-                wash that bleeds outside the brain (the clip's last frame is tighter), so the
-                clouds bloom in at the end. Still is hidden until the paint finishes so the
-                finished brain never shows before the drawing. */}
-            <img className={"ww-cover-still" + ((paintDone || prefersReducedMotion || paintFailed) ? " on" : "")}
-              src={BX_ASSETS.base + BX_ASSETS.cover} alt="" />
-            {!prefersReducedMotion && !paintFailed && (
-              <video className={paintDone ? "done" : ""}
-                src={BX_ASSETS.base + BX_ASSETS.coverPaint} muted playsInline autoPlay preload="auto"
-                onEnded={() => { paintSeenRef.current = true; setPaintDone(true); }}
-                onError={() => { setPaintFailed(true); }} />
-            )}
+            {/* ONE image, no video: the paint-in clip and the finished still were different
+                paintings (mirrored, different paper) so crossfading flipped the brain and showed
+                a paper seam. Instead the still itself washes in via a growing watercolour mask —
+                a paint-in feel from the exact artwork that carries the loose blue cloud bleed. */}
+            <img className="ww-cover-still" src={BX_ASSETS.base + BX_ASSETS.cover} alt="" />
           </div>
           <div className="ww-cover-copy">
             <div className="ww-kicker">A thinking tool for Wesley teachers</div>
