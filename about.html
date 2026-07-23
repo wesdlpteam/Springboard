@@ -43,9 +43,9 @@
      changes. Fade-IN is a CSS animation (plays from its first frame on every load, so it can
      never skip the way JS-timed rAF can); fade-OUT (leaving) is a JS-added transition. */
   .page-veil{ position:fixed; inset:0; z-index:100; background:var(--paper); pointer-events:none;
-    opacity:0; animation:veilFadeIn .6s ease; }
+    opacity:0; animation:veilFadeIn 1.1s ease; }
   @keyframes veilFadeIn { from { opacity:1; } to { opacity:0; } }
-  .page-veil.leaving{ animation:none; opacity:1; pointer-events:auto; transition:opacity .6s ease; }
+  .page-veil.leaving{ animation:none; opacity:1; pointer-events:auto; transition:opacity 1.1s ease; }
   @media (prefers-reduced-motion: reduce){ .page-veil{ animation:none; opacity:0; }
     .page-veil.leaving{ transition:none; } }
   .wrap{ max-width:880px; margin:0 auto; padding:0 24px 84px; }
@@ -249,7 +249,7 @@
       v.classList.add('leaving');
       var go = function(){ location.href = a.href; };
       v.addEventListener('transitionend', go, { once:true });
-      setTimeout(go, 750); // fallback
+      setTimeout(go, 1250); // fallback
     });
   })();
   </script>
