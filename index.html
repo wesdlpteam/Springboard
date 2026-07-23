@@ -891,6 +891,13 @@
   @keyframes wwWashIn { 0% { transform: scale(.02); opacity: 0; } 18% { opacity: 1; } 100% { transform: scale(2.4); opacity: 1; } }
   @media (prefers-reduced-motion: reduce) { .ww-wash.on { animation: none; transform: scale(2.4); opacity: 1; } }
 
+  /* leaving to a separate page (About): the same calm ink-fade as scene changes — the app
+     fades to paper, then we navigate; about.html fades back in from the same paper. */
+  .nav-veil { position: fixed; inset: 0; z-index: 9999; background: #F4EFE6; opacity: 0;
+    pointer-events: none; transition: opacity .55s ease; }
+  .nav-veil.on { opacity: 1; pointer-events: auto; }
+  @media (prefers-reduced-motion: reduce) { .nav-veil { transition: none; } }
+
   /* ---------- map ---------- */
   /* the SAME paper texture as the page — so the blooms (mix-blend multiply) blend against
      matching paper (a transparent map bg made them show their own lighter paper = a halo) */
@@ -980,18 +987,19 @@
   .ww-chamber-bg img.ready { opacity: .85; }
   /* per-move colour: a huge soft wash bloom behind the panels (works with or without wc-chamber.png) */
   .ww-chamber-bg .tintwash { position: absolute; inset: -10%;
-    background: radial-gradient(52% 46% at 50% 30%, color-mix(in srgb, var(--mv, #C59F40) 26%, transparent) 0%, transparent 70%),
-                radial-gradient(70% 60% at 82% 88%, color-mix(in srgb, var(--mv, #C59F40) 14%, transparent) 0%, transparent 72%);
+    background: radial-gradient(64% 58% at 50% 26%, color-mix(in srgb, var(--mv, #C59F40) 40%, transparent) 0%, transparent 72%),
+                radial-gradient(72% 62% at 82% 88%, color-mix(in srgb, var(--mv, #C59F40) 24%, transparent) 0%, transparent 74%);
     animation: wwTintBreath 9s ease-in-out infinite alternate; }
   @keyframes wwTintBreath { from { opacity: .75; transform: scale(1); } to { opacity: 1; transform: scale(1.05); } }
   @media (prefers-reduced-motion: reduce) { .ww-chamber-bg .tintwash { animation: none; } }
-  .ww-chamber .bx-tool { position: relative; z-index: 1; padding-top: 92px; min-height: 100%; }
+  .ww-chamber .bx-tool { position: relative; z-index: 1; padding-top: 40px; padding-bottom: 52px; min-height: 100%; }
+  .ww-chamber .bx-drop { padding: 18px; }
   .ww-chamber .bx-tool-head { display: block; }
   .ww-chamber .bx-tool-head .bx-back { display: block; margin-bottom: 14px; font-size: 13px;
     color: var(--ink-soft); border: 0; background: none; cursor: pointer; padding: 0; }
   .ww-chamber .bx-tool-head .bx-back:hover { color: var(--ink); }
   .ww-chamber .bx-tool-head h2 { color: var(--bwt, var(--purple)); }
-  .ww-chamber .bx-tool-sub { color: var(--ink-soft); max-width: 62ch; }
+  .ww-chamber .bx-tool-sub { color: var(--ink-soft); max-width: none; margin-bottom: 16px; }
   .ww-chamber .bx-panel { border-top: 2px solid var(--bwt, var(--ink));
     background: rgba(255,255,255,.72); border-radius: 10px; padding: 18px 18px 22px;
     box-shadow: 0 3px 14px rgba(43,40,31,.06); }
@@ -1133,7 +1141,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.1 · 2026-07-23";
+const APP_VERSION = "v0.9.3 · 2026-07-23";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -3447,6 +3455,21 @@ function App() {
   const liveRef = useRef(null);
   const announce = (msg) => { if (liveRef.current) liveRef.current.textContent = msg; };
   const enterMind = () => diveToInside();
+  // Leaving to the About page uses the same calm ink-fade as scene changes: fade the app to
+  // paper, THEN navigate (same tab); about.html fades back in from paper. Cmd/ctrl/shift/middle
+  // clicks still open a new tab, and reduced-motion skips straight to a plain navigation.
+  const fadeToAbout = (e) => {
+    if (e && (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1)) return;
+    if (prefersReducedMotion) return;
+    e.preventDefault();
+    const veil = document.createElement("div");
+    veil.className = "nav-veil";
+    document.body.appendChild(veil);
+    requestAnimationFrame(() => veil.classList.add("on"));
+    const go = () => { window.location.href = "about.html"; };
+    veil.addEventListener("transitionend", go, { once: true });
+    setTimeout(go, 700); // fallback if transitionend never fires
+  };
   // Watercolour scene changes (Nathan's call, 2026-07-23): NO dives, NO washes, NO videos —
   // the paper never changes; the current scene's INK FADES AWAY and the next scene's ink
   // fades in over the same ground. Plain timers + CSS opacity, nothing else.
@@ -3712,7 +3735,7 @@ function App() {
       <header className="bx-mast">
         <div className="bx-word">Spring<i>board</i></div>
         <nav className="bx-nav">
-          <a href="about.html" target="_blank" rel="noopener">About</a>
+          <a href="about.html" onClick={fadeToAbout}>About</a>
         </nav>
       </header>
       {/* dreamy soundtrack, fades in soft on first interaction (see the music effect) */}

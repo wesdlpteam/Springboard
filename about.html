@@ -38,6 +38,13 @@
   body::after{ content:""; position:fixed; inset:0; pointer-events:none; z-index:40;
     background:radial-gradient(120% 100% at 50% 44%, transparent 60%, rgba(43,40,31,.05) 100%); }
   ::selection{ background:var(--ink); color:var(--paper); }
+
+  /* arrival/exit veil: fades away on load, fades back to paper when returning to the app —
+     the same calm ink-fade the watercolour experience uses for scene changes */
+  .page-veil{ position:fixed; inset:0; z-index:100; background:var(--paper); pointer-events:none;
+    opacity:1; transition:opacity .6s ease; }
+  .page-veil.gone{ opacity:0; }
+  @media (prefers-reduced-motion: reduce){ .page-veil{ opacity:0 !important; transition:none; } }
   .wrap{ max-width:880px; margin:0 auto; padding:0 24px 84px; }
   a{ color:var(--purple); }
   a:focus-visible{ outline:2px solid var(--purple); outline-offset:3px; border-radius:4px; }
@@ -135,6 +142,7 @@
 </style>
 </head>
 <body>
+  <div class="page-veil" aria-hidden="true"></div>
   <header class="mast">
     <a class="word" href="index.html">Spring<i>board</i></a>
     <a class="back" href="index.html">&larr; Back to Springboard</a>
@@ -218,5 +226,30 @@
     </footer>
 
   </main>
+
+  <script>
+  (function(){
+    var v = document.querySelector('.page-veil');
+    if(!v) return;
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // fade in on arrival (double rAF so the transition runs)
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ v.classList.add('gone'); }); });
+    if(reduce) return;
+    // fade back to paper when returning into the app (same-origin links only)
+    document.addEventListener('click', function(e){
+      var a = e.target.closest ? e.target.closest('a[href]') : null;
+      if(!a) return;
+      if(a.target === '_blank' || e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+      var url; try { url = new URL(a.href, location.href); } catch(_){ return; }
+      if(url.origin !== location.origin) return;                 // external -> normal nav
+      if(url.pathname === location.pathname && url.hash) return; // in-page anchor
+      e.preventDefault();
+      v.classList.remove('gone'); v.style.pointerEvents = 'auto';
+      var go = function(){ location.href = a.href; };
+      v.addEventListener('transitionend', go, { once:true });
+      setTimeout(go, 750); // fallback
+    });
+  })();
+  </script>
 </body>
 </html>
