@@ -2785,10 +2785,12 @@ function App() {
     // shows and the teacher must pick (otherwise the guide lookup silently finds nothing and
     // skips injection). AC also blanks a subject that exists but not at this year level
     // (e.g. History (7–10) after the year drops to 4).
-    if (isVceSenior(next) && next.subject && !VCE_SUBJECTS.some(s => s.name === next.subject.trim())) {
+    // subjectFreeform ("Other / not listed") deliberately holds a free-typed subject, so exempt
+    // it from these guards -- otherwise every keystroke blanks it and the teacher is trapped.
+    if (!subjectFreeform && isVceSenior(next) && next.subject && !VCE_SUBJECTS.some(s => s.name === next.subject.trim())) {
       next = { ...next, subject: "" };
     }
-    if (isAcF10(next) && next.subject && !acSubjectsFor(next.yearLevel).some(s => s.name === next.subject.trim())) {
+    if (!subjectFreeform && isAcF10(next) && next.subject && !acSubjectsFor(next.yearLevel).some(s => s.name === next.subject.trim())) {
       next = { ...next, subject: "" };
     }
     // Changing year level across a band boundary invalidates the analysis (routines are
@@ -2917,7 +2919,9 @@ function App() {
   React.useEffect(() => { if (reelIndex > Math.max(0, media.length - 1)) setReelIndex(0); }, [media.length]);
 
   // Fetch the tickable curriculum items whenever a recognised VCE/AC subject is chosen.
+  // Only the brain experience shows the focus panel, so skip the call behind Classic view.
   useEffect(() => {
+    if (!brainView) { setFocusGroups([]); return; }
     const guide = vceStudyGuide(classInfo) || acStudyGuide(classInfo);
     if (!guide) { setFocusGroups([]); return; }
     let cancelled = false;
@@ -2939,7 +2943,7 @@ function App() {
       }
     })();
     return () => { cancelled = true; };
-  }, [classInfo.subject, classInfo.yearLevel]);
+  }, [classInfo.subject, classInfo.yearLevel, brainView]);
 
   /* ------- file handlers ------- */
   const newId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
