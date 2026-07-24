@@ -2202,7 +2202,9 @@ Return STRICT JSON with keys: title, keywords, ignite{question}, think{routine, 
     userContent.push({ type: "text", text: instruction + `\n\nThe stimulus is the following article text. Build the Springboard from its real content:\n\n"""\n${trimmed}\n"""` });
   }
 
-  const studyGuide = vceGuide || acGuide;
+  const baseGuide = vceGuide || acGuide;
+  const focus = Array.isArray(classInfo.focus) ? classInfo.focus : [];
+  const studyGuide = baseGuide ? (focus.length ? { ...baseGuide, focus } : baseGuide) : null;
   const resp = await fetch(API_BASE + "/api/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-sb-passcode": passcode },
@@ -3180,6 +3182,7 @@ function App() {
         classInfo, routineName: selectedRoutine, reflectRoutine, scope: "all",
       });
       const deck = shapeDeck(parsed, { routineName: selectedRoutine });
+      deck.curriculumFocus = Array.isArray(classInfo.focus) ? classInfo.focus.slice() : [];
       setRawDump(raw);
       setSpots({ [genBand]: deck });
       setActiveBand(genBand);
@@ -3360,6 +3363,7 @@ function App() {
           const ideas = (Array.isArray(deck.launch && deck.launch.ideas) ? deck.launch.ideas : []).map(s => String(s).trim()).filter(Boolean).slice(0, 3);
           if (ideas.length) out += "\n\nLaunch ideas (pick one):\n" + ideas.map((t, i) => (i + 1) + ") " + t).join("\n");
           const conn = ((deck.launch && deck.launch.connection) || "").trim(); if (conn) out += "\n\nCurriculum connection: " + conn;
+          if (Array.isArray(deck.curriculumFocus) && deck.curriculumFocus.length) out += "\n\nCurriculum focus (teacher): " + deck.curriculumFocus.join("; ");
         }
         if (key === "reflect") {
           // Metacognition helper for the teacher (EEF Task/Strategy/Self frame): a stem bank + how to
