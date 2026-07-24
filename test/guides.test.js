@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseItems, sliceVceUnits, readGuide } from "../api/_guides.js";
+import { mockReqRes } from "./_helpers.js";
+import guideHandler from "../api/guide.js";
 
 const AC_SECTION = `# Australian Curriculum v9: Science (F–10)
 ## Year 7
@@ -55,4 +57,26 @@ test("sliceVceUnits + parseItems on the real biology guide yields AoS items", ()
   const titles = groups.flatMap(g => g.items.map(i => i.text));
   assert.ok(titles.some(t => t.startsWith("Unit 1, AoS1")), "expected a Unit 1 AoS1 item");
   assert.ok(!titles.some(t => /Assessed through/.test(t)), "assessment prose must not become an item");
+});
+
+test("guide endpoint returns grouped items for a real ACARA subject+level", async () => {
+  const { req, res } = mockReqRes({ body: { key: "ac-science", level: "7" } });
+  await guideHandler(req, res);
+  assert.equal(res.statusCode, 200);
+  assert.ok(res.body.subject.length > 0);
+  assert.ok(res.body.groups.length > 0);
+  assert.ok(res.body.groups[0].items[0].id.startsWith("AC9"));
+});
+
+test("guide endpoint returns empty for an unknown key (no error path)", async () => {
+  const { req, res } = mockReqRes({ body: { key: "../secrets", level: "7" } });
+  await guideHandler(req, res);
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.body, { subject: "", groups: [] });
+});
+
+test("guide endpoint rejects non-POST", async () => {
+  const { req, res } = mockReqRes({ method: "GET" });
+  await guideHandler(req, res);
+  assert.equal(res.statusCode, 405);
 });

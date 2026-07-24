@@ -1,5 +1,8 @@
 {
-  "functions": { "api/generate.js": { "includeFiles": "api/guides/**" } },
+  "functions": {
+    "api/generate.js": { "includeFiles": "api/guides/**" },
+    "api/guide.js": { "includeFiles": "api/guides/**" }
+  },
   "headers": [
     {
       "source": "/(.*)",
