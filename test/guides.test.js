@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { parseItems, sliceVceUnits, readGuide } from "../api/_guides.js";
 import { mockReqRes } from "./_helpers.js";
 import guideHandler from "../api/guide.js";
+import { injectStudyGuide } from "../api/generate.js";
 
 const AC_SECTION = `# Australian Curriculum v9: Science (F–10)
 ## Year 7
@@ -79,4 +80,21 @@ test("guide endpoint rejects non-POST", async () => {
   const { req, res } = mockReqRes({ method: "GET" });
   await guideHandler(req, res);
   assert.equal(res.statusCode, 405);
+});
+
+const baseMsgs = () => [{ role: "system", content: "SYS" }, { role: "user", content: "U" }];
+
+test("injectStudyGuide appends a focus block when focus is present", () => {
+  const out = injectStudyGuide(baseMsgs(), { key: "ac-science", level: "7", focus: ["AC9S7U01 — investigate classification"] });
+  const sys = out[0].content;
+  assert.match(sys, /AUSTRALIAN CURRICULUM v9 EXTRACT/);
+  assert.match(sys, /TEACHER'S CURRICULUM FOCUS/);
+  assert.match(sys, /- AC9S7U01 — investigate classification/);
+});
+
+test("injectStudyGuide with no focus is unchanged from the plain extract", () => {
+  const withEmpty = injectStudyGuide(baseMsgs(), { key: "ac-science", level: "7", focus: [] });
+  const without = injectStudyGuide(baseMsgs(), { key: "ac-science", level: "7" });
+  assert.equal(withEmpty[0].content, without[0].content);
+  assert.doesNotMatch(without[0].content, /TEACHER'S CURRICULUM FOCUS/);
 });

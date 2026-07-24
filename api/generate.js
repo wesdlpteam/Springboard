@@ -29,7 +29,13 @@ export function injectStudyGuide(messages, studyGuide) {
   const out = messages.slice();
   const i = out.map(m => m.role).lastIndexOf("system");
   const idx = i >= 0 ? i : 0;
-  out[idx] = { ...out[idx], content: out[idx].content + "\n\n" + banner + "\n" + text };
+  let block = banner + "\n" + text;
+  if (Array.isArray(studyGuide.focus) && studyGuide.focus.length) {
+    block += "\n\n--- TEACHER'S CURRICULUM FOCUS ---\n"
+      + "Centre this lesson on these specific points; treat the rest of the extract as background only:\n"
+      + studyGuide.focus.map(f => "- " + String(f)).join("\n");
+  }
+  out[idx] = { ...out[idx], content: out[idx].content + "\n\n" + block };
   return out;
 }
 
