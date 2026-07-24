@@ -14,6 +14,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Inter:wght@400;450;500;600;700&family=Kaushan+Script&display=swap" rel="stylesheet" />
 
+<!-- Preload the Blackrush brush font (388KB, used by the big "Enter the mind" CTA) so it
+     downloads at parse time, not at React-render time. Paired with font-display:block below,
+     this stops the cold-load flash where the huge fallback shows before Blackrush swaps in. -->
+<link rel="preload" as="font" type="font/ttf" href="assets/fonts/blackrush.ttf" crossorigin />
+
 <!-- React + Babel (in-browser JSX, no build step) -->
 <script crossorigin="anonymous" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
 <script crossorigin="anonymous" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
@@ -858,7 +863,10 @@
      whole brain experience — the earlier space/neon scene code has been removed.
      ============================================================================ */
   /* Blackrush brush font (real brush-stroke texture) for the "Enter the mind" CTA */
-  @font-face { font-family: "Blackrush"; src: url("assets/fonts/blackrush.ttf"); font-display: swap; }
+  /* font-display:block (not swap): keep the CTA text invisible while the 388KB brush font
+     loads, so the oversized fallback (Segoe Script fills the full 66px box) never flashes.
+     The purple pill still renders immediately; only the ink text waits, then paints in. */
+  @font-face { font-family: "Blackrush"; src: url("assets/fonts/blackrush.ttf"); font-display: block; }
   .ww { --paper: #F4EFE6; --paper-deep: #EBE4D7; --ink: #2B281F; --ink-soft: #4b473d;
     --purple: #4F2759; --gold: #C59F40;
     position: relative; min-height: 100vh;
@@ -1259,7 +1267,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.17 · 2026-07-24";
+const APP_VERSION = "v0.9.18 · 2026-07-24";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
