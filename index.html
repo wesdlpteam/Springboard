@@ -1418,7 +1418,7 @@ const CLASS_STORE = "sb_class";
 // 2026-07-10). loadClassInfo clears any pre-v0.4.0 stored value so old browsers reset too.
 function loadClassInfo() {
   try { localStorage.removeItem(CLASS_STORE); } catch (_) {}
-  return { curriculum: "IB MYP", subject: "", yearLevel: "", outcome: "" };
+  return { curriculum: "IB MYP", subject: "", yearLevel: "", outcome: "", focus: [] };
 }
 
 // A "combined" deck serves several bands at once (one deck, shared language). It is
@@ -2750,6 +2750,10 @@ function App() {
 
   // inputs
   const [mode, setMode] = useState("media");
+  const [subjectFreeform, setSubjectFreeform] = useState(false); // brain Subject "Other / not listed"
+  const [focusGroups, setFocusGroups] = useState([]);            // fetched curriculum items
+  const [focusLoading, setFocusLoading] = useState(false);
+  const [focusError, setFocusError] = useState("");
   // Dark mode — sandbox experiment; persisted so the choice survives refreshes.
   const [dark, setDark] = useState(() => localStorage.getItem("sb_theme") === "dark");
   useEffect(() => {
@@ -3831,6 +3835,13 @@ function App() {
   const scrollToId = (id) => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); };
   const onPickBrainMove = (name) => { pickMove(name); setTimeout(() => scrollToId("bx-tool"), 80); };
 
+  // Brain Subject <select>: "__other__" reverts to a free-text box; any real pick clears focus.
+  const onPickBrainSubject = (e) => {
+    const v = e.target.value;
+    if (v === "__other__") { setSubjectFreeform(true); saveClassInfo({ ...classInfo, subject: "", focus: [] }); setFocusGroups([]); setFocusError(""); return; }
+    setSubjectFreeform(false); saveClassInfo({ ...classInfo, subject: v, focus: [] });
+  };
+
   const SLIDE_CC = { ignite: "#823a9e", think: "#34508f", launch: "#c0592a", reflect: "#3f7a34" };
   const renderBrainPreview = () => (
     <div className="bx-ov" role="dialog" aria-modal="true" aria-label="Slide preview" onClick={() => setOpenSlide(null)}>
@@ -3919,11 +3930,49 @@ function App() {
           <h3>Your class</h3>
           <p className="bx-note">So the language and curriculum fit.</p>
           <div className="bx-two">
-            <div className="bx-field"><label>Subject</label><input className="bx-input" value={classInfo.subject} onChange={e => saveClassInfo({ ...classInfo, subject: e.target.value })} placeholder="e.g. English" /></div>
             <div className="bx-field"><label>Year</label>
-              <select value={classInfo.yearLevel} onChange={e => saveClassInfo({ ...classInfo, yearLevel: e.target.value })}>
+              <select value={classInfo.yearLevel} onChange={e => {
+                const y = e.target.value;
+                const m = acYearNum(y);
+                const curriculum = (m === 11 || m === 12) ? "VCE"
+                  : (!Number.isNaN(m) && m <= 10) ? "Australian Curriculum" : "IB MYP";
+                setSubjectFreeform(false); setFocusGroups([]); setFocusError("");
+                saveClassInfo({ ...classInfo, yearLevel: y, curriculum, subject: "", focus: [] });
+              }}>
                 <option value="">—</option>{["F","1","2","3","4","5","6","7","8","9","10","11","12"].map(y => <option key={y} value={y}>{y === "F" ? "Foundation" : "Year " + y}</option>)}
               </select></div>
+            <div className="bx-field"><label>Subject</label>
+              {!classInfo.yearLevel
+                ? <select className="bx-input" disabled><option>Pick a year first</option></select>
+                : subjectFreeform
+                ? <input className="bx-input" value={classInfo.subject} placeholder="Type your subject"
+                         onChange={e => saveClassInfo({ ...classInfo, subject: e.target.value })} />
+                : isVceSenior(classInfo)
+                ? <select className="bx-input" value={classInfo.subject} onChange={onPickBrainSubject}>
+                    <option value="">Choose your VCE study…</option>
+                    {VCE_AREAS.map(area => (
+                      <optgroup label={area} key={area}>
+                        {VCE_SUBJECTS.filter(s => s.area === area).map(s => <option key={s.key} value={s.name}>{s.name}</option>)}
+                      </optgroup>
+                    ))}
+                    <option value="__other__">Other / not listed…</option>
+                  </select>
+                : isAcF10(classInfo)
+                ? <select className="bx-input" value={classInfo.subject} onChange={onPickBrainSubject}>
+                    <option value="">Choose your subject…</option>
+                    {AC_AREAS.map(area => {
+                      const subs = acSubjectsFor(classInfo.yearLevel).filter(s => s.area === area);
+                      return subs.length ? (
+                        <optgroup label={area} key={area}>
+                          {subs.map(s => <option key={s.key} value={s.name}>{s.name}</option>)}
+                        </optgroup>
+                      ) : null;
+                    })}
+                    <option value="__other__">Other / not listed…</option>
+                  </select>
+                : <input className="bx-input" value={classInfo.subject} placeholder="e.g. English"
+                         onChange={e => saveClassInfo({ ...classInfo, subject: e.target.value })} />}
+            </div>
           </div>
           <div className="bx-field"><label>Learning focus (optional)</label><input className="bx-input" value={classInfo.outcome} onChange={e => saveClassInfo({ ...classInfo, outcome: e.target.value })} placeholder="e.g. how structure shapes meaning" /></div>
         </div>
