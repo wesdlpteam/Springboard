@@ -800,6 +800,12 @@
   .bx-input:focus, .bx-tool textarea:focus, .bx-tool select:focus { outline: 2px solid var(--ink); outline-offset: 1px; }
   .bx-two { display: grid; grid-template-columns: 1fr 120px; gap: 10px; }
 
+  .bx-focus { border-top: 1px solid rgba(43,40,31,.18); margin-top: 6px; padding-top: 10px; }
+  .bx-focus > summary { cursor: pointer; font-size: 14px; color: var(--ink); }
+  .bx-focus-heading { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin: 10px 0 4px; }
+  .bx-focus-item { display: flex; gap: 8px; align-items: flex-start; padding: 4px 0; font-size: 13.5px; line-height: 1.4; cursor: pointer; }
+  .bx-focus-item input { margin-top: 3px; flex: 0 0 auto; }
+
   .bx-btn { display: inline-flex; align-items: center; gap: 8px; border: 0; cursor: pointer; font: inherit; font-weight: 500; font-size: 14px;
     background: var(--ink); color: var(--paper); padding: 11px 20px; border-radius: 3px; transition: opacity .2s, transform .1s; }
   .bx-btn:hover { opacity: .88; }
@@ -2908,6 +2914,31 @@ function App() {
   // Keep reelIndex in range whenever the reel shrinks.
   React.useEffect(() => { if (reelIndex > Math.max(0, media.length - 1)) setReelIndex(0); }, [media.length]);
 
+  // Fetch the tickable curriculum items whenever a recognised VCE/AC subject is chosen.
+  useEffect(() => {
+    const guide = vceStudyGuide(classInfo) || acStudyGuide(classInfo);
+    if (!guide) { setFocusGroups([]); return; }
+    let cancelled = false;
+    (async () => {
+      setFocusLoading(true); setFocusError("");
+      try {
+        const r = await fetch(API_BASE + "/api/guide", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-sb-passcode": passcode.trim() },
+          body: JSON.stringify(guide),
+        });
+        if (!r.ok) throw new Error("lookup failed");
+        const data = await r.json();
+        if (!cancelled) setFocusGroups(Array.isArray(data.groups) ? data.groups : []);
+      } catch (_) {
+        if (!cancelled) { setFocusGroups([]); setFocusError("Couldn't load the curriculum list — you can still make the lesson."); }
+      } finally {
+        if (!cancelled) setFocusLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [classInfo.subject, classInfo.yearLevel]);
+
   /* ------- file handlers ------- */
   const newId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
   // Intrinsic aspect (w/h) of an image data URL, so the PPTX export can letterbox it
@@ -3974,6 +4005,36 @@ function App() {
                          onChange={e => saveClassInfo({ ...classInfo, subject: e.target.value })} />}
             </div>
           </div>
+          {(focusLoading || focusError || focusGroups.length > 0) && (
+            <details className="bx-focus" open>
+              <summary>Curriculum focus (optional)</summary>
+              {focusLoading && <p className="bx-note">Loading the curriculum list…</p>}
+              {focusError && <p className="bx-note">{focusError}</p>}
+              {!focusLoading && !focusError && focusGroups.length > 0 && (
+                <React.Fragment>
+                  <p className="bx-note">Tick the ones this lesson targets, or leave blank to cover the whole subject.</p>
+                  {focusGroups.map(g => (
+                    <div className="bx-focus-group" key={g.heading || "grp"}>
+                      {g.heading && <div className="bx-focus-heading">{g.heading}</div>}
+                      {g.items.map(it => {
+                        const on = (classInfo.focus || []).includes(it.text);
+                        return (
+                          <label className="bx-focus-item" key={it.id}>
+                            <input type="checkbox" checked={on} onChange={() => {
+                              const cur = classInfo.focus || [];
+                              const next = on ? cur.filter(x => x !== it.text) : [...cur, it.text];
+                              saveClassInfo({ ...classInfo, focus: next });
+                            }} />
+                            <span>{it.text}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </React.Fragment>
+              )}
+            </details>
+          )}
           <div className="bx-field"><label>Learning focus (optional)</label><input className="bx-input" value={classInfo.outcome} onChange={e => saveClassInfo({ ...classInfo, outcome: e.target.value })} placeholder="e.g. how structure shapes meaning" /></div>
         </div>
         {/* thinking */}
