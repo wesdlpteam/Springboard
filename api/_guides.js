@@ -44,3 +44,27 @@ export function sliceVceUnits(text, units) {
   const end = rest.search(other);
   return end >= 0 ? text.slice(start, start + 1 + end) : text.slice(start);
 }
+
+// Turn a sliced curriculum section into tickable items.
+//  - `#### heading` (or `###`) opens a group.
+//  - `- **LEAD:** rest` is one item; LEAD is the text inside the first bold run.
+//  - non-bold bullets (e.g. VCE assessment lines) and prose are ignored.
+// kind "ac": id = LEAD (the code), text = "LEAD — rest".
+// kind "vce": id = slug(LEAD title), text = LEAD (the AoS title; rest/key-knowledge dropped).
+export function parseItems(sectionText, kind) {
+  const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  const groups = [];
+  let current = null;
+  const ensure = () => (current || (current = { heading: "", items: [] }, groups.push(current), current));
+  for (const line of String(sectionText).replace(/\r\n/g, "\n").split("\n")) {
+    const h = line.match(/^#{3,4}\s+(.+?)\s*$/);
+    if (h) { current = { heading: h[1], items: [] }; groups.push(current); continue; }
+    const b = line.match(/^-\s+\*\*(.+?):\*\*\s*(.*)$/);
+    if (!b) continue;
+    const lead = b[1].trim();
+    const rest = b[2].trim();
+    if (kind === "ac") ensure().items.push({ id: lead, text: rest ? `${lead} — ${rest}` : lead });
+    else ensure().items.push({ id: slug(lead), text: lead });
+  }
+  return groups.filter(g => g.items.length);
+}
