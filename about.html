@@ -65,18 +65,22 @@
   .mast .back{ font-size:13px; font-weight:500; color:var(--ink); opacity:.8; text-decoration:none;
     white-space:nowrap; }
   .mast .back:hover{ opacity:1; text-decoration:underline; text-underline-offset:3px; }
-  .mast-right{ display:flex; align-items:center; gap:14px; }
-  /* mute-music toggle — matches the home page's masthead control */
-  .bx-mute{ display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px;
-    padding:0; border:0; background:none; cursor:pointer; border-radius:8px; color:var(--ink); opacity:.8; }
-  .bx-mute:hover{ opacity:1; }
-  .bx-mute svg{ width:20px; height:20px; display:block; }
+  /* mute-music toggle — floating paper button, matches the home page's bottom-right control */
+  .bx-mute{ position:fixed; right:20px; bottom:20px; z-index:45;
+    display:inline-flex; align-items:center; justify-content:center; width:46px; height:46px;
+    padding:0; border:1px solid var(--line); border-radius:50%;
+    background:rgba(247,244,238,.92); color:var(--ink); cursor:pointer;
+    box-shadow:0 4px 16px rgba(43,40,31,.20); -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px);
+    transition:transform .18s ease, box-shadow .18s ease, background .18s ease; }
+  .bx-mute:hover{ background:rgba(247,244,238,1); box-shadow:0 8px 22px rgba(43,40,31,.26); transform:translateY(-1px); }
+  .bx-mute svg{ width:23px; height:23px; display:block; }
   .bx-mute .spk{ fill:currentColor; }
   .bx-mute .waves path, .bx-mute .slash{ fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; }
   .bx-mute .slash{ display:none; }
   .bx-mute.is-muted .waves{ display:none; }
   .bx-mute.is-muted .slash{ display:inline; }
   .bx-mute:focus-visible{ outline:2px solid var(--purple); outline-offset:3px; }
+  @media (prefers-reduced-motion: reduce){ .bx-mute{ transition:none; } .bx-mute:hover{ transform:none; } }
 
   /* ---------- hero ---------- */
   .hero{ padding:34px 0 8px; }
@@ -159,17 +163,16 @@
   <div class="page-veil" aria-hidden="true"></div>
   <header class="mast">
     <a class="word" href="index.html">Spring<i>board</i></a>
-    <div class="mast-right">
-      <button type="button" id="sb-mute" class="bx-mute" aria-pressed="false" aria-label="Mute music" title="Mute music">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path class="spk" d="M4 9.5v5h3.2L12 18.5V5.5L7.2 9.5H4z" />
-          <g class="waves"><path d="M15 9.2a4 4 0 0 1 0 5.6" /><path d="M17.4 7a7.2 7.2 0 0 1 0 10" /></g>
-          <path class="slash" d="M15.5 9.5l5 5M20.5 9.5l-5 5" />
-        </svg>
-      </button>
-      <a class="back" href="index.html">&larr; Back to Springboard</a>
-    </div>
+    <a class="back" href="index.html">&larr; Back to Springboard</a>
   </header>
+  <!-- mute-music: floating button, matches the home page's bottom-right control -->
+  <button type="button" id="sb-mute" class="bx-mute" aria-pressed="false" aria-label="Mute music" title="Mute music">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path class="spk" d="M4 9.5v5h3.2L12 18.5V5.5L7.2 9.5H4z" />
+      <g class="waves"><path d="M15 9.2a4 4 0 0 1 0 5.6" /><path d="M17.4 7a7.2 7.2 0 0 1 0 10" /></g>
+      <path class="slash" d="M15.5 9.5l5 5M20.5 9.5l-5 5" />
+    </svg>
+  </button>
 
   <main class="wrap">
 

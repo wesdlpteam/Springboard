@@ -687,16 +687,22 @@
   .bx-mast .bx-nav a:hover, .bx-mast .bx-nav button:hover { color: var(--ink); }
   .bx-mast .bx-nav .on { color: var(--ink); }
   .bx-tog { border: 1px solid var(--line-strong); border-radius: 999px; padding: 5px 12px; }
-  /* mute-music toggle: icon button that lives in the masthead nav on every scene */
-  .bx-mute { align-self: center; display: inline-flex; align-items: center; justify-content: center;
-    width: 34px; height: 34px; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 8px; }
-  .bx-mute svg { width: 20px; height: 20px; display: block; }
+  /* mute-music toggle: floating paper button, fixed in the bottom-right on every scene */
+  .bx-mute { position: fixed; right: 20px; bottom: 20px; z-index: 45;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 46px; height: 46px; padding: 0; border: 1px solid var(--line); border-radius: 50%;
+    background: rgba(247,244,238,.92); color: var(--ink); cursor: pointer;
+    box-shadow: 0 4px 16px rgba(43,40,31,.20); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+    transition: transform .18s ease, box-shadow .18s ease, background .18s ease; }
+  .bx-mute:hover { background: rgba(247,244,238,1); box-shadow: 0 8px 22px rgba(43,40,31,.26); transform: translateY(-1px); }
+  .bx-mute svg { width: 23px; height: 23px; display: block; }
   .bx-mute .spk { fill: currentColor; }
   .bx-mute .waves path, .bx-mute .slash { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
   .bx-mute .slash { display: none; }
   .bx-mute.is-muted .waves { display: none; }
   .bx-mute.is-muted .slash { display: inline; }
   .bx-mute:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+  @media (prefers-reduced-motion: reduce) { .bx-mute { transition: none; } .bx-mute:hover { transform: none; } }
 
   /* a single named kicker — masthead voice, used once, not a per-section eyebrow */
   .bx-kicker { font-size: 11.5px; letter-spacing: .28em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
@@ -879,11 +885,9 @@
     .ww .bx-word::after { transform: scaleX(0); transform-origin: left center; animation: wwInk .9s cubic-bezier(.5,0,.2,1) .3s both; }
     @keyframes wwInk { to { transform: scaleX(1); } }
   }
-  .ww .bx-nav a, .ww .bx-tog, .ww .bx-mute { color: var(--ink); opacity: .78;
+  .ww .bx-nav a, .ww .bx-tog { color: var(--ink); opacity: .78;
     text-shadow: 0 0 9px rgba(247,244,238,.95), 0 0 4px rgba(247,244,238,.95); }
-  .ww .bx-nav a:hover, .ww .bx-tog:hover, .ww .bx-mute:hover { opacity: 1; }
-  /* text-shadow doesn't reach the SVG, so give the icon the same paper halo via drop-shadow */
-  .ww .bx-mute svg { filter: drop-shadow(0 0 4px rgba(247,244,238,.95)) drop-shadow(0 0 2px rgba(247,244,238,.95)); }
+  .ww .bx-nav a:hover, .ww .bx-tog:hover { opacity: 1; }
   /* About reads in the same painted Fraunces as the wordmark (Nathan's call) */
   .ww .bx-nav a { font-family: var(--bx-display); font-weight: 500; font-size: 15px; letter-spacing: -.01em; }
 
@@ -944,7 +948,8 @@
   /* quiet cover footer: attributions pinned along the bottom, out of the hero */
   .ww-foot { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
     display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 24px;
-    padding: 0 clamp(22px, 5vw, 72px) 22px; font-size: 12px; color: #7c766a; pointer-events: auto; }
+    padding: 0 clamp(22px, 5vw, 72px) 22px; font-size: 12px; color: #7c766a; pointer-events: auto;
+    padding-right: 78px; } /* reserve a lane for the floating mute button (right:20 + 46 wide) */
   .ww-foot a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
   .ww-foot span:last-child { color: var(--purple); font-weight: 500; }
 
@@ -1254,7 +1259,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.16 · 2026-07-24";
+const APP_VERSION = "v0.9.17 · 2026-07-24";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -3988,18 +3993,19 @@ function App() {
       <header className="bx-mast">
         <button type="button" className="bx-word" onClick={goHome} aria-label="Springboard — back to the start" title="Back to the start">Spring<i>board</i></button>
         <nav className="bx-nav">
-          <button type="button" className={"bx-mute" + (musicMuted ? " is-muted" : "")} onClick={toggleMusic}
-            aria-pressed={musicMuted} aria-label={musicMuted ? "Unmute music" : "Mute music"}
-            title={musicMuted ? "Unmute music" : "Mute music"}>
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path className="spk" d="M4 9.5v5h3.2L12 18.5V5.5L7.2 9.5H4z" />
-              <g className="waves"><path d="M15 9.2a4 4 0 0 1 0 5.6" /><path d="M17.4 7a7.2 7.2 0 0 1 0 10" /></g>
-              <path className="slash" d="M15.5 9.5l5 5M20.5 9.5l-5 5" />
-            </svg>
-          </button>
           <a href="about.html" onClick={fadeToAbout}>About</a>
         </nav>
       </header>
+      {/* mute-music: floating button, fixed bottom-right on every scene (cover, map, chamber) */}
+      <button type="button" className={"bx-mute" + (musicMuted ? " is-muted" : "")} onClick={toggleMusic}
+        aria-pressed={musicMuted} aria-label={musicMuted ? "Unmute music" : "Mute music"}
+        title={musicMuted ? "Unmute music" : "Mute music"}>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path className="spk" d="M4 9.5v5h3.2L12 18.5V5.5L7.2 9.5H4z" />
+          <g className="waves"><path d="M15 9.2a4 4 0 0 1 0 5.6" /><path d="M17.4 7a7.2 7.2 0 0 1 0 10" /></g>
+          <path className="slash" d="M15.5 9.5l5 5M20.5 9.5l-5 5" />
+        </svg>
+      </button>
       {/* soundtrack moved to the standalone #sb-music <audio> + script in <body> so it starts
           before React boots (instant resume from About). No React-managed <audio> here anymore. */}
       {/* soft paper top-fade so chamber text scrolling under the fixed masthead doesn't collide
