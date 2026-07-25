@@ -21,7 +21,16 @@ node tools/build-ac-guides.mjs    # regenerate api/guides/ac-*.md from ACARA dat
 
 ## Deployment model (affects every change)
 
-- Work is committed **straight to `main`** — no feature branches. A push auto-deploys both halves (GitHub Pages serves the repo root; Vercel redeploys `api/`).
+- Work is committed **straight to `main`** — no feature branches.
+- **The two halves deploy differently. Pushing does NOT deploy the backend.**
+  - Frontend (`index.html`, `about.html`, `stats.html`, `assets/`): GitHub Pages serves the repo root and updates automatically on push.
+  - Backend (`api/`): Vercel is **not** connected to the GitHub repo. It only publishes when someone runs `vercel --prod` (project is already linked via `.vercel/`). Verified 2026-07-25 after `/api/guide` sat undeployed for 8 days while `main` looked correct, breaking the curriculum focus picker with "couldn't load the curriculum list".
+- **After any change under `api/`, deploy it and then verify it:**
+  ```bash
+  vercel --prod --yes                                  # publish the backend
+  curl -i -X OPTIONS https://springboard-dlp-s-projects.vercel.app/api/<endpoint>
+  ```
+  A deployed function answers OPTIONS with 200; a missing one returns 404, identical to a nonexistent path. The Vercel deployment also serves `index.html`, so fetching it and reading `APP_VERSION` tells you exactly which commit is live. Never assume an `api/` change is live because it was pushed.
 - Bump the `APP_VERSION` const in `index.html` (~line 676) on every user-visible deploy so the cache refresh can be confirmed in the footer.
 - The repo is public. Never commit secrets; all keys live in Vercel env vars (`OPENAI_API_KEY`, `TEACHER_PASSCODE`, `ADMIN_PASSWORD`, `DATABASE_URL`). See `docs/DEPLOY.md` for full setup.
 
