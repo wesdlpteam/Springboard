@@ -834,13 +834,46 @@
     font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
   .bx-more summary { font-size: 12.5px; color: var(--muted); cursor: pointer; margin-top: 10px; }
 
-  .bx-deck { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 4px; }
-  .bx-card { border: 1px solid var(--line-strong); border-radius: 4px; padding: 13px; min-height: 92px; display: flex; flex-direction: column;
-    justify-content: space-between; cursor: pointer; background: var(--paper); transition: border-color .2s, transform .12s; }
-  .bx-card:hover { border-color: var(--ink); transform: translateY(-2px); }
-  .bx-card .ck { font-size: 10px; letter-spacing: .12em; color: var(--muted); }
-  .bx-card .ct { font-family: var(--bx-display); font-size: 15px; margin-top: auto; }
-  .bx-card .cbar { height: 3px; width: 30px; background: var(--cc); border-radius: 2px; margin-bottom: 10px; }
+  /* ---- the finished lesson: full content, editable in place (brain view's answer to the
+     Classic editor). Fields write straight into the deck the .pptx export reads. ---- */
+  .bx-edit-wrap { max-width: 760px; }
+  .bx-edit { border-top: 1px solid var(--line); padding: 18px 0 22px; }
+  .bx-edit:first-child { border-top: 0; }
+  .bx-edit-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 2px; }
+  .bx-edit-head .k { font-size: 10px; letter-spacing: .14em; font-weight: 600; color: var(--cc, var(--muted)); }
+  .bx-edit-head h4 { font-family: var(--bx-display); font-weight: 500; font-size: 19px; margin: 0; }
+  .bx-edit-head .sub { font-size: 12px; color: var(--muted); }
+  .bx-edit-head .sp { flex: 1 1 auto; }
+  .bx-edit .bx-lab { display: block; font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; font-weight: 600;
+    color: var(--muted); margin: 14px 0 5px; }
+  /* min-height overrides the global textarea{min-height:88px} so a rows=1 field is one line */
+  .bx-ta { display: block; width: 100%; min-height: 42px; font: inherit; font-size: 14.5px; line-height: 1.5; color: var(--ink);
+    background: var(--paper-2); border: 1px solid var(--line); border-radius: 4px; padding: 9px 11px; resize: vertical; }
+  .bx-ta:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+  .bx-ta:disabled { opacity: .5; }
+  .bx-ta.big { font-family: var(--bx-display); font-size: 19px; }
+  .bx-listrow { display: grid; grid-template-columns: 22px 1fr 28px; gap: 8px; align-items: start; margin-top: 7px; }
+  .bx-listrow .n { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; padding-top: 11px; }
+  .bx-x { border: 0; background: none; cursor: pointer; color: var(--muted); font-size: 17px; line-height: 1; padding: 9px 4px; border-radius: 3px; }
+  .bx-x:hover { color: var(--ink); background: rgba(23,23,27,.06); }
+  .bx-add { margin-top: 8px; border: 1px dashed var(--line-strong); background: none; cursor: pointer; font: inherit;
+    font-size: 12.5px; color: var(--muted); padding: 6px 12px; border-radius: 4px; }
+  .bx-add:hover { color: var(--ink); border-color: var(--ink); }
+  .bx-mini { border: 1px solid var(--line-strong); background: var(--paper); cursor: pointer; font: inherit; font-size: 12px;
+    color: var(--ink-soft); padding: 5px 11px; border-radius: 3px; }
+  .bx-mini:hover:not(:disabled) { border-color: var(--ink); color: var(--ink); }
+  .bx-mini:disabled { opacity: .45; cursor: default; }
+  .bx-edit details { margin-top: 14px; }
+  .bx-edit details > summary { font-size: 12.5px; color: var(--muted); cursor: pointer; }
+  .bx-edit details > summary:hover { color: var(--ink); }
+  .bx-toggle { display: flex; align-items: flex-start; gap: 9px; font-size: 13.5px; line-height: 1.45; cursor: pointer; margin-top: 4px; }
+  .bx-toggle input { margin-top: 3px; flex: 0 0 auto; }
+  .bx-sel { font: inherit; font-size: 13.5px; color: var(--ink); background: var(--paper-2);
+    border: 1px solid var(--line); border-radius: 4px; padding: 7px 9px; max-width: 100%; }
+  .bx-dim { opacity: .45; }
+  .bx-advisory { border: 1px solid #e0b7a6; background: #f7ece6; border-radius: 5px; padding: 12px 14px; margin-top: 6px; }
+  .bx-advisory .w { font-size: 10.5px; letter-spacing: .12em; font-weight: 700; color: #8a4a22; }
+  .bx-advisory p { margin: 6px 0 0; font-size: 13.5px; line-height: 1.5; }
 
   .bx-working { display: inline-flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13.5px; }
   .bx-working .sp { width: 30px; height: 2px; background: var(--line-strong); overflow: hidden; position: relative; }
@@ -854,16 +887,6 @@
   .bx-prog-txt { margin-top: 9px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .bx-prog-txt b { font-weight: 600; color: var(--ink); }
   .bx-alert { font-size: 13px; color: #8f1d2e; background: #fdeaee; border: 1px solid #f0b8c4; border-radius: 4px; padding: 8px 11px; margin-top: 10px; }
-
-  /* preview overlay */
-  .bx-ov { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 20px; background: rgba(23,23,27,.55); }
-  .bx-ov-card { width: 100%; max-width: 560px; background: var(--paper); border-radius: 6px; max-height: 86vh; overflow: auto; }
-  .bx-ov-top { padding: 16px 20px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; }
-  .bx-ov-top .ck { font-size: 11px; letter-spacing: .12em; color: var(--muted); }
-  .bx-ov-top button { border: 0; background: none; font-size: 20px; cursor: pointer; color: var(--muted); line-height: 1; }
-  .bx-ov-body { padding: 20px; }
-  .bx-ov-body h3 { font-family: var(--bx-display); font-weight: 500; font-size: 22px; margin: 0 0 8px; }
-  .bx-ov-body li { margin: 6px 0; line-height: 1.5; font-size: 14.5px; }
 
   .bx-foot { padding: 40px clamp(20px,4vw,52px) 60px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12.5px; line-height: 1.6; position: relative; z-index: 2; }
   .bx-foot a { color: var(--ink-soft); }
@@ -1289,7 +1312,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.20 · 2026-07-26";
+const APP_VERSION = "v0.9.21 · 2026-07-26";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2081,7 +2104,10 @@ function shapeDeck(parsed, { routineName }) {
     keywords: arr(p.keywords, 6),
     ignite:  { question: str(ig.question) },
     think:   { routine: str(routineName) || str(th.routine), steps: arr(th.steps, 4), structure: str(th.structure) },
-    launch:  { connection: str(la.connection), bridge: str(la.bridge), question: str(la.question) },
+    // ideas = the 3 ways to run the launch. It was missing here, so the model's three
+    // suggestions were dropped before export and the LAUNCH notes carried only the single
+    // FACILITATION line.
+    launch:  { connection: str(la.connection), bridge: str(la.bridge), question: str(la.question), ideas: arr(la.ideas, 3) },
     reflect: { revisit: str(re.revisit), prompts: arr(re.prompts, 4) },
     notes:   { ignite: str(no.ignite), think: str(no.think), launch: str(no.launch), reflect: str(no.reflect) },
     advisory:{ flag: !!ad.flag, reason: str(ad.reason) },
@@ -2765,7 +2791,6 @@ function App() {
   const [adminOpen, setAdminOpen] = useState(false); // admin-analytics password popup
   // Editorial brain experience (sandbox): brainView = the new experience (default) vs classic builder.
   const [brainView, setBrainView] = useState(true);
-  const [openSlide, setOpenSlide] = useState(null);   // which bloomed slide is previewed
   const [bxDrag, setBxDrag] = useState(false);        // dropzone dragover
   // Watercolour scenes: cover -> transport (enter ink-dissolve) -> inside (map) -> glide -> chamber
   const [bxScene, setBxScene] = useState("cover");
@@ -2880,7 +2905,8 @@ function App() {
   const genStage = genProgress < 25 ? "Reading your stimulus…"
     : genProgress < 55 ? "Shaping the four slides…"
     : genProgress < 85 ? "Writing your teacher notes…"
-    : genProgress < 100 ? "Nearly there — the last slide…"
+    : genProgress < 96 ? "Nearly there — the last slide…"
+    : genProgress < 100 ? "Still going. Big stimuli take a bit longer…"
     : "Done — scrolling to your lesson…";
 
   // Active band drives the (single) preview/edit/export view; before generation
@@ -2896,6 +2922,9 @@ function App() {
   // and `setSpot` (accepting a value OR a function updater, like the old useState
   // setter) writes back into the active band's slot of the spots map.
   const spot = activeBand ? (spots[activeBand] || null) : null;
+  // The 3 "ways to run the launch" (teacher notes only). Absent on decks the model
+  // returned without them, so always read through this guard.
+  const launchIdeas = (spot && spot.launch && Array.isArray(spot.launch.ideas)) ? spot.launch.ideas : [];
   const setSpot = (upd) => setSpots(all => {
     if (!activeBand) return all;
     const cur = all[activeBand] || null;
@@ -3212,11 +3241,17 @@ function App() {
     if (!inputReady()) { setError("Please add a stimulus first (images/video, or article text/PDF), and fill in the subject and year level."); return; }
 
     setLoading(true);
-    // Estimated progress: ease toward ~92% while the single request is in flight,
-    // then snap to 100% when it lands. (The call isn't streamed, so this is a
-    // reassurance estimate, not a literal measurement.)
-    setGenProgress(3);
-    const progTick = setInterval(() => setGenProgress(p => (p < 92 ? p + (92 - p) * 0.06 : p)), 250);
+    // Estimated progress, then a snap to 100% when the reply lands. The call isn't
+    // streamed, so this is a reassurance estimate, not a measurement — but it's driven by
+    // ELAPSED TIME against a ~28s typical generate, so it never parks on one number: at 30s
+    // ~66%, 60s ~88%, 120s ~97%. (The old version raced to 92% in ten seconds and froze
+    // there, which read as a hang.)
+    setGenProgress(2);
+    const startedAt = Date.now();
+    const progTick = setInterval(() => {
+      const secs = (Date.now() - startedAt) / 1000;
+      setGenProgress(Math.min(98, 99 * (1 - Math.exp(-secs / 28))));
+    }, 250);
     try {
       const sourceText = mode === "article" ? articleText : "";
       // Single-class-per-run: one generate() call produces one deck, pitched to the
@@ -3291,9 +3326,10 @@ function App() {
   const patch = (obj) => setSpot(s => ({ ...s, ...obj }));
   const patchSlide = (slide, obj) => setSpot(s => ({ ...s, [slide]: { ...s[slide], ...obj } }));
   const patchNote = (slide, text) => setSpot(s => ({ ...s, notes: { ...s.notes, [slide]: text } }));
-  const patchArr = (slide, key, i, val) => setSpot(s => { const a = s[slide][key].slice(); a[i] = val; return { ...s, [slide]: { ...s[slide], [key]: a } }; });
-  const addArr = (slide, key) => setSpot(s => ({ ...s, [slide]: { ...s[slide], [key]: [...s[slide][key], ""] } }));
-  const delArr = (slide, key, i) => setSpot(s => ({ ...s, [slide]: { ...s[slide], [key]: s[slide][key].filter((_, j) => j !== i) } }));
+  // (|| [] guards: launch.ideas can be absent on a deck the model returned without it.)
+  const patchArr = (slide, key, i, val) => setSpot(s => { const a = (s[slide][key] || []).slice(); a[i] = val; return { ...s, [slide]: { ...s[slide], [key]: a } }; });
+  const addArr = (slide, key) => setSpot(s => ({ ...s, [slide]: { ...s[slide], [key]: [...(s[slide][key] || []), ""] } }));
+  const delArr = (slide, key, i) => setSpot(s => ({ ...s, [slide]: { ...s[slide], [key]: (s[slide][key] || []).filter((_, j) => j !== i) } }));
 
   // Single Wesley-light palette for the preview accents (purple bar/number chips, gold tie).
   const T = { accent: WESLEY.purple, accent2: WESLEY.gold };
@@ -3301,6 +3337,14 @@ function App() {
   // Inline render helper (called, not a <Component/>): keeps it out of the render as a fresh
   // component TYPE each pass, which would remount all four "New options" buttons on every keystroke
   // and drop keyboard focus. Called as {regenButton("ignite")}.
+  // Same job as regenButton, in the brain view's editorial styling.
+  const bxRegen = (scope) => (
+    <button type="button" className="bx-mini" title="Generate a different version of this slide"
+      disabled={!!regenSlide || loading} aria-busy={regenSlide === scope}
+      onClick={() => regenerateSlide(scope)}>
+      {regenSlide === scope ? "Regenerating…" : "New options"}
+    </button>
+  );
   const regenButton = (scope) => (
     <button type="button" className="regen" title="Generate a different version of this slide"
       disabled={!!regenSlide || loading}
@@ -3841,7 +3885,6 @@ function App() {
     const onKey = (e) => {
       if (e.key !== "Escape") return;
       if (sceneRef.current === "transport") { if (skipDiveRef.current) skipDiveRef.current(); else setBxScene("inside"); return; }
-      if (document.querySelector(".bx-ov")) return;            // slide preview owns Esc
       if (document.querySelector(".bw-list")) { setListOpen(false); return; }
       if (sceneRef.current === "chamber") leaveChamberRef.current();
     };
@@ -3934,20 +3977,8 @@ function App() {
   };
 
   const SLIDE_CC = { ignite: "#823a9e", think: "#34508f", launch: "#c0592a", reflect: "#3f7a34" };
-  const renderBrainPreview = () => (
-    <div className="bx-ov" role="dialog" aria-modal="true" aria-label="Slide preview" onClick={() => setOpenSlide(null)}>
-      <div className="bx-ov-card" onClick={e => e.stopPropagation()}>
-        <div className="bx-ov-top"><span className="ck" style={{ color: SLIDE_CC[openSlide] }}>{openSlide.toUpperCase()}</span>
-          <button aria-label="Close" onClick={() => setOpenSlide(null)}>×</button></div>
-        <div className="bx-ov-body">
-          {openSlide === "ignite" && <React.Fragment><h3>{spot.title}</h3><p style={{ fontSize: 15.5, lineHeight: 1.55 }}>{spot.ignite && spot.ignite.question}</p>{spot.keywords && spot.keywords.length > 0 && <p className="bx-note" style={{ color: "var(--muted)" }}>Keywords: {spot.keywords.join(", ")}</p>}</React.Fragment>}
-          {openSlide === "think" && spot.think && <React.Fragment><h3>{spot.think.routine}</h3>{spot.think.structure && <p className="bx-note">{spot.think.structure}</p>}{spot.think.steps && <ul>{spot.think.steps.map((s, i) => <li key={i}>{s}</li>)}</ul>}</React.Fragment>}
-          {openSlide === "launch" && spot.launch && <React.Fragment><h3>Into the lesson</h3>{spot.launch.connection && <p style={{ fontSize: 14.5, lineHeight: 1.55 }}>{spot.launch.connection}</p>}</React.Fragment>}
-          {openSlide === "reflect" && spot.reflect && <React.Fragment><h3>Look back</h3>{spot.reflect.prompts && <ul>{spot.reflect.prompts.map((p, i) => <li key={i}>{p}</li>)}</ul>}</React.Fragment>}
-        </div>
-      </div>
-    </div>
-  );
+  // (The old read-only slide-preview overlay was replaced by the inline editor in
+  // renderBrainTool — teachers can now read AND edit every field in place.)
 
   const renderBrainTool = () => (
     <section className="bx-tool" id="bx-tool" style={{ "--mv": bxColor(selectedMove) }}>
@@ -4149,15 +4180,129 @@ function App() {
             <h3 style={{ fontFamily: "var(--bx-display)", fontWeight: 400, fontSize: "clamp(22px,3vw,34px)", margin: 0 }}>{spot.title || "Your lesson"}</h3>
             <button className="bx-btn" disabled={exporting} onClick={download}>{exporting ? "Preparing…" : "Download the deck ↓"}</button>
           </div>
-          <div className="bx-deck">
-            {[{ k: "ignite", kk: "IGNITE", t: (spot.ignite && spot.ignite.question) || "The hook" },
-              { k: "think", kk: "THINK", t: (spot.think && spot.think.routine) || "The routine" },
-              { k: "launch", kk: "LAUNCH", t: "Into the lesson" },
-              { k: "reflect", kk: "REFLECT", t: "Look back" }].map(s => (
-              <button key={s.k} className="bx-card" style={{ "--cc": SLIDE_CC[s.k] }} onClick={() => setOpenSlide(s.k)}>
-                <span className="cbar" /><span className="ck">{s.kk}</span><span className="ct">{s.t}</span>
-              </button>
-            ))}
+          <p className="bx-note" style={{ marginTop: 0, marginBottom: 18 }}>Every field below is yours to edit, and your edits go straight into the PowerPoint you download.</p>
+          <div className="bx-edit-wrap">
+
+            {/* title + advisory */}
+            <div className="bx-edit">
+              <label className="bx-lab" htmlFor="bx-title" style={{ marginTop: 0 }}>Lesson title</label>
+              <textarea id="bx-title" className="bx-ta big" rows={1} value={spot.title} placeholder="A short, catchy title…" onChange={e => patch({ title: e.target.value })} />
+              {spot.advisory && spot.advisory.flag && (
+                <div className="bx-advisory">
+                  <div className="w">⚠ CONTENT ADVISORY</div>
+                  <p>{spot.advisory.reason || "This stimulus touches on a sensitive theme."}</p>
+                  <label className="bx-toggle" style={{ marginTop: 9 }}>
+                    <input type="checkbox" checked={includeAdvisory} onChange={e => setIncludeAdvisory(e.target.checked)} />
+                    Put a content-advisory slide at the start of the deck
+                  </label>
+                </div>
+              )}
+            </div>
+
+            {/* IGNITE */}
+            <div className="bx-edit" style={{ "--cc": SLIDE_CC.ignite }}>
+              <div className="bx-edit-head">
+                <span className="k">IGNITE</span><h4>The hook</h4><span className="sub">one provocative question</span>
+                <span className="sp" />{bxRegen("ignite")}
+              </div>
+              <label className="bx-lab" htmlFor="bx-ignite-q">Question students see</label>
+              <textarea id="bx-ignite-q" className="bx-ta" rows={2} value={spot.ignite.question} placeholder="One provocative question…" onChange={e => patchSlide("ignite", { question: e.target.value })} />
+              <details>
+                <summary>Teacher notes · not shown to students</summary>
+                <textarea className="bx-ta" style={{ marginTop: 8 }} rows={6} aria-label="Ignite teacher notes" value={spot.notes.ignite} placeholder="FACILITATION: … TIMING: … DIFFERENTIATION: … CURRICULUM LINKS: … EXTENSIONS: …" onChange={e => patchNote("ignite", e.target.value)} />
+              </details>
+            </div>
+
+            {/* THINK */}
+            <div className="bx-edit" style={{ "--cc": SLIDE_CC.think }}>
+              <div className="bx-edit-head">
+                <span className="k">THINK</span><h4>{spot.think.routine}</h4>
+                <a className="bx-edit-link" href={routineUrlFor} target="_blank" rel="noopener" style={{ fontSize: 12, color: "var(--muted)" }}>View routine ↗</a>
+                <span className="sp" />{bxRegen("think")}
+              </div>
+              <label className="bx-lab" htmlFor="bx-think-structure">How to run it</label>
+              <textarea id="bx-think-structure" className="bx-ta" rows={1} value={spot.think.structure} placeholder="e.g. Think-pair-share, 3 min" onChange={e => patchSlide("think", { structure: e.target.value })} />
+              <span className="bx-lab">Student prompts · up to 4</span>
+              {spot.think.steps.map((st, i) => (
+                <div className="bx-listrow" key={i}>
+                  <span className="n">{i + 1}</span>
+                  <textarea className="bx-ta" rows={2} aria-label={"Student prompt " + (i + 1)} value={st} onChange={e => patchArr("think", "steps", i, e.target.value)} />
+                  <button type="button" className="bx-x" title="Remove" aria-label={"Remove prompt " + (i + 1)} onClick={() => delArr("think", "steps", i)}>×</button>
+                </div>
+              ))}
+              {spot.think.steps.length < 4 && <button type="button" className="bx-add" onClick={() => addArr("think", "steps")}>+ Add prompt</button>}
+              <details>
+                <summary>Teacher notes · not shown to students</summary>
+                <textarea className="bx-ta" style={{ marginTop: 8 }} rows={6} aria-label="Think teacher notes" value={spot.notes.think} placeholder="FACILITATION: … TIMING: … DIFFERENTIATION: … CURRICULUM LINKS: … EXTENSIONS: …" onChange={e => patchNote("think", e.target.value)} />
+              </details>
+            </div>
+
+            {/* LAUNCH */}
+            <div className="bx-edit" style={{ "--cc": SLIDE_CC.launch }}>
+              <div className="bx-edit-head">
+                <span className="k">LAUNCH</span><h4>Into the lesson</h4>
+                <span className="sp" />{bxRegen("launch")}
+              </div>
+              <label className="bx-lab" htmlFor="bx-launch-bridge">Bridge from the stimulus</label>
+              <textarea id="bx-launch-bridge" className="bx-ta" rows={2} value={spot.launch.bridge} placeholder="From the stimulus to today's lesson…" onChange={e => patchSlide("launch", { bridge: e.target.value })} />
+              <label className="bx-lab" htmlFor="bx-launch-q">Lesson launch question</label>
+              <textarea id="bx-launch-q" className="bx-ta" rows={2} value={spot.launch.question} placeholder="The question that opens the lesson…" onChange={e => patchSlide("launch", { question: e.target.value })} />
+              <span className="bx-lab">Ways to run it · up to 3, teacher notes only</span>
+              {launchIdeas.map((idea, i) => (
+                <div className="bx-listrow" key={i}>
+                  <span className="n">{i + 1}</span>
+                  <textarea className="bx-ta" rows={2} aria-label={"Way to run the launch " + (i + 1)} value={idea} onChange={e => patchArr("launch", "ideas", i, e.target.value)} />
+                  <button type="button" className="bx-x" title="Remove" aria-label={"Remove way " + (i + 1)} onClick={() => delArr("launch", "ideas", i)}>×</button>
+                </div>
+              ))}
+              {launchIdeas.length < 3 && <button type="button" className="bx-add" onClick={() => addArr("launch", "ideas")}>+ Add another way</button>}
+              <details>
+                <summary>Curriculum connection + teacher notes · not shown to students</summary>
+                <label className="bx-lab" htmlFor="bx-launch-conn">Curriculum connection</label>
+                <textarea id="bx-launch-conn" className="bx-ta" rows={2} value={spot.launch.connection} placeholder="How this links to your outcome…" onChange={e => patchSlide("launch", { connection: e.target.value })} />
+                <label className="bx-lab" htmlFor="bx-launch-notes">Notes</label>
+                <textarea id="bx-launch-notes" className="bx-ta" rows={6} value={spot.notes.launch} placeholder="FACILITATION: … TIMING: … DIFFERENTIATION: … EXTENSIONS: …" onChange={e => patchNote("launch", e.target.value)} />
+              </details>
+            </div>
+
+            {/* REFLECT */}
+            <div className="bx-edit" style={{ "--cc": SLIDE_CC.reflect }}>
+              <div className="bx-edit-head">
+                <span className="k">REFLECT</span><h4>Look back</h4><span className="sub">revisit thinking at lesson end</span>
+                <span className="sp" />{includeReflect && bxRegen("reflect")}
+              </div>
+              <label className="bx-toggle">
+                <input type="checkbox" checked={includeReflect} onChange={e => setIncludeReflect(e.target.checked)} />
+                Include the REFLECT slide
+              </label>
+              <div className={includeReflect ? "" : "bx-dim"} aria-hidden={!includeReflect}>
+                <label className="bx-lab" htmlFor="bx-reflect-routine">Reflection routine</label>
+                <select id="bx-reflect-routine" className="bx-sel" value={reflectRoutine} disabled={!includeReflect || !!regenSlide || loading} onChange={e => pickReflectRoutine(e.target.value)}>
+                  <option value="">Auto — vary each lesson</option>
+                  {REFLECT_ROUTINES.map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
+                </select>
+                <label className="bx-lab" htmlFor="bx-reflect-revisit">Revisit the ignite question</label>
+                <textarea id="bx-reflect-revisit" className="bx-ta" rows={2} value={spot.reflect.revisit} placeholder="…revisiting the opening question" disabled={!includeReflect} onChange={e => patchSlide("reflect", { revisit: e.target.value })} />
+                <span className="bx-lab">Reflection prompts · up to 4</span>
+                {spot.reflect.prompts.map((pr, i) => (
+                  <div className="bx-listrow" key={i}>
+                    <span className="n">{i + 1}</span>
+                    <textarea className="bx-ta" rows={1} aria-label={"Reflection prompt " + (i + 1)} value={pr} disabled={!includeReflect} onChange={e => patchArr("reflect", "prompts", i, e.target.value)} />
+                    <button type="button" className="bx-x" title="Remove" aria-label={"Remove reflection prompt " + (i + 1)} disabled={!includeReflect} onClick={() => delArr("reflect", "prompts", i)}>×</button>
+                  </div>
+                ))}
+                {includeReflect && spot.reflect.prompts.length < 4 && <button type="button" className="bx-add" onClick={() => addArr("reflect", "prompts")}>+ Add prompt</button>}
+                <details>
+                  <summary>Teacher notes · not shown to students</summary>
+                  <textarea className="bx-ta" style={{ marginTop: 8 }} rows={6} aria-label="Reflect teacher notes" value={spot.notes.reflect} disabled={!includeReflect} placeholder="FACILITATION: … TIMING: … DIFFERENTIATION: … CURRICULUM LINKS: … EXTENSIONS: …" onChange={e => patchNote("reflect", e.target.value)} />
+                </details>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", paddingTop: 20, borderTop: "1px solid var(--line)" }}>
+              <button className="bx-btn" disabled={exporting} onClick={download}>{exporting ? "Preparing…" : "Download the deck ↓"}</button>
+              <button className="bx-btn ghost" disabled={loading || !!regenSlide || !selectedRoutine} onClick={generate}>Rebuild the whole lesson</button>
+            </div>
           </div>
         </div>
       )}
@@ -4305,7 +4450,6 @@ function App() {
         </div>
       )}
 
-      {openSlide && spot && renderBrainPreview()}
     </div>
   );
 
