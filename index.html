@@ -767,7 +767,7 @@
 
   /* the working tool, revealed once a move is chosen */
   .bx-tool { padding: clamp(92px,11vh,124px) clamp(20px,4vw,52px) 120px; position: relative; z-index: 2; }
-  .bx-tool-head { scroll-margin-top: 78px; }
+  .bx-tool-head, #bx-result { scroll-margin-top: 78px; } /* clear the fixed masthead when scrolled to */
   .bx-tool-head { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
   .bx-tool-head .bx-back { font-size: 13px; color: var(--muted); border: 0; background: none; cursor: pointer; padding: 0; }
   .bx-tool-head .bx-back:hover { color: var(--ink); }
@@ -815,14 +815,23 @@
   .bx-btn.mv { background: var(--mv); color: #fff; }
 
   .bx-routines { display: flex; flex-direction: column; gap: 2px; }
-  .bx-routine { text-align: left; border: 0; background: none; cursor: pointer; font: inherit; padding: 13px 4px; border-bottom: 1px solid var(--line);
-    display: grid; grid-template-columns: 20px 1fr; gap: 12px; align-items: baseline; transition: padding-left .25s; }
-  .bx-routine:hover { padding-left: 8px; }
+  /* Selected routine must be obvious at a glance (not italics alone): move-coloured left
+     bar + tinted card + tick in place of the index + a "Chosen" pill. Pill/tick stay ink so
+     they pass AA on porcelain whatever the move colour is (some are pale yellows/greys). */
+  .bx-routine { text-align: left; border: 0; background: none; cursor: pointer; font: inherit; padding: 13px 4px 13px 11px; border-bottom: 1px solid var(--line);
+    border-left: 3px solid transparent; border-radius: 0 5px 5px 0;
+    display: grid; grid-template-columns: 20px 1fr; gap: 12px; align-items: baseline;
+    transition: padding-left .25s, background .2s, border-left-color .2s; }
+  .bx-routine:hover { padding-left: 15px; background: rgba(23,23,27,.04); }
   .bx-routine .rn { font-family: var(--bx-display); font-size: 17px; }
   .bx-routine .ri { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .bx-routine .rw { grid-column: 2; font-size: 12.5px; color: var(--muted); line-height: 1.45; margin-top: 4px; }
-  .bx-routine.on { padding-left: 8px; }
-  .bx-routine.on .rn { color: var(--mv); font-style: italic; }
+  .bx-routine.on { padding-left: 15px; border-left-color: var(--mv, var(--ink)); background: rgba(23,23,27,.06); }
+  .bx-routine.on .rn { color: var(--ink); font-style: italic; font-weight: 600; }
+  .bx-routine.on .ri { color: var(--ink); font-size: 15px; font-weight: 700; }
+  .bx-routine .rtag { display: inline-block; vertical-align: middle; margin-left: 10px; padding: 3px 9px; border-radius: 999px;
+    background: var(--ink); color: var(--paper); font-family: var(--bx-ui); font-style: normal; font-weight: 600;
+    font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
   .bx-more summary { font-size: 12.5px; color: var(--muted); cursor: pointer; margin-top: 10px; }
 
   .bx-deck { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 4px; }
@@ -837,6 +846,13 @@
   .bx-working .sp { width: 30px; height: 2px; background: var(--line-strong); overflow: hidden; position: relative; }
   .bx-working .sp::after { content:""; position:absolute; inset:0 60% 0 0; background: var(--ink); animation: bxsp 1.1s ease-in-out infinite; }
   @keyframes bxsp { 0%{inset:0 100% 0 0} 50%{inset:0 0 0 0} 100%{inset:0 0 0 100%} }
+  /* determinate build progress: eased estimate (the generate call isn't streamed), so the
+     teacher sees movement instead of a silent spinner. */
+  .bx-prog { max-width: 320px; }
+  .bx-prog-bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+  .bx-prog-bar i { display: block; height: 100%; width: 0; background: var(--mv, var(--ink)); border-radius: 2px; transition: width .3s linear; }
+  .bx-prog-txt { margin-top: 9px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .bx-prog-txt b { font-weight: 600; color: var(--ink); }
   .bx-alert { font-size: 13px; color: #8f1d2e; background: #fdeaee; border: 1px solid #f0b8c4; border-radius: 4px; padding: 8px 11px; margin-top: 10px; }
 
   /* preview overlay */
@@ -1273,7 +1289,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.19 · 2026-07-25";
+const APP_VERSION = "v0.9.20 · 2026-07-26";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2205,20 +2221,33 @@ Return STRICT JSON with keys: title, keywords, ignite{question}, think{routine, 
   const baseGuide = vceGuide || acGuide;
   const focus = Array.isArray(classInfo.focus) ? classInfo.focus : [];
   const studyGuide = baseGuide ? (focus.length ? { ...baseGuide, focus } : baseGuide) : null;
-  const resp = await fetch(API_BASE + "/api/generate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-sb-passcode": passcode },
-    body: JSON.stringify({
-      messages: [
-        { role: "system", content: sys },
-        { role: "user", content: userContent },
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 4000,
-      stickiness: true,
-      ...(studyGuide ? { studyGuide } : {}),
-    }),
-  });
+  // Hard client-side stop: a stalled request used to leave the build bar spinning with no
+  // message at all. 3 minutes is well past a normal generate (~20-60s).
+  const ctrl = new AbortController();
+  const bail = setTimeout(() => ctrl.abort(), 180000);
+  let resp;
+  try {
+    resp = await fetch(API_BASE + "/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-sb-passcode": passcode },
+      signal: ctrl.signal,
+      body: JSON.stringify({
+        messages: [
+          { role: "system", content: sys },
+          { role: "user", content: userContent },
+        ],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 4000,
+        stickiness: true,
+        ...(studyGuide ? { studyGuide } : {}),
+      }),
+    });
+  } catch (netErr) {
+    if (netErr && netErr.name === "AbortError") throw new Error("The lesson took too long to build (over 3 minutes) and was stopped. Try again, or use a smaller stimulus (fewer images, or a shorter clip).");
+    throw new Error("Couldn't reach the Springboard server. Check your internet connection and try again.");
+  } finally {
+    clearTimeout(bail);
+  }
 
   if (!resp.ok) throw new Error(await backendErrorMessage(resp));
 
@@ -2829,6 +2858,10 @@ function App() {
   const [spots, setSpots] = useState({});            // { [band]: deckObject }
   const [exporting, setExporting] = useState(false); // PowerPoint download in flight (drives button disabled)
   const busyRef = useRef({ exporting: false }); // synchronous re-entrancy guard (beats same-tick double-clicks before React re-renders)
+  // Brain view renders the finished deck BELOW the three step panels, so a successful
+  // generate could land off-screen and read as "nothing happened". Set on success, consumed
+  // by the scroll effect once React has painted the deck.
+  const jumpToDeck = useRef(false);
 
   // media reel
   const [extractCount, setExtractCount] = useState(0); // count of video extractions in flight (batch/overlap-safe)
@@ -2841,6 +2874,14 @@ function App() {
   const pdfInput = useRef(null);
   const genBtnRef = useRef(null);
   const genStimKey = useRef(""); // stimulus fingerprint at last successful generate (stale-deck hint)
+
+  // Plain-English stage label beside the build percentage (the call isn't streamed, so
+  // these track the estimate, not literal server steps).
+  const genStage = genProgress < 25 ? "Reading your stimulus…"
+    : genProgress < 55 ? "Shaping the four slides…"
+    : genProgress < 85 ? "Writing your teacher notes…"
+    : genProgress < 100 ? "Nearly there — the last slide…"
+    : "Done — scrolling to your lesson…";
 
   // Active band drives the (single) preview/edit/export view; before generation
   // it falls back to the band derived from the class settings panel.
@@ -3188,6 +3229,7 @@ function App() {
       const deck = shapeDeck(parsed, { routineName: selectedRoutine });
       deck.curriculumFocus = Array.isArray(classInfo.focus) ? classInfo.focus.slice() : [];
       setRawDump(raw);
+      jumpToDeck.current = true;    // brain view: ride down to the finished deck once it paints
       setSpots({ [genBand]: deck });
       setActiveBand(genBand);
       setIncludeReflect(true);              // fresh deck defaults to including REFLECT
@@ -3858,6 +3900,16 @@ function App() {
     if (bxScene !== "inside") stopAllHoverPulses();
     return stopAllHoverPulses; // scene change or unmount — always leave clean
   }, [bxScene]);
+  // A fresh deck just painted: carry the teacher down to it so the result is never
+  // off-screen behind the step panels.
+  useEffect(() => {
+    if (!jumpToDeck.current || !spot) return;
+    jumpToDeck.current = false;
+    const el = document.getElementById("bx-result");
+    if (!el) return;
+    const calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({ behavior: calm ? "auto" : "smooth", block: "start" });
+  }, [spot]);
   // Hover/focus a move: its watercolour bloom quietly swells and deepens (.hot). Nothing else
   // — no travelling pulses, no centre answer. Calm, like the medium.
   const startMoveHover = (i) => {
@@ -4061,12 +4113,16 @@ function App() {
             <React.Fragment>
               {analysis.summary && <p className="bx-note">{analysis.summary}</p>}
               <div className="bx-routines">
-                {(analysis.routines || []).slice(0, 3).map((r, i) => (
-                  <button key={r.name} className={"bx-routine" + (selectedRoutine === r.name ? " on" : "")} onClick={() => pickRoutine(r.name)}>
-                    <span className="ri">{String(i + 1).padStart(2, "0")}</span><span className="rn">{r.name}</span>
-                    {r.why && <span className="rw">{r.why}</span>}
-                  </button>
-                ))}
+                {(analysis.routines || []).slice(0, 3).map((r, i) => {
+                  const on = selectedRoutine === r.name;
+                  return (
+                    <button key={r.name} className={"bx-routine" + (on ? " on" : "")} onClick={() => pickRoutine(r.name)} aria-pressed={on}>
+                      <span className="ri" aria-hidden="true">{on ? "✓" : String(i + 1).padStart(2, "0")}</span>
+                      <span className="rn">{r.name}{on && <span className="rtag">Chosen</span>}</span>
+                      {r.why && <span className="rw">{r.why}</span>}
+                    </button>
+                  );
+                })}
               </div>
               <details className="bx-more"><summary>More routines for this move</summary>
                 <div style={{ marginTop: 6 }}>{analyseBandRoutines.filter(r => !(analysis.routines || []).slice(0, 3).some(x => x.name === r.name)).map(r => (
@@ -4074,8 +4130,12 @@ function App() {
                     <input type="radio" name="bx-routine" checked={selectedRoutine === r.name} onChange={() => pickRoutine(r.name)} />{r.name}</label>))}</div>
               </details>
               <div style={{ marginTop: 16 }}>
-                {loading ? <div className="bx-working"><span className="sp" /> Building your lesson…</div>
-                  : <button className="bx-btn" disabled={!selectedRoutine} onClick={generate}>Make the lesson</button>}
+                {loading ? (
+                  <div className="bx-prog" role="status" aria-live="polite">
+                    <div className="bx-prog-bar"><i style={{ width: Math.round(genProgress) + "%" }} /></div>
+                    <div className="bx-prog-txt">Building your lesson… <b>{Math.round(genProgress)}%</b><br />{genStage}</div>
+                  </div>
+                ) : <button className="bx-btn" disabled={!selectedRoutine} onClick={generate}>Make the lesson</button>}
                 {error && <div className="bx-alert" role="alert">{error}</div>}
               </div>
             </React.Fragment>
@@ -4083,7 +4143,7 @@ function App() {
         </div>
       </div>
       {spot && (
-        <div style={{ marginTop: 46 }} data-bx-reveal>
+        <div id="bx-result" style={{ marginTop: 46 }} data-bx-reveal>
           <hr className="bx-rule" style={{ marginBottom: 22 }} />
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
             <h3 style={{ fontFamily: "var(--bx-display)", fontWeight: 400, fontSize: "clamp(22px,3vw,34px)", margin: 0 }}>{spot.title || "Your lesson"}</h3>
