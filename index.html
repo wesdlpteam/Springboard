@@ -1312,7 +1312,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.26 · 2026-07-28";
+const APP_VERSION = "v0.9.27 · 2026-07-29";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2396,7 +2396,11 @@ Return STRICT JSON with keys: title, keywords, ignite{question}, think{routine, 
           { role: "user", content: userContent },
         ],
         response_format: { type: "json_object" },
-        max_completion_tokens: 4000,
+        // 6000, not 4000: measured on the live model, a plain article generate burns 1,766-2,254
+        // REASONING tokens before it writes a character, leaving only ~800 of the old budget for the
+        // JSON itself. A richer stimulus tipped that over and the teacher got "Could not parse the
+        // model's JSON" after a 60s wait. Unused headroom is free — you only pay for what's emitted.
+        max_completion_tokens: 6000,
         stickiness: true,
         ...(studyGuide ? { studyGuide } : {}),
       }),
@@ -2461,7 +2465,7 @@ Routine names MUST be copied exactly from this menu:\n${routineMenu}`;
         { role: "user", content: userContent },
       ],
       response_format: { type: "json_object" },
-      max_completion_tokens: 700,
+      max_completion_tokens: 1400, // reasoning tokens are billed against this cap too — see generate
     }),
   });
   if (!resp.ok) throw new Error(await backendErrorMessage(resp));
@@ -2528,7 +2532,7 @@ ${guide ? "A curriculum extract is appended below. Ground every suggestion in TH
         { role: "user", content: userContent },
       ],
       response_format: { type: "json_object" },
-      max_completion_tokens: 800,
+      max_completion_tokens: 1600, // reasoning tokens are billed against this cap too — see generate
       ...(guide ? { studyGuide: guide } : {}),
     }),
   });
@@ -3319,6 +3323,9 @@ function App() {
       const t = await extractPdfText(f);
       if (seq !== pdfSeqRef.current) return;
       setArticleText(t); setPdfName(f.name + ` (${t.length.toLocaleString()} chars)`);
+      // The PDF replaces whatever article was loaded before it, so drop that article's lead image
+      // and link too — otherwise the deck printed the OLD story's photo and QR beside the new text.
+      setArticleImageUrl(""); setLink("");
     } catch (err) {
       if (seq !== pdfSeqRef.current) return;
       setError("Could not extract text from that PDF: " + err.message); setPdfName("");
@@ -3553,7 +3560,10 @@ function App() {
       const curriculum = (classInfo.curriculum || "").trim();
       const subject = (classInfo.subject || "").trim();
       const yearLevel = (classInfo.yearLevel || "").trim();
-      const metaLine = [bandLabelOf(bandKey) + (yearLevel ? " · Year " + yearLevel : ""), subject].filter(Boolean).join("   ·   ");
+      // yearLevel already reads "Year 9" (BANDS.years), so strip any leading "Year" before
+      // re-adding it -- otherwise the cover printed "Middle school (7 - 9) · Year Year 9".
+      const yearShort = yearLevel.replace(/^year\s*/i, "");
+      const metaLine = [bandLabelOf(bandKey) + (yearShort ? " · Year " + yearShort : ""), subject].filter(Boolean).join("   ·   ");
 
       const showAdvisory = !!(deck.advisory && deck.advisory.flag) && includeAdvisory;
       const showReflect = !!includeReflect;
@@ -3604,6 +3614,21 @@ function App() {
         let iw = bw, ih = iw / ar; if (ih > bh) { ih = bh; iw = ih * ar; }
         iw = +iw.toFixed(2); ih = +ih.toFixed(2);
         return { x: +(bx + (bw - iw) / 2).toFixed(2), y: +(by + (bh - ih) / 2).toFixed(2), w: iw, h: ih };
+      };
+      // Pick a point size that actually FITS. pptxgenjs's fit:"shrink" writes <a:normAutofit/>, which
+      // PowerPoint only recalculates when the box is edited — so on a freshly opened deck a long
+      // paragraph just overflows (measured: the THINK summary ran straight through the "Read the full
+      // article" row). Constants are calibrated against a PowerPoint render of Arial at these sizes:
+      // ~0.45em average glyph width, and a 1.8x line box once lineSpacingMultiple 1.15 is applied.
+      const fitFontSize = (text, boxW, boxH, start, min) => {
+        const t = String(text || "");
+        if (!t) return start;
+        for (let fs = start; fs > min; fs -= 0.5) {
+          const perLine = Math.max(8, Math.floor((boxW - 0.2) * 72 / (fs * 0.45)));
+          const lines = t.split("\n").reduce((n, p) => n + Math.max(1, Math.ceil(p.length / perLine)), 0);
+          if (lines * (fs * 1.8 / 72) <= boxH - 0.08) return fs;
+        }
+        return min;
       };
 
       // White-slide chrome (THINK / LAUNCH / REFLECT / advisory): purple top rule, small crest,
@@ -3664,11 +3689,13 @@ function App() {
       // deck can hand the whole stage to the question instead).
       // opts.posterOnly: draw a video's poster image instead of embedding it (for a second,
       // lighter appearance on THINK). opts.noLink: skip the QR + link row (use the full box).
+      // opts.reserveBottom: inches to keep clear under the media (the click-to-enlarge caption).
       async function drawStimulus(s, x, y, w, h, opts = {}) {
         const items = (mode === "media" && Array.isArray(media)) ? media.filter(m => m && (m.dataUrl || m.poster)) : [];
         const url = (link || "").trim();
         let drew = false;
-        const mediaH = (url && !opts.noLink) ? h - 0.7 : h; // reserve a QR + link row when there's a link
+        // reserve a QR + link row when there's a link, plus any caption band the caller asked for
+        const mediaH = h - ((url && !opts.noLink) ? 0.7 : 0) - (opts.reserveBottom || 0);
 
         if (items.length === 1) {
           const it = items[0];
@@ -3710,7 +3737,9 @@ function App() {
           drew = true;
         }
 
-        if (url) {
+        // noLink also has to gate the row itself, not just the height reserved for it: the THINK
+        // panel asks for noLink, so without this the QR + link printed ON TOP of the photo.
+        if (url && !opts.noLink) {
           const qr = makeQrDataUrl(url);
           const rowY = y + h - 0.55;
           if (qr) s.addImage({ data: qr, x, y: rowY, w: 0.5, h: 0.5 });
@@ -3780,18 +3809,25 @@ function App() {
         zoomBase = pptx.slides.length + 2 + (showReflect ? 1 : 0);
         const imgX = 7.0, imgY = 1.5, imgW = 5.6, imgH = 5.3;
         const zoomsBefore = zooms.length;
-        const drew = await drawStimulus(s, imgX, imgY, imgW, imgH);
+        // A click-to-enlarge caption is coming whenever a photo (not just a video poster) will be
+        // drawn, so reserve its band UP FRONT — it used to be printed below the QR row, reading as
+        // a caption for the link instead of for the picture.
+        const willCaption = (mode === "media" && Array.isArray(media) && media.some(m => m && m.kind === "image" && m.dataUrl)) || !!artLead;
+        const capBand = willCaption ? 0.32 : 0;
+        const drew = await drawStimulus(s, imgX, imgY, imgW, imgH, { reserveBottom: capBand });
         // Tell the room the photo is clickable — nothing on a slide says so on its own.
         if (zooms.length > zoomsBefore) s.addText(zooms.length - zoomsBefore > 1 ? "Click any photo to fill the screen" : "Click the photo to fill the screen",
-          { x: imgX, y: imgY + imgH - 0.05, w: imgW, h: 0.3, fontSize: 9.5, color: SUB, align: "center", fontFace: FONT });
+          { x: imgX, y: imgY + imgH - ((link || "").trim() ? 0.7 : 0) - capBand, w: imgW, h: 0.3, fontSize: 9.5, color: SUB, align: "center", fontFace: FONT });
 
         if (drew) {
-          // Two columns: title · meta · question on the left, big image on the right.
+          // Two columns: title · meta · question on the left, big image on the right. The left column
+          // reads as two groups — title + class meta up top, then the gold rule and the question —
+          // rather than the ~1.5" of dead purple the old spacing left under a one-line title.
           const colW = imgX - 0.7 - 0.4; // left column up to a 0.4" gutter before the image
-          s.addText(tCase(title), { x: 0.7, y: 1.0, w: colW, h: 2.3, fontSize: 34, bold: true, color: WHITE, valign: "top", fontFace: FONT, charSpacing: -0.4, fit: "shrink" });
-          if (metaLine) s.addText(metaLine, { x: 0.7, y: 3.45, w: colW, h: 0.6, fontSize: 12.5, color: SUB, charSpacing: 0.5, fontFace: FONT });
-          s.addShape(pptx.ShapeType.rect, { x: 0.7, y: 4.35, w: 2.2, h: 0.05, fill: { color: GOLD } });
-          s.addText(igniteQ, { x: 0.7, y: 4.55, w: colW, h: 2.4, fontSize: 22, bold: true, color: GOLD, valign: "top", fontFace: FONT, fit: "shrink" });
+          s.addText(tCase(title), { x: 0.7, y: 1.0, w: colW, h: 1.6, fontSize: 34, bold: true, color: WHITE, valign: "top", fontFace: FONT, charSpacing: -0.4, fit: "shrink" });
+          if (metaLine) s.addText(metaLine, { x: 0.7, y: 2.72, w: colW, h: 0.6, fontSize: 12.5, color: SUB, charSpacing: 0.5, fontFace: FONT });
+          s.addShape(pptx.ShapeType.rect, { x: 0.7, y: 3.62, w: 2.2, h: 0.05, fill: { color: GOLD } });
+          s.addText(igniteQ, { x: 0.7, y: 3.85, w: colW, h: 2.85, fontSize: 26, bold: true, color: GOLD, valign: "top", fontFace: FONT, fit: "shrink" });
         } else {
           // No stimulus: title up top, the provocative question owns the whole stage.
           s.addText(tCase(title), { x: 0.7, y: 1.0, w: W - 2.5, h: 1.4, fontSize: 44, bold: true, color: WHITE, valign: "top", fontFace: FONT, charSpacing: -0.5, fit: "shrink" });
@@ -3834,8 +3870,12 @@ function App() {
             s.addImage({ data: artImg, x: box.x, y: box.y, w: box.w, h: box.h, ...enlarge(artImg, artLeadAspect) });
             py = +(box.y + box.h + 0.18).toFixed(2); avail = +(panelTop + panelH - (artLink ? 0.65 : 0) - py).toFixed(2);
           }
-          // fit:shrink so a long summary can never spill over the link row below it.
-          if (summary) s.addText(summary, { x: panelX, y: py, w: panelW, h: Math.max(0.6, avail), fontSize: 13.5, color: INK, valign: "top", lineSpacingMultiple: 1.15, fontFace: FONT, fit: "shrink" });
+          // Size the summary to the room that's actually left, so it can never spill over the link
+          // row below it (fit:"shrink" alone did not — PowerPoint applies autofit lazily).
+          if (summary) {
+            const box = Math.max(0.6, avail);
+            s.addText(summary, { x: panelX, y: py, w: panelW, h: box, fontSize: fitFontSize(summary, panelW, box, 13.5, 8.5), color: INK, valign: "top", lineSpacingMultiple: 1.15, fontFace: FONT, fit: "shrink" });
+          }
           if (artLink) {
             const qr = makeQrDataUrl(artLink);
             const rowY = +(panelTop + panelH - 0.55).toFixed(2);
@@ -3854,7 +3894,7 @@ function App() {
           const cy = sy + Math.max(0, (rowH - 0.44) / 2); // vertically centre the number in its row
           s.addShape(pptx.ShapeType.ellipse, { x: 0.7, y: cy, w: 0.44, h: 0.44, fill: { color: P } });
           s.addText(String(i + 1), { x: 0.7, y: cy, w: 0.44, h: 0.44, fontSize: 15, bold: true, color: WHITE, align: "center", valign: "middle", fontFace: FONT });
-          s.addText(st, { x: 1.32, y: sy, w: stepW, h: rowH, fontSize: stepFont, color: INK, valign: "middle", fontFace: FONT });
+          s.addText(st, { x: 1.32, y: sy, w: stepW, h: rowH, fontSize: fitFontSize(st, stepW, rowH, stepFont, 11), color: INK, valign: "middle", fontFace: FONT });
           sy += rowH + gap;
         });
         s.addText(ROUTINE_SOURCE, { x: 0.7, y: H - 0.92, w: W - 2.6, h: 0.3, fontSize: 9, italic: true, color: MUTED, fontFace: FONT });
@@ -3869,10 +3909,18 @@ function App() {
         // lead-in (no teacher-jargon "From the stimulus" label); the question is framed as the lesson's
         // destination — "By the end of today, you'll answer:" — so students read it as their task, not
         // just another question. Curriculum connection stays teacher-only (in the notes).
-        s.addText((deck.launch && deck.launch.bridge) || "", { x: 0.7, y: 1.35, w: W - 1.4, h: 0.9, fontSize: 15, color: INK, valign: "top", lineSpacingMultiple: 1.1, fontFace: FONT });
-        s.addShape(pptx.ShapeType.rect, { x: 0.7, y: 3.3, w: 2.1, h: 0.045, fill: { color: GOLD } });
-        cap(s, "By the end of today, you'll answer:", 3.5);
-        s.addText((deck.launch && deck.launch.question) || "", { x: 0.7, y: 3.95, w: W - 1.4, h: 1.9, fontSize: 28, bold: true, color: P, valign: "top", fontFace: FONT, fit: "shrink" });
+        // The slide used to be two thin lines marooned in white space (a ~1.7" dead band above the
+        // gold rule and a dead third below the question). Tightened into one block so the question
+        // is unmistakably the hero, and the bridge is big enough to read from the back of the room.
+        const lqW = W - 1.4;
+        const lBridge = ((deck.launch && deck.launch.bridge) || "").trim();
+        const lQ = ((deck.launch && deck.launch.question) || "").trim();
+        if (lBridge) s.addText(lBridge, { x: 0.7, y: 1.35, w: lqW, h: 1.0, fontSize: fitFontSize(lBridge, lqW, 1.0, 19, 14), color: INK, valign: "top", lineSpacingMultiple: 1.15, fontFace: FONT });
+        s.addShape(pptx.ShapeType.rect, { x: 0.7, y: 2.75, w: 2.1, h: 0.045, fill: { color: GOLD } });
+        cap(s, "By the end of today, you'll answer:", 2.95);
+        // valign middle, not top: a one- or two-line question then sits in the optical centre of the
+        // lower half instead of hugging the rule with a dead third of the slide under it.
+        s.addText(lQ, { x: 0.7, y: 3.5, w: lqW, h: 2.7, fontSize: fitFontSize(lQ, lqW, 2.7, 34, 20), bold: true, color: P, valign: "middle", fontFace: FONT, fit: "shrink" });
         s.addNotes(noteFor("launch"));
       }
 
@@ -3884,12 +3932,15 @@ function App() {
         const revisit = (deck.reflect && deck.reflect.revisit) || "";
         if (revisit) s.addText(revisit, { x: 0.7, y: 1.75, w: W - 1.4, h: 0.95, fontSize: 18, color: INK, valign: "top", lineSpacingMultiple: 1.15, fontFace: FONT });
         let ry = 2.95;
-        const rowH = prompts.length ? Math.min(1.0, (6.35 - ry) / prompts.length) : 0;
+        // The 0.18" gap between rows has to come OUT of the available height, not be added on top of
+        // it: four prompts used to run to y7.1 and sit under the wordmark. Same shape as THINK's rowH.
+        const rGap = 0.18, rowW = W - 2.1;
+        const rowH = prompts.length ? Math.min(1.0, (6.35 - ry - rGap * (prompts.length - 1)) / prompts.length) : 0;
         prompts.forEach((pr, i) => {
           s.addShape(pptx.ShapeType.ellipse, { x: 0.7, y: ry, w: 0.42, h: 0.42, fill: { color: GOLD } });
           s.addText(String(i + 1), { x: 0.7, y: ry, w: 0.42, h: 0.42, fontSize: 15, bold: true, color: INK, align: "center", valign: "middle", fontFace: FONT });
-          s.addText(pr, { x: 1.3, y: ry - 0.04, w: W - 2.1, h: rowH, fontSize: 19, color: INK, valign: "top", fontFace: FONT });
-          ry += rowH + 0.18;
+          s.addText(pr, { x: 1.3, y: ry - 0.04, w: rowW, h: rowH, fontSize: fitFontSize(pr, rowW, rowH, 19, 13), color: INK, valign: "top", fontFace: FONT });
+          ry += rowH + rGap;
         });
         s.addNotes(noteFor("reflect"));
       }
