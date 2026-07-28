@@ -1312,7 +1312,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.24 · 2026-07-28";
+const APP_VERSION = "v0.9.25 · 2026-07-28";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2228,7 +2228,9 @@ function shapeDeck(parsed, { routineName }) {
     title: str(p.title),
     keywords: arr(p.keywords, 6),
     ignite:  { question: str(ig.question) },
-    think:   { routine: str(routineName) || str(th.routine), steps: arr(th.steps, 4), structure: str(th.structure) },
+    // summary = the 5 sentences students read beside the routine on THINK (article stimulus only;
+    // empty for an image/video reel, and empty on decks generated before this field existed).
+    think:   { routine: str(routineName) || str(th.routine), steps: arr(th.steps, 4), structure: str(th.structure), summary: str(th.summary) },
     // ideas = the 3 ways to run the launch. It was missing here, so the model's three
     // suggestions were dropped before export and the LAUNCH notes carried only the single
     // FACILITATION line.
@@ -2301,6 +2303,9 @@ const REFLECT_ROUTINES = [
 
 async function generateSpringboard({ passcode, mode, media = [], sourceText = "", classInfo, routineName, reflectRoutine = "", scope = "all", current = null }) {
   const routine = ROUTINES.find(r => r.name === routineName) || ROUTINES[0];
+  // Article stimulus (PDF / pasted text / fetched link) rather than a reel of images+video.
+  // Only an article gets think.summary — the 5 sentences students read on the THINK slide.
+  const isArticleStim = !(mode === "media" && Array.isArray(media) && media.length);
   const vceGuide = vceStudyGuide(classInfo);
   const acGuide = acStudyGuide(classInfo);
   const outcomeLine = vceGuide
@@ -2320,7 +2325,7 @@ ${outcomeLine}
 Each notes field is a teacher script with EXACTLY these labelled sections, each 1-3 sentences:
 FACILITATION: … TIMING: … DIFFERENTIATION: … CURRICULUM LINKS: … EXTENSIONS: …
 Set advisory.flag true only for sensitive themes (grief, violence, body image, etc.) with a one-line reason.
-Return STRICT JSON with keys: title, keywords, ignite{question}, think{routine, steps, structure}, launch{connection, bridge, question, ideas}, reflect{revisit, prompts}, notes{ignite, think, launch, reflect}, advisory{flag, reason}.`;
+Return STRICT JSON with keys: title, keywords, ignite{question}, think{routine, steps, structure, summary}, launch{connection, bridge, question, ideas}, reflect{revisit, prompts}, notes{ignite, think, launch, reflect}, advisory{flag, reason}.`;
 
   // Single-slide regenerate: rebuild only the scoped slide + its notes, copying the rest verbatim.
   if (scope !== "all") {
@@ -2340,6 +2345,9 @@ Return STRICT JSON with keys: title, keywords, ignite{question}, think{routine, 
     `keywords: 3-6 short search terms a teacher might type to find this lesson later.`,
     `ignite.question: ONE provocative question.`,
     `think.routine MUST be exactly "${routine.name}". This routine's real moves are: ${(routine.steps || []).map((s, i) => `${i + 1}) ${s}`).join(" ")}. think.steps: take THOSE actual moves and lightly tailor the wording to THIS stimulus — keep the routine's real moves and their order, do NOT invent different ones; <=4 short student-facing prompts. think.structure: "${routine.structure || "Think-pair-share, 3 min"}".`,
+    `think.summary: ${isArticleStim
+      ? `EXACTLY 5 sentences summarising the article FOR STUDENTS, printed beside the routine so they can read it while they think. Tone: ${tone}. Make the situation CONCRETE — establish clearly WHAT happened and the specifics a ${classInfo.yearLevel} student needs to follow it. Lead with the most surprising or relatable angle, use plain vivid language, and end on a note that invites discussion. NEVER invent quotes, names, numbers, or events that are not in the supplied text; if the article is vague on something important, leave it out rather than guessing. Punchy, never a dry recap.`
+      : `"" — an empty string. The stimulus is an image/video reel, not an article, so there is nothing to summarise.`}`,
     `launch.connection: <=25 words curriculum connection; launch.bridge: <=20 words from the stimulus to today's lesson; launch.question: the lesson launch question; launch.ideas: EXACTLY 3 short, distinct ways to run the launch so students work toward launch.question (e.g. a quick debate, a rank/sort, a role-play, a prediction, a quick-write) — one sentence each, <=20 words.`,
     `reflect.revisit: <=15 words revisiting the ignite question. For reflect.prompts, CHOOSE the end-of-lesson reflection routine that best fits THIS lesson, and VARY the choice across lessons (do NOT always use the same one). Pick from: (a) I Used to Think… / Now I Think…; (b) Connect–Extend–Challenge — one new connection, one way it extends thinking, one lingering challenge or question; (c) 3-2-1 Bridge — 3 thoughts, 2 questions, 1 analogy; (d) Headlines — a one-line headline capturing today's core idea; (e) Reflect–Connect–Project — reflect on it, connect to prior learning, project forward; (f) Think About Your Thinking (metacognition) — Task: did your plan/approach work and how do you know; Strategy: which strategy helped and what will you do differently next time; Self: what did you learn about yourself as a learner. Use THAT routine's real prompt stems as reflect.prompts (<=4 short stems). Tie every stem to THIS lesson's content (never generic), and ALWAYS make at least one stem a forward-looking metacognitive prompt — what the student will do differently, or which strategy they'll reuse, next time.`,
   ].join("\n");
@@ -3533,6 +3541,9 @@ function App() {
       const title = (deck.title || "").trim() || "Springboard";
       const routine = ((deck.think && deck.think.routine) || "").trim();
       const structure = ((deck.think && deck.think.structure) || "").trim();
+      // The 5 sentences students read beside the routine on THINK. Article stimulus only; empty
+      // for an image/video reel and on decks generated before think.summary existed.
+      const summary = ((deck.think && deck.think.summary) || "").trim();
       const kw = (Array.isArray(deck.keywords) ? deck.keywords : []).map(s => String(s).trim()).filter(Boolean).slice(0, 6);
       const steps = (Array.isArray(deck.think && deck.think.steps) ? deck.think.steps : []).map(s => String(s).trim()).filter(Boolean).slice(0, 4);
       const prompts = (Array.isArray(deck.reflect && deck.reflect.prompts) ? deck.reflect.prompts : []).map(s => String(s).trim()).filter(Boolean).slice(0, 4);
@@ -3552,7 +3563,28 @@ function App() {
       pptx.layout = "WIDE";
 
       let sNum = 0; // 1-based slide counter, drives the "n / total" footer
+      let igniteNum = 1; // set when IGNITE is built; every zoom slide links back to it
       const ytMarks = []; // youtubeIds whose slide gets a click-to-play player injected post-build
+
+      // Click-to-enlarge. PptxGenJS has no animation support, so "fill the screen" is done with a
+      // full-screen copy of the photo on a HIDDEN slide (show="0" — skipped when you press the
+      // arrow key, but a hyperlink jump still reaches it) appended after the content slides.
+      // pptxgenjs writes the slide relationship at addImage time and never revisits it (verified:
+      // mutating the hyperlink object afterwards is ignored), so the target number must be right
+      // BEFORE the zoom slide exists. zoomBase is therefore set in the IGNITE block from the live
+      // slide count plus the slides still to come, and NOT from `total` — `total` is the teacher-
+      // facing "n / 4" footer, which deliberately excludes the teacher-preface slide.
+      // Registering the same photo twice (IGNITE and THINK both draw it) returns the one slide.
+      let zoomBase = 0;
+      const zooms = [];
+      const enlarge = (data, aspect) => {
+        if (!data || !zoomBase) return {};
+        let i = zooms.findIndex(z => z.data === data);
+        // aspect is required: pptxgenjs's own sizing:"contain" stretches the picture, so the zoom
+        // slide letterboxes with the contain() helper instead, which needs the real ratio.
+        if (i === -1) { zooms.push({ data, aspect }); i = zooms.length - 1; }
+        return { hyperlink: { slide: zoomBase + i + 1, tooltip: "Click to enlarge" } };
+      };
 
       // --- drawing helpers: each only ever builds fresh object literals (no shared options) ---
       const goldCrest = (s, lw) => { const w = lw || 1.5, h = w / 1.743; s.addImage({ data: WESLEY_LOGO_GOLD, x: W - 0.55 - w, y: 0.4, w, h }); };
@@ -3639,7 +3671,7 @@ function App() {
         if (items.length === 1) {
           const it = items[0];
           const box = contain(x, y, w, Math.max(0.5, mediaH), it.aspect || (it.kind === "video" ? 16 / 9 : w / mediaH));
-          if (it.kind === "image") { s.addImage({ data: it.dataUrl, x: box.x, y: box.y, w: box.w, h: box.h }); drew = true; }
+          if (it.kind === "image") { s.addImage({ data: it.dataUrl, x: box.x, y: box.y, w: box.w, h: box.h, ...enlarge(it.dataUrl, it.aspect) }); drew = true; }
           else if (it.kind === "youtube") {
             // Poster (play badge baked in). On the primary slide, tag it so the post-build
             // pass swaps it for a real click-to-play YouTube player; on posterOnly slides it
@@ -3666,12 +3698,14 @@ function App() {
             if (!src) return;
             const cx = x + (i % cols) * (cw + gap), cy = y + Math.floor(i / cols) * (ch + gap);
             const box = contain(cx, cy, cw, ch, it.aspect || (4 / 3));
-            s.addImage({ data: src, x: box.x, y: box.y, w: box.w, h: box.h });
+            // Only photos get click-to-enlarge; a video's poster stays a poster so the click plays it.
+            s.addImage({ data: src, x: box.x, y: box.y, w: box.w, h: box.h, ...(it.kind === "image" ? enlarge(src, it.aspect) : {}) });
             drew = true;
           });
-        } else if (mode === "article" && articleImageUrl) {
-          const img = await urlToDataUrl(articleImageUrl);
-          if (img) { const box = contain(x, y, w, Math.max(0.5, mediaH), 16 / 9); s.addImage({ data: img, x: box.x, y: box.y, w: box.w, h: box.h }); drew = true; }
+        } else if (artLead) {
+          const box = contain(x, y, w, Math.max(0.5, mediaH), artLeadAspect);
+          s.addImage({ data: artLead, x: box.x, y: box.y, w: box.w, h: box.h, ...enlarge(artLead, artLeadAspect) });
+          drew = true;
         }
 
         if (url) {
@@ -3686,6 +3720,13 @@ function App() {
         }
         return drew;
       }
+
+      // The article's lead image, fetched ONCE and shared by IGNITE and THINK. Sharing the exact
+      // same data string is what makes both slides link to the SAME zoom slide instead of two.
+      const artLead = (mode === "article" && articleImageUrl) ? await urlToDataUrl(articleImageUrl) : "";
+      // Real ratio, measured — a lead image off the web can be any shape, and both the panel and
+      // the full-screen copy letterbox to it rather than stretching.
+      const artLeadAspect = (artLead ? await imageAspect(artLead) : 0) || 16 / 9; // imageAspect resolves 0 if it can't load
 
       // ---------------- TEACHER PREFACE (slide 1) — teach from the notes ----------------
       // A purple cover-style slide telling the teacher to open Presenter View / the notes pane, with
@@ -3731,8 +3772,16 @@ function App() {
         // Give the stimulus a LARGE right-hand panel (like Digital Spotlight's stimulus slide)
         // so a portrait phone image is clearly visible, not a sliver. imgX..imgX+imgW clears the
         // crest (which sits above, ending ~y1.15).
+        igniteNum = pptx.slides.length; // zoom slides link back here (real slide number, not the footer's)
+        // Slides still to come after IGNITE: THINK, LAUNCH, and REFLECT when the teacher kept it.
+        // The zoom slides are appended after those. Add any new content slide AFTER IGNITE here too.
+        zoomBase = pptx.slides.length + 2 + (showReflect ? 1 : 0);
         const imgX = 7.0, imgY = 1.5, imgW = 5.6, imgH = 5.3;
+        const zoomsBefore = zooms.length;
         const drew = await drawStimulus(s, imgX, imgY, imgW, imgH);
+        // Tell the room the photo is clickable — nothing on a slide says so on its own.
+        if (zooms.length > zoomsBefore) s.addText(zooms.length - zoomsBefore > 1 ? "Click any photo to fill the screen" : "Click the photo to fill the screen",
+          { x: imgX, y: imgY + imgH - 0.05, w: imgW, h: 0.3, fontSize: 9.5, color: SUB, align: "center", fontFace: FONT });
 
         if (drew) {
           // Two columns: title · meta · question on the left, big image on the right.
@@ -3756,22 +3805,49 @@ function App() {
       {
         const s = newWhite();
         kicker(s, "THINK");
-        // Keep an IMAGE/video provocation visible while students run the routine: show it again as
-        // a right-hand panel and narrow the routine column. For an article (no image) the routine
-        // spreads to fill the whole slide instead of leaving empty space — no panel.
+        // Keep the provocation visible while students run the routine: show it again as a right-hand
+        // panel and narrow the routine column. An IMAGE/video reel redraws the stimulus; an ARTICLE
+        // draws its lead image + the 5-sentence student summary + a "read the full article" QR row
+        // (the Tech Spotlight Generator's provocation layout). With neither, the routine spreads to
+        // fill the whole slide instead of leaving empty space — no panel.
         const hasImageStim = mode === "media" && Array.isArray(media) && media.some(m => m && (m.dataUrl || m.poster));
+        const artImg = artLead;
+        const artLink = (link || "").trim();
+        const hasArticleStim = mode === "article" && !!(summary || artImg || artLink);
+        const hasPanel = hasImageStim || hasArticleStim; // the two stimulus kinds are mutually exclusive
         const tImgX = 7.4, tColRight = tImgX - 0.4;
-        const colW = hasImageStim ? (tColRight - 0.7) : (W - 1.4);
-        const stepW = hasImageStim ? (tColRight - 1.32) : (W - 2.1);
+        const colW = hasPanel ? (tColRight - 0.7) : (W - 1.4);
+        const stepW = hasPanel ? (tColRight - 1.32) : (W - 2.1);
         s.addText(routine || "Thinking routine", { x: 0.7, y: 1.05, w: colW, h: 0.75, fontSize: 32, bold: true, color: P, valign: "top", fontFace: FONT, fit: "shrink" });
         if (structure) s.addText([{ text: "How to run it:  ", options: { bold: true, color: INK } }, { text: structure, options: { color: INK } }],
           { x: 0.7, y: 1.9, w: colW, h: 0.5, fontSize: 14, valign: "top", fontFace: FONT });
-        if (hasImageStim) await drawStimulus(s, tImgX, 1.05, W - 0.6 - tImgX, 5.1, { posterOnly: true, noLink: true });
-        let sy = hasImageStim ? 2.65 : 2.55;
-        const gap = hasImageStim ? 0.14 : 0.2;
-        const bottomLimit = hasImageStim ? 6.35 : 6.45;
+        const panelX = tImgX, panelW = W - 0.6 - tImgX, panelTop = 1.05, panelH = 5.1;
+        if (hasImageStim) await drawStimulus(s, panelX, panelTop, panelW, panelH, { posterOnly: true, noLink: true });
+        else if (hasArticleStim) {
+          let py = panelTop, avail = panelH;
+          if (artLink) avail -= 0.65; // reserve the QR + link row pinned to the panel's foot
+          if (artImg) {
+            // Cap the lead image at 45% of the panel so five sentences always have room under it.
+            const box = contain(panelX, py, panelW, +(avail * 0.45).toFixed(2), artLeadAspect);
+            s.addImage({ data: artImg, x: box.x, y: box.y, w: box.w, h: box.h, ...enlarge(artImg, artLeadAspect) });
+            py = +(box.y + box.h + 0.18).toFixed(2); avail = +(panelTop + panelH - (artLink ? 0.65 : 0) - py).toFixed(2);
+          }
+          // fit:shrink so a long summary can never spill over the link row below it.
+          if (summary) s.addText(summary, { x: panelX, y: py, w: panelW, h: Math.max(0.6, avail), fontSize: 13.5, color: INK, valign: "top", lineSpacingMultiple: 1.15, fontFace: FONT, fit: "shrink" });
+          if (artLink) {
+            const qr = makeQrDataUrl(artLink);
+            const rowY = +(panelTop + panelH - 0.55).toFixed(2);
+            if (qr) s.addImage({ data: qr, x: panelX, y: rowY, w: 0.5, h: 0.5 });
+            s.addText([{ text: "Read the full article:  ", options: { bold: true, color: INK } },
+                       { text: artLink, options: { color: P, underline: true, hyperlink: { url: artLink } } }],
+              { x: panelX + (qr ? 0.62 : 0), y: rowY, w: panelW - (qr ? 0.62 : 0), h: 0.5, fontSize: 9.5, valign: "middle", fontFace: FONT });
+          }
+        }
+        let sy = hasPanel ? 2.65 : 2.55;
+        const gap = hasPanel ? 0.14 : 0.2;
+        const bottomLimit = hasPanel ? 6.35 : 6.45;
         const rowH = steps.length ? Math.max(0.5, (bottomLimit - sy - gap * (steps.length - 1)) / steps.length) : 0;
-        const stepFont = hasImageStim ? 16 : 20;
+        const stepFont = hasPanel ? 16 : 20;
         steps.forEach((st, i) => {
           const cy = sy + Math.max(0, (rowH - 0.44) / 2); // vertically centre the number in its row
           s.addShape(pptx.ShapeType.ellipse, { x: 0.7, y: cy, w: 0.44, h: 0.44, fill: { color: P } });
@@ -3815,6 +3891,26 @@ function App() {
         });
         s.addNotes(noteFor("reflect"));
       }
+
+      // ---------------- Click-to-enlarge targets (hidden, appended last) ----------------
+      // One per photo drawn above, in registration order, so the numbers `enlarge()` handed out
+      // resolve correctly. hidden => PowerPoint skips these when advancing, but the hyperlink jump
+      // still lands. A black text box under the photo covers the whole slide, so a click ANYWHERE
+      // (letterbox bars included) returns to IGNITE rather than advancing into the rest of the deck.
+      // Safety net: the links above were written against zoomBase. If a content slide is ever added
+      // between IGNITE and here without updating zoomBase, pad with blank hidden slides so every
+      // photo still lands on ITS OWN picture rather than on the wrong one.
+      while (zooms.length && pptx.slides.length < zoomBase) { const f = pptx.addSlide(); f.hidden = true; f.background = { color: WHITE }; }
+      zooms.forEach(z => {
+        const s = pptx.addSlide();
+        s.hidden = true;
+        s.background = { color: "000000" };
+        const back = { slide: igniteNum, tooltip: "Back to the question" };
+        s.addText(" ", { x: 0, y: 0, w: W, h: H, fill: { color: "000000" }, hyperlink: { ...back } });
+        const box = contain(0.2, 0.2, W - 0.4, H - 0.8, z.aspect);
+        s.addImage({ data: z.data, x: box.x, y: box.y, w: box.w, h: box.h, hyperlink: { ...back } });
+        s.addText("Click anywhere to go back", { x: 0.2, y: H - 0.52, w: W - 0.4, h: 0.32, fontSize: 10, color: "8C8C8C", align: "center", fontFace: FONT });
+      });
 
       // Core + custom document properties (surface in File ▸ Info and search).
       pptx.title = title;
@@ -4207,7 +4303,22 @@ function App() {
               ))}
             </React.Fragment>
           ) : (
-            <textarea rows={6} value={articleText} onChange={e => setArticleText(e.target.value)} placeholder="Paste the article or text…" />
+            <React.Fragment>
+              {/* Article link: fetches the readable text AND becomes the "read the full article"
+                  QR code on the THINK slide. Without this row the brain flow could paste text but
+                  never attach a source, so it could never produce a QR. */}
+              <div className="bx-linkrow">
+                <input className="bx-input" type="text" aria-label="Article link"
+                  value={link} placeholder="Paste an article link (https://…)"
+                  onChange={e => setLink(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter" && !fetchingArticle) { e.preventDefault(); fetchArticleFromLink(); } }} />
+                <button type="button" className="bx-btn ghost" disabled={fetchingArticle} onClick={() => fetchArticleFromLink()}>
+                  {fetchingArticle ? "Fetching…" : "Fetch text"}
+                </button>
+              </div>
+              <textarea rows={6} value={articleText} onChange={e => setArticleText(e.target.value)} placeholder="…or paste the article text here" />
+              <p className="bx-note">The link also becomes a QR code on the Think slide, so students can read the whole article themselves.</p>
+            </React.Fragment>
           )}
         </div>
         {/* class */}
@@ -4386,6 +4497,12 @@ function App() {
               </div>
               <label className="bx-lab" htmlFor="bx-think-structure">How to run it</label>
               <textarea id="bx-think-structure" className="bx-ta" rows={1} value={spot.think.structure} placeholder="e.g. Think-pair-share, 3 min" onChange={e => patchSlide("think", { structure: e.target.value })} />
+              {mode === "article" && (
+                <React.Fragment>
+                  <label className="bx-lab" htmlFor="bx-think-summary">What students read · 5 sentences beside the routine</label>
+                  <textarea id="bx-think-summary" className="bx-ta" rows={5} value={spot.think.summary || ""} placeholder="A short summary of the article, in students' language…" onChange={e => patchSlide("think", { summary: e.target.value })} />
+                </React.Fragment>
+              )}
               <span className="bx-lab">Student prompts · up to 4</span>
               {spot.think.steps.map((st, i) => (
                 <div className="bx-listrow" key={i}>
@@ -5065,6 +5182,12 @@ function App() {
                   <div className="hint" style={{ marginTop: 4 }}>To use a different routine, re-pick it in Analyse on the left and Regenerate.</div>
                   <div className="cap" style={{ marginTop: 12 }}>How to run it</div>
                   <textarea className="editable" rows={1} aria-label="How to run the routine" value={spot.think.structure} placeholder="e.g. Think-pair-share, 3 min" onChange={e => patchSlide("think", { structure: e.target.value })} />
+                  {mode === "article" && (
+                    <React.Fragment>
+                      <div className="cap" style={{ marginTop: 12 }}>What students read <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· 5 sentences beside the routine</span></div>
+                      <textarea className="editable" rows={5} aria-label="Article summary students read" value={spot.think.summary || ""} placeholder="A short summary of the article, in students' language…" onChange={e => patchSlide("think", { summary: e.target.value })} />
+                    </React.Fragment>
+                  )}
                   <div className="cap" style={{ marginTop: 12 }}>Student prompts <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· up to 4</span></div>
                   {spot.think.steps.map((st, i) => (
                     <div className="step" key={i} style={{ gridTemplateColumns: "28px 1fr auto" }}>
