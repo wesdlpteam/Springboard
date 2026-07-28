@@ -1312,7 +1312,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.25 · 2026-07-28";
+const APP_VERSION = "v0.9.26 · 2026-07-28";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2925,6 +2925,7 @@ function App() {
   // Editorial brain experience (sandbox): brainView = the new experience (default) vs classic builder.
   const [brainView, setBrainView] = useState(true);
   const [bxDrag, setBxDrag] = useState(false);        // dropzone dragover
+  const [bxPdfDrag, setBxPdfDrag] = useState(false);  // article-step PDF dropzone dragover
   // Watercolour scenes: cover -> transport (enter ink-dissolve) -> inside (map) -> glide -> chamber
   const [bxScene, setBxScene] = useState("cover");
   const [interiorOk, setInteriorOk] = useState(true); // wc-chamber.jpg present? (img onError -> CSS tint-wash only)
@@ -3030,6 +3031,7 @@ function App() {
 
   const mediaInput = useRef(null);
   const pdfInput = useRef(null);
+  const bxPdfInput = useRef(null); // the brain chamber's own PDF picker (Classic keeps pdfInput)
   const genBtnRef = useRef(null);
   const genStimKey = useRef(""); // stimulus fingerprint at last successful generate (stale-deck hint)
 
@@ -4304,6 +4306,17 @@ function App() {
             </React.Fragment>
           ) : (
             <React.Fragment>
+              {/* PDF upload — the same onPdf extractor the Classic view uses. */}
+              <input ref={bxPdfInput} type="file" accept="application/pdf" style={{ display: "none" }} onChange={onPdf} />
+              <div className={"bx-drop" + (bxPdfDrag ? " drag" : "")} role="button" tabIndex={0}
+                aria-label={pdfName ? "Replace the PDF " + pdfName : "Upload a PDF"}
+                onClick={() => bxPdfInput.current && bxPdfInput.current.click()}
+                onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); bxPdfInput.current && bxPdfInput.current.click(); } }}
+                onDragOver={e => { e.preventDefault(); setBxPdfDrag(true); }} onDragLeave={() => setBxPdfDrag(false)}
+                onDrop={e => { e.preventDefault(); setBxPdfDrag(false); onPdf({ target: { files: e.dataTransfer.files, value: "" } }); }}>
+                {pdfName || "Drop a PDF, or click to choose"}
+                <small>{pdfName ? "Click to swap it for another PDF" : "…or use a link / paste the text below"}</small>
+              </div>
               {/* Article link: fetches the readable text AND becomes the "read the full article"
                   QR code on the THINK slide. Without this row the brain flow could paste text but
                   never attach a source, so it could never produce a QR. */}
