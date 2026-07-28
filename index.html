@@ -1312,7 +1312,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.21 · 2026-07-26";
+const APP_VERSION = "v0.9.22 · 2026-07-28";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -1476,6 +1476,131 @@ const comboBandLabel = (keys) => (keys || []).map(k => BAND_SHORT[k] || bandLabe
 // fall back to a poster frame + link/QR so the deck stays portable.
 const VIDEO_EMBED_MAX_BYTES = 25 * 1024 * 1024; // 25 MB
 const MAX_MEDIA = 10; // max images+videos in one provocation reel
+
+/* ---- PowerPoint-friendly video --------------------------------------------
+   PowerPoint plays H.264 video in an MP4. Instagram/Facebook hand out plenty of
+   VP9 clips, which look perfect in the browser AND in desktop PowerPoint
+   (Windows carries a VP9 decoder) but in PowerPoint FOR THE WEB play the audio
+   over a blank frame — and the player keeps running after you leave the show.
+   Three shipped decks were caught by this. So sniff the codec on the way in and
+   re-encode anything that isn't H.264 before it is embedded in the deck.       */
+const PPT_VIDEO_MIME = 'video/mp4;codecs="avc1.4D401F,mp4a.40.2"';
+const PPT_CONVERT_MAX_EDGE = 1280;   // plenty: the clip shows ~3" wide on the slide
+
+// Walk the MP4/QuickTime box tree to `moov`, then read the codec fourcc out of its
+// sample descriptions. Returns "h264", the offending fourcc, or "" when we can't
+// tell — never guess, an unknown codec is left alone rather than re-encoded.
+async function sniffVideoCodec(file) {
+  try {
+    if (/\.(webm|mkv|ogv)$/i.test(file.name || "") || /webm|matroska|ogg/i.test(file.type || "")) return "webm";
+    const readAt = async (off, len) => new Uint8Array(await file.slice(off, off + len).arrayBuffer());
+    const be32 = (b, i) => ((b[i] << 24 | b[i + 1] << 16 | b[i + 2] << 8 | b[i + 3]) >>> 0);
+    let off = 0, moov = null;
+    while (off + 8 < file.size) {
+      const head = await readAt(off, 16);
+      if (head.length < 8) break;
+      const type = String.fromCharCode(head[4], head[5], head[6], head[7]);
+      let size = be32(head, 0), hdr = 8;
+      if (size === 1) {                                    // 64-bit largesize
+        if (head.length < 16) break;
+        size = Number(new DataView(head.buffer, head.byteOffset, 16).getBigUint64(8));
+        hdr = 16;
+      } else if (size === 0) size = file.size - off;       // "to end of file"
+      if (size < hdr) break;
+      if (type === "moov") { moov = await readAt(off + hdr, Math.min(size - hdr, 4 * 1024 * 1024)); break; }
+      off += size;
+    }
+    if (!moov) return "";
+    const txt = new TextDecoder("latin1").decode(moov);
+    if (txt.includes("avc1") || txt.includes("avc3")) return "h264";
+    for (const cc of ["vp09", "vp08", "hvc1", "hev1", "av01"]) if (txt.includes(cc)) return cc;
+    return "";
+  } catch (_) { return ""; }
+}
+
+// Re-encode a clip to H.264/AAC MP4 in the browser. It plays muted at normal speed
+// into a canvas and records that, so it takes roughly as long as the clip runs —
+// which is why it runs in the background while the teacher keeps working.
+// Rejects when the browser can't record MP4 (then we warn instead of breaking).
+function convertToPptVideo(file, onProgress) {
+  return new Promise((resolve, reject) => {
+    if (!window.MediaRecorder || !MediaRecorder.isTypeSupported(PPT_VIDEO_MIME)) { reject(new Error("no-mp4-recorder")); return; }
+    const url = URL.createObjectURL(file);
+    let settled = false, watchdog = 0;
+    const finish = (fn, arg) => {
+      if (settled) return;
+      settled = true; clearTimeout(watchdog);
+      try { URL.revokeObjectURL(url); } catch (_) {}
+      fn(arg);
+    };
+    const v = document.createElement("video");
+    v.src = url; v.muted = true; v.playsInline = true; v.preload = "auto";
+    v.onerror = () => finish(reject, new Error("decode-failed"));
+    v.onloadedmetadata = () => {
+      const longEdge = Math.max(v.videoWidth, v.videoHeight);
+      if (!longEdge) { finish(reject, new Error("no-dimensions")); return; }
+      // Even dimensions only — H.264 4:2:0 can't encode odd widths/heights.
+      const k = Math.min(1, PPT_CONVERT_MAX_EDGE / longEdge);
+      const cw = Math.max(2, Math.round(v.videoWidth * k / 2) * 2);
+      const ch = Math.max(2, Math.round(v.videoHeight * k / 2) * 2);
+      const canvas = document.createElement("canvas");
+      canvas.width = cw; canvas.height = ch;
+      const ctx = canvas.getContext("2d", { alpha: false });
+      const cStream = canvas.captureStream(0);             // 0 = we push frames ourselves
+      const vTrack = cStream.getVideoTracks()[0];
+      const tracks = [vTrack];
+      // captureStream() still carries the audio track even though the element is muted.
+      try {
+        const elStream = v.captureStream ? v.captureStream() : (v.mozCaptureStream ? v.mozCaptureStream() : null);
+        const aTrack = elStream && elStream.getAudioTracks()[0];
+        if (aTrack) tracks.push(aTrack);
+      } catch (_) {}
+      const px = cw * ch;
+      let rec;
+      try {
+        rec = new MediaRecorder(new MediaStream(tracks), {
+          mimeType: PPT_VIDEO_MIME,
+          videoBitsPerSecond: px >= 1280 * 720 ? 1800000 : px >= 640 * 360 ? 1200000 : 800000,
+          audioBitsPerSecond: 128000,
+        });
+      } catch (err) { finish(reject, err); return; }
+      const chunks = [];
+      rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+      rec.onerror = () => finish(reject, new Error("record-failed"));
+      rec.onstop = () => {
+        const blob = new Blob(chunks, { type: "video/mp4" });
+        if (!blob.size) { finish(reject, new Error("empty-recording")); return; }
+        const base = (file.name || "video").replace(/\.[^.]+$/, "");
+        finish(resolve, new File([blob], base + ".mp4", { type: "video/mp4" }));
+      };
+      const drawFrame = () => { ctx.drawImage(v, 0, 0, cw, ch); if (vTrack.requestFrame) vTrack.requestFrame(); };
+      const pump = () => {
+        if (settled) return;
+        drawFrame();
+        if (onProgress && v.duration) onProgress(Math.min(99, Math.round((v.currentTime / v.duration) * 100)));
+        if (v.ended) return;
+        if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(pump); else setTimeout(pump, 33);
+      };
+      v.onended = () => { drawFrame(); setTimeout(() => { try { rec.stop(); } catch (_) {} }, 150); };
+      // A stalled decode must not hang the export gate forever.
+      watchdog = setTimeout(() => {
+        try { rec.stop(); } catch (_) {}
+        finish(reject, new Error("timed-out"));
+      }, Math.round((isFinite(v.duration) ? v.duration : 300) * 2500) + 20000);
+      // Start recording only once the first frame is actually on the canvas — starting
+      // at play() adds a second of black and silence to the front of every clip.
+      const begin = () => {
+        if (settled) return;
+        drawFrame();
+        try { rec.start(1000); } catch (err) { finish(reject, err); return; }
+        pump();
+      };
+      v.play()
+        .then(() => { if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(begin); else begin(); })
+        .catch(() => finish(reject, new Error("play-blocked")));
+    };
+  });
+}
 
 const BAND_GUIDANCE = {
   PYP:    "Audience: IB PYP (Prep–Year 6). Use concrete, simple, inquiry-based language. Short warm sentences. Centre noticing and wondering; avoid abstraction and jargon.",
@@ -3026,6 +3151,32 @@ function App() {
     im.src = dataUrl;
   });
 
+  // In-flight codec-check/convert jobs (id -> Promise) so Download can wait them out.
+  const videoPrepRef = React.useRef(new Map());
+
+  // Check a freshly added clip's codec and re-encode it when PowerPoint couldn't play
+  // it (Instagram/Facebook VP9 clips look fine in the browser and in desktop PowerPoint
+  // but play sound over a blank frame in PowerPoint for the web). Runs in the
+  // background so the teacher can keep working.
+  async function prepareVideoForPpt(vidId, file) {
+    const setIt = (patch) => setMedia(m => m.map(x => x.id === vidId ? { ...x, ...patch } : x));
+    try {
+      const codec = await sniffVideoCodec(file);
+      if (!codec || codec === "h264") { setIt({ convertState: "done", convertPct: 100 }); return; }
+      setIt({ convertState: "converting", convertPct: 0 });
+      setMediaNote("This clip is in a format PowerPoint can't show — converting it now, keep working and it'll be ready by Download.");
+      const out = await convertToPptVideo(file, pct => setIt({ convertPct: pct }));
+      let dataUrl = "";
+      if (out.size <= VIDEO_EMBED_MAX_BYTES) { try { dataUrl = await readFileAsDataURL(out); } catch (_) {} }
+      setIt(Object.assign({ convertState: "done", convertPct: 100, convertedFrom: codec, name: out.name, sizeBytes: out.size },
+                          dataUrl ? { dataUrl } : {}));
+      setMediaNote("Converted that clip so it plays in PowerPoint ✓");
+    } catch (_) {
+      setIt({ convertState: "failed", convertPct: 0 });
+      setMediaNote("Couldn't convert that clip automatically — in PowerPoint on the web it may play sound with no picture. Try a different clip.");
+    }
+  }
+
   async function addMediaFiles(fileList) {
     const files = Array.from(fileList || []);
     if (!files.length) return;
@@ -3047,9 +3198,15 @@ function App() {
           const { frames, poster, width, height } = await extractVideoFrames(f, 4);
           const vidId = newId();
           setMedia(m => m.length >= MAX_MEDIA ? m : [...m, { id: vidId, kind: "video", dataUrl, name: f.name, sizeBytes: f.size,
-            poster, aspect: width && height ? width / height : 0, frames, text: "", transcribeState: "running", transcribeNote: "" }]);
+            poster, aspect: width && height ? width / height : 0, frames, text: "", transcribeState: "running", transcribeNote: "",
+            convertState: "checking", convertPct: 0 }]);
           if (!frames.length) setMediaNote("Couldn't read frames from " + f.name + " — add a description under its thumbnail. It will still embed in the PowerPoint.");
           else if (f.size > VIDEO_EMBED_MAX_BYTES) setMediaNote(`${f.name} is large (${formatBytes(f.size)}) — the deck will use its first frame (add a Link on the left for a clickable link + QR) instead of embedding.`);
+          // Codec-check and, if PowerPoint couldn't play it, re-encode in the background.
+          // The Download gate awaits this so a deck is never built from the original.
+          const prep = prepareVideoForPpt(vidId, f);
+          videoPrepRef.current.set(vidId, prep);
+          prep.finally(() => videoPrepRef.current.delete(vidId));
           (async () => {
             try {
               const { text, truncated } = await transcribeMedia({ passcode: passcode.trim(), file: f });
@@ -3702,6 +3859,13 @@ function App() {
     busyRef.current.exporting = true;
     setExporting(true);
     try {
+      // Wait for any clip still being re-encoded, or the deck embeds the version
+      // PowerPoint for the web can't show.
+      if (videoPrepRef.current.size) {
+        setMediaNote("Finishing off your video before building the deck…");
+        await Promise.all(Array.from(videoPrepRef.current.values()));
+        setMediaNote("");
+      }
       const keys = BAND_ORDER.filter(b => spots[b]);
       for (const b of keys) {
         await buildAndSaveDeck(b, spots[b]);
@@ -4556,6 +4720,15 @@ function App() {
                           {it.transcribeState === "running" && <React.Fragment><span className="spinner sm dark"></span> transcribing…</React.Fragment>}
                           {it.transcribeState === "done" && `transcript ready (${(it.text ? it.text.trim().split(/\s+/).length : 0)} words) ${it.transcribeNote}`}
                           {it.transcribeState === "failed" && it.transcribeNote}
+                        </div>
+                      )}
+                      {it.kind === "video" && (it.convertState === "converting" || it.convertState === "failed" || it.convertedFrom) && (
+                        <div className="hint" aria-live="polite" style={{ marginTop: 2 }}>
+                          {it.convertState === "converting" && <React.Fragment><span className="spinner sm dark"></span> making this clip PowerPoint-friendly… {it.convertPct || 0}%</React.Fragment>}
+                          {it.convertState === "done" && it.convertedFrom && <span style={{ color: "var(--accent)", fontWeight: 600 }}>Converted ✓ plays in PowerPoint</span>}
+                          {it.convertState === "failed" && (
+                            <span style={{ background: "var(--warn-bg)", color: "var(--warn-ink)", padding: "1px 6px", borderRadius: 6, fontWeight: 600 }}>Couldn't convert — may play sound with no picture online</span>
+                          )}
                         </div>
                       )}
                       {it.kind === "youtube" && (
