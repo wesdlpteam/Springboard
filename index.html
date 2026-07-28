@@ -1239,37 +1239,6 @@ const PDFJS_SRC = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.mi
 const PPTX_SRI = "sha384-Cck14aA9cifjYolcnjebXRfWGkz5ltHMBiG4px/j8GS+xQcb7OhNQWZYyWjQ+UwQ";
 const PDFJS_SRI = "sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e";
 
-/* ---- Arrow-keys-only slide advance ----
-   PowerPoint advances on ANY mouse click by default, so a stray click while
-   reaching for a video's play button skips the lesson forward. Give every
-   slide a <p:transition advClick="0"/> (no advTm, so no auto-advance either):
-   clicks no longer move the deck, arrow keys / space / page-up-down / a
-   presenter clicker still do, and clicking the video itself still plays it
-   (that goes through the media hyperlink, not slide advance).
-   Schema order inside <p:sld> is cSld, clrMapOvr, transition, timing, extLst —
-   so anchor the insert on the end of clrMapOvr (or cSld), which puts it ahead
-   of any <p:timing> the video post-processor appended. */
-async function disableClickAdvance(blob) {
-  if (typeof JSZip === "undefined") return blob;
-  const zip = await JSZip.loadAsync(blob);
-  const slidePaths = Object.keys(zip.files).filter(p => /^ppt\/slides\/slide\d+\.xml$/.test(p));
-  if (!slidePaths.length) return blob;
-  const TRANSITION = '<p:transition advClick="0"/>';
-  let changed = false;
-  for (const sp of slidePaths) {
-    let xml = await zip.file(sp).async("string");
-    if (xml.indexOf("<p:transition") !== -1) continue; // slide already carries one
-    // clrMapOvr first: it sits AFTER cSld, and a plain alternation would match the
-    // earlier </p:cSld> and land the transition on the wrong side of it.
-    const anchor = xml.match(/<p:clrMapOvr\s*\/>|<\/p:clrMapOvr>/) || xml.match(/<\/p:cSld>/);
-    if (!anchor) continue;
-    xml = xml.replace(anchor[0], anchor[0] + TRANSITION);
-    zip.file(sp, xml);
-    changed = true;
-  }
-  return changed ? await zip.generateAsync({ type: "blob" }) : blob;
-}
-
 /* ---- Custom document-property stamping ----
    Writes arbitrary metadata into the .pptx as custom document properties
    (docProps/custom.xml). Each prop is a plain string. No-op if JSZip is
@@ -1343,7 +1312,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.23 · 2026-07-28";
+const APP_VERSION = "v0.9.24 · 2026-07-28";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -3855,7 +3824,6 @@ function App() {
       const tags = [...kw, routine, curriculum].filter(Boolean);
       let blob = await pptx.write({ outputType: "blob" });
       blob = await injectYouTubeVideos(blob, ytMarks); // no-op when ytMarks is empty
-      blob = await disableClickAdvance(blob);          // arrow keys only, no click-to-advance
       return await stampDocProps(blob, { Title: title, Subject: pptx.subject, Company: "Wesley College" }, tags);
     } catch (err) {
       setError("PowerPoint export failed: " + (err.message || String(err)));
