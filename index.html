@@ -1312,7 +1312,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.27 · 2026-07-29";
+const APP_VERSION = "v0.9.28 · 2026-07-29";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2118,16 +2118,28 @@ function cleanArticleMarkdown(md) {
   return t;
 }
 
-// Find the first real content image URL in reader markdown (skip logos/icons/sprites).
+// Site furniture that must never become a lesson's lead image: mastheads, promo banners,
+// newsletter/subscribe art, share buttons, tracking pixels, author headshots.
+const JUNK_IMAGE = /logo|icon|sprite|avatar|headshot|placeholder|1x1|pixel|spacer|blank|beacon|tracking|favicon|badge|banner|promo|newsletter|subscri|share|social|byline|[-_/]ads?[-_/]|\.svg(\?|$)/i;
+
+// Find the first real content image URL in reader markdown.
 function extractLeadImage(md) {
-  const re = /!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/g;
-  let m;
-  while ((m = re.exec(String(md || "")))) {
-    const u = m[1];
-    if (/logo|icon|sprite|avatar|placeholder|1x1|pixel|\.svg(\?|$)/i.test(u)) continue;
-    if (/\.(jpe?g|png|webp|gif)(\?|$)/i.test(u) || /\/img\/|\/media\/|\/images?\//i.test(u)) return u;
-  }
-  return "";
+  const src = String(md || "");
+  const scan = (text) => {
+    const re = /!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/g;
+    let m;
+    while ((m = re.exec(text))) {
+      const u = m[1];
+      if (JUNK_IMAGE.test(u)) continue;
+      if (/\.(jpe?g|png|webp|gif)(\?|$)/i.test(u) || /\/img\/|\/media\/|\/images?\//i.test(u)) return u;
+    }
+    return "";
+  };
+  // Prefer an image from BELOW the article's first heading — mastheads and promo strips live above
+  // it, and one of those winning the race put an unrelated picture on IGNITE. Fall back to the whole
+  // document when the body carries no image of its own.
+  const h = src.search(/^#{1,3}\s+\S/m);
+  return (h > 0 ? scan(src.slice(h)) : "") || scan(src);
 }
 
 // Fetch a (possibly cross-origin) image and return a base64 data URL, routed through
@@ -2235,7 +2247,10 @@ function shapeDeck(parsed, { routineName }) {
     // suggestions were dropped before export and the LAUNCH notes carried only the single
     // FACILITATION line.
     launch:  { connection: str(la.connection), bridge: str(la.bridge), question: str(la.question), ideas: arr(la.ideas, 3) },
-    reflect: { revisit: str(re.revisit), prompts: arr(re.prompts, 4) },
+    // metacognition = ONE lesson-specific line for the teacher notes, naming the strategy students
+    // actually used today. It replaced a seven-line generic stem bank that printed identically on
+    // every deck (and duplicated the student stems already on the slide).
+    reflect: { revisit: str(re.revisit), prompts: arr(re.prompts, 4), metacognition: str(re.metacognition) },
     notes:   { ignite: str(no.ignite), think: str(no.think), launch: str(no.launch), reflect: str(no.reflect) },
     advisory:{ flag: !!ad.flag, reason: str(ad.reason) },
   };
@@ -2325,11 +2340,15 @@ ${outcomeLine}
 Each notes field is a teacher script with EXACTLY these labelled sections, each 1-3 sentences:
 FACILITATION: … TIMING: … DIFFERENTIATION: … CURRICULUM LINKS: … EXTENSIONS: …
 Set advisory.flag true only for sensitive themes (grief, violence, body image, etc.) with a one-line reason.
-Return STRICT JSON with keys: title, keywords, ignite{question}, think{routine, steps, structure, summary}, launch{connection, bridge, question, ideas}, reflect{revisit, prompts}, notes{ignite, think, launch, reflect}, advisory{flag, reason}.`;
+Return STRICT JSON with keys: title, keywords, ignite{question}, think{routine, steps, structure, summary}, launch{connection, bridge, question, ideas}, reflect{revisit, prompts, metacognition}, notes{ignite, think, launch, reflect}, advisory{flag, reason}.`;
 
   // Single-slide regenerate: rebuild only the scoped slide + its notes, copying the rest verbatim.
   if (scope !== "all") {
-    sys += `\nRegenerate ONLY the "${scope}" and "notes.${scope}" fields; copy every other field verbatim from: ${JSON.stringify(current)}`;
+    // Ask for the scoped part ONLY. The old wording made the model re-emit the whole deck verbatim
+    // just so we could throw all but one slide away — roughly double the output tokens on every
+    // "New options" click, against a budget the model's reasoning already eats most of.
+    sys += `\nThis is a TARGETED rewrite of ONE part of an existing lesson. Here is the lesson as it stands: ${JSON.stringify(current)}
+Return JSON with ONLY these two keys: "${scope}" (a genuinely different version of that part, not a reword) and "notes" containing just its "${scope}" entry. Do NOT return the other parts — they are staying exactly as they are. Keep your new version consistent with the rest of the lesson above.`;
   }
 
   // Teacher pinned a specific end-of-lesson reflection routine from the REFLECT dropdown:
@@ -2350,6 +2369,7 @@ Return STRICT JSON with keys: title, keywords, ignite{question}, think{routine, 
       : `"" — an empty string. The stimulus is an image/video reel, not an article, so there is nothing to summarise.`}`,
     `launch.connection: <=25 words curriculum connection; launch.bridge: <=20 words from the stimulus to today's lesson; launch.question: the lesson launch question; launch.ideas: EXACTLY 3 short, distinct ways to run the launch so students work toward launch.question (e.g. a quick debate, a rank/sort, a role-play, a prediction, a quick-write) — one sentence each, <=20 words.`,
     `reflect.revisit: <=15 words revisiting the ignite question. For reflect.prompts, CHOOSE the end-of-lesson reflection routine that best fits THIS lesson, and VARY the choice across lessons (do NOT always use the same one). Pick from: (a) I Used to Think… / Now I Think…; (b) Connect–Extend–Challenge — one new connection, one way it extends thinking, one lingering challenge or question; (c) 3-2-1 Bridge — 3 thoughts, 2 questions, 1 analogy; (d) Headlines — a one-line headline capturing today's core idea; (e) Reflect–Connect–Project — reflect on it, connect to prior learning, project forward; (f) Think About Your Thinking (metacognition) — Task: did your plan/approach work and how do you know; Strategy: which strategy helped and what will you do differently next time; Self: what did you learn about yourself as a learner. Use THAT routine's real prompt stems as reflect.prompts (<=4 short stems). Tie every stem to THIS lesson's content (never generic), and ALWAYS make at least one stem a forward-looking metacognitive prompt — what the student will do differently, or which strategy they'll reuse, next time.`,
+    `reflect.metacognition: <=30 words, TEACHER-facing (it rides in the notes, never on a slide). Name the ONE thinking strategy students actually used in THIS lesson and the question that gets them to notice they used it. Be specific to this lesson's task — never a generic "reflect on your learning".`,
   ].join("\n");
   const instruction = `Create the Springboard now. Respect every word limit:\n${limits}\nReturn STRICT JSON only — no markdown, no code fences, plain text in every field.`;
 
@@ -2556,7 +2576,10 @@ ${guide ? "A curriculum extract is appended below. Ground every suggestion in TH
 function mergeScopedFields(deck, scope, parsed) {
   const shaped = shapeDeck(parsed, { routineName: deck.think.routine });
   const SLICES = ["ignite", "think", "launch", "reflect"];
-  if (!SLICES.includes(scope)) return shaped; // "all" or anything unexpected → full shape
+  // "all"/unexpected → full shape. shapeDeck builds a fresh object, so re-attach the teacher's
+  // ticked curriculum focus (it lives on the deck, not in the model's reply) or the LAUNCH notes
+  // would silently lose it.
+  if (!SLICES.includes(scope)) return { ...shaped, curriculumFocus: deck.curriculumFocus };
   return {
     ...deck,
     [scope]: shaped[scope],
@@ -3314,6 +3337,18 @@ function App() {
     });
   }
 
+  // The fetched article's lead image belongs to the text that fetch returned. Editing a typo should
+  // keep the photo; pasting a DIFFERENT article over the top must not silently keep the old story's
+  // picture on IGNITE and THINK. Compare the opening of the text against what the fetch produced.
+  const fetchedArticleRef = React.useRef("");
+  const onArticleTextChange = (t) => {
+    setArticleText(t);
+    const src = fetchedArticleRef.current;
+    if (!src || !articleImageUrl) return;
+    const head = (s) => String(s).replace(/\s+/g, " ").trim().slice(0, 80);
+    if (head(t) !== head(src)) { setArticleImageUrl(""); fetchedArticleRef.current = ""; }
+  };
+
   const pdfSeqRef = React.useRef(0);
   async function onPdf(e) {
     const f = e.target.files?.[0]; e.target.value = ""; if (!f) return; // reset so re-picking the same file re-fires
@@ -3325,7 +3360,7 @@ function App() {
       setArticleText(t); setPdfName(f.name + ` (${t.length.toLocaleString()} chars)`);
       // The PDF replaces whatever article was loaded before it, so drop that article's lead image
       // and link too — otherwise the deck printed the OLD story's photo and QR beside the new text.
-      setArticleImageUrl(""); setLink("");
+      setArticleImageUrl(""); setLink(""); fetchedArticleRef.current = "";
     } catch (err) {
       if (seq !== pdfSeqRef.current) return;
       setError("Could not extract text from that PDF: " + err.message); setPdfName("");
@@ -3348,6 +3383,7 @@ function App() {
       const image = extractLeadImage(rawMd); // the article's lead image (before stripping)
       setArticleText(text);
       setArticleImageUrl(image);
+      fetchedArticleRef.current = text; // the image belongs to THIS text — see onArticleTextChange
       return { text, image };
     } catch (err) {
       setError("Couldn't fetch that link (" + (err.message || err) + "). Paste the article text instead.");
@@ -3659,7 +3695,9 @@ function App() {
         // On LAUNCH the study-design-aligned "Curriculum connection" appended below says the same thing
         // as the generic CURRICULUM LINKS line, so drop that line to remove the double-up (the
         // connection is the richer one — it carries the real study-design / AC codes).
-        if (key === "launch") body = body.replace(/\nCURRICULUM LINKS:[^\n]*/, "").trim();
+        // (^|\n), not just \n: the model sometimes leads the note with this section, and the old
+        // pattern silently left it in place, so the deck printed the curriculum point twice.
+        if (key === "launch") body = body.replace(/(^|\n)\s*CURRICULUM LINKS:[^\n]*/i, "").trim();
         let out = NOTE_HEAD[key] + (body ? "\n\n" + body : "");
         if (key === "ignite" && kw.length) out += "\n\nKeywords: " + kw.join(", ");
         // Curriculum connection is teacher-only — it rides in the LAUNCH speaker notes, never the projected slide.
@@ -3672,14 +3710,14 @@ function App() {
           if (Array.isArray(deck.curriculumFocus) && deck.curriculumFocus.length) out += "\n\nCurriculum focus (teacher): " + deck.curriculumFocus.join("; ");
         }
         if (key === "reflect") {
-          // Metacognition helper for the teacher (EEF Task/Strategy/Self frame): a stem bank + how to
-          // run it. The student stems on the slide are tied to the lesson; this teacher how-to is generic.
-          out += "\n\nMetacognition — thinking about thinking (EEF Task · Strategy · Self). Close with a few of these, tied to today's task:" +
-            "\n• Task: Did your plan or approach work? How do you know?" +
-            "\n• Strategy: Which strategy helped most, and why? What would help you use it better?" +
-            "\n• Self: What did you learn about yourself as a learner today?" +
-            "\n• Next time: What will you do differently, or which strategy will you reuse, next time?" +
-            "\nLeast help first: model one answer aloud, then let students answer on their own. Loop it forward — carry their 'next time' into how you plan the next lesson.";
+          // Metacognition helper (EEF Task · Strategy · Self). This used to be a four-bullet stem bank
+          // printed identically on every deck — and it duplicated the student stems already on the
+          // slide. Now it's the model's ONE lesson-specific line plus the two moves a teacher can't
+          // read off the slide: model an answer first, then carry their "next time" forward.
+          const meta = ((deck.reflect && deck.reflect.metacognition) || "").trim();
+          out += "\n\nMetacognition — thinking about thinking (EEF Task · Strategy · Self)."
+            + (meta ? "\n" + meta : "\nGet students to name the strategy they used today, not just what they concluded.")
+            + "\nLeast help first: model one answer aloud, then let students answer on their own. Loop it forward — carry their 'next time' into how you plan the next lesson.";
         }
         return out;
       };
@@ -3824,8 +3862,14 @@ function App() {
           // reads as two groups — title + class meta up top, then the gold rule and the question —
           // rather than the ~1.5" of dead purple the old spacing left under a one-line title.
           const colW = imgX - 0.7 - 0.4; // left column up to a 0.4" gutter before the image
-          s.addText(tCase(title), { x: 0.7, y: 1.0, w: colW, h: 1.6, fontSize: 34, bold: true, color: WHITE, valign: "top", fontFace: FONT, charSpacing: -0.4, fit: "shrink" });
-          if (metaLine) s.addText(metaLine, { x: 0.7, y: 2.72, w: colW, h: 0.6, fontSize: 12.5, color: SUB, charSpacing: 0.5, fontFace: FONT });
+          // Title and class meta ride in ONE box as two paragraphs, so the meta always sits directly
+          // under the title. As two fixed boxes it left dead purple under a one-line title and came
+          // close to colliding under a three-line one.
+          const tTitle = tCase(title);
+          s.addText([
+            { text: tTitle, options: { fontSize: fitFontSize(tTitle, colW, 1.7, 34, 22), bold: true, color: WHITE, charSpacing: -0.4, breakLine: true } },
+            ...(metaLine ? [{ text: metaLine, options: { fontSize: 12.5, color: SUB, charSpacing: 0.5, paraSpaceBefore: 16 } }] : []),
+          ], { x: 0.7, y: 1.0, w: colW, h: 2.45, valign: "top", fontFace: FONT });
           s.addShape(pptx.ShapeType.rect, { x: 0.7, y: 3.62, w: 2.2, h: 0.05, fill: { color: GOLD } });
           s.addText(igniteQ, { x: 0.7, y: 3.85, w: colW, h: 2.85, fontSize: 26, bold: true, color: GOLD, valign: "top", fontFace: FONT, fit: "shrink" });
         } else {
@@ -4380,7 +4424,7 @@ function App() {
                   {fetchingArticle ? "Fetching…" : "Fetch text"}
                 </button>
               </div>
-              <textarea rows={6} value={articleText} onChange={e => setArticleText(e.target.value)} placeholder="…or paste the article text here" />
+              <textarea rows={6} value={articleText} onChange={e => onArticleTextChange(e.target.value)} placeholder="…or paste the article text here" />
               <p className="bx-note">The link also becomes a QR code on the Think slide, so students can read the whole article themselves.</p>
             </React.Fragment>
           )}
@@ -4640,6 +4684,7 @@ function App() {
                 <details>
                   <summary>Teacher notes · not shown to students</summary>
                   <textarea className="bx-ta" style={{ marginTop: 8 }} rows={6} aria-label="Reflect teacher notes" value={spot.notes.reflect} disabled={!includeReflect} placeholder="FACILITATION: … TIMING: … DIFFERENTIATION: … CURRICULUM LINKS: … EXTENSIONS: …" onChange={e => patchNote("reflect", e.target.value)} />
+                  <textarea className="bx-ta" style={{ marginTop: 8 }} rows={2} aria-label="Metacognition line for the teacher notes" value={spot.reflect.metacognition || ""} disabled={!includeReflect} placeholder="Metacognition — the strategy students used today, and how to get them to notice it" onChange={e => patchSlide("reflect", { metacognition: e.target.value })} />
                 </details>
               </div>
             </div>
@@ -4953,7 +4998,7 @@ function App() {
                 </button>
               </div>
 
-              <textarea style={{ marginTop: 8 }} aria-label="Article text" value={articleText} placeholder="…the fetched or pasted article text appears here (edit freely)" onChange={e => setArticleText(e.target.value)} />
+              <textarea style={{ marginTop: 8 }} aria-label="Article text" value={articleText} placeholder="…the fetched or pasted article text appears here (edit freely)" onChange={e => onArticleTextChange(e.target.value)} />
               <div className="hint"><b>Fetch text</b> pulls the article via a public reader service — works for open news sites (the link also becomes the QR code). Hard paywalls may fail; upload the PDF or paste the text instead.</div>
             </div>
           )}
@@ -5318,6 +5363,7 @@ function App() {
                     <details className="notes-details">
                       <summary>Teacher notes</summary>
                       <textarea className="editable" rows={5} aria-label="Reflect teacher notes" value={spot.notes.reflect} placeholder="FACILITATION: … TIMING: … DIFFERENTIATION: … CURRICULUM LINKS: … EXTENSIONS: …" onChange={e => patchNote("reflect", e.target.value)} disabled={!includeReflect} />
+                      <textarea className="editable" style={{ marginTop: 8 }} rows={2} aria-label="Metacognition line for the teacher notes" value={spot.reflect.metacognition || ""} placeholder="Metacognition — the strategy students used today, and how to get them to notice it" onChange={e => patchSlide("reflect", { metacognition: e.target.value })} disabled={!includeReflect} />
                     </details>
                   </div>
                 </div></div>
