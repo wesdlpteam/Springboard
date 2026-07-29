@@ -1315,7 +1315,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.31 · 2026-07-30";
+const APP_VERSION = "v0.9.32 · 2026-07-30";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2154,6 +2154,17 @@ function extractLeadImage(md) {
 
 // Fetch a (possibly cross-origin) image and return a base64 data URL, routed through
 // the wsrv.nl image proxy so CORS never blocks embedding it in the .pptx. "" on failure.
+// Turn a base64 data URL into a File without fetch(): the page's CSP allows data: for img/media
+// but connect-src is 'self' https: only, so fetch("data:…") throws "Failed to fetch".
+function dataUrlToFile(dataUrl, name) {
+  const [head, b64] = String(dataUrl || "").split(",");
+  const mime = ((/data:([^;,]+)/.exec(head || "") || [])[1] || "image/jpeg").toLowerCase();
+  const bin = atob(b64 || "");
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new File([bytes], name, { type: mime });
+}
+
 async function urlToDataUrl(url) {
   if (!url) return "";
   if (/^data:/i.test(url)) return url;                 // api/fetch-article already inlined the bytes
@@ -3277,12 +3288,20 @@ function App() {
   // post. The grabber can't touch those, but our own page reader can: take that page's lead image
   // and add it exactly like an upload. Throws with a teacher-readable message when it can't.
   async function importPageImage(url) {
-    const { image } = await readViaServer(url);           // data URL when the bytes came back
+    let image = "";
+    try { image = (await readViaServer(url)).image; }     // data URL when the bytes came back
+    catch (err) {
+      // The reader's advice is written for the article box ("copy the text in") — in the photo box
+      // only the picture matters, so say the picture half.
+      const m = String(err.message || "");
+      throw new Error(/real person/.test(m)
+        ? "That site only opens for a real person's browser, so the app can't reach the picture. Open the page yourself, right-click the picture → Save image as… then drop that file here."
+        : m);
+    }
     if (!image) throw new Error("No picture on that page the app could use.");
     const dataUrl = /^data:/i.test(image) ? image : await urlToDataUrl(image);
     if (!dataUrl) throw new Error("Found a picture but that site wouldn't let the app download it.");
-    const blob = await (await fetch(dataUrl)).blob();
-    return new File([blob], "picture.jpg", { type: blob.type || "image/jpeg" });
+    return dataUrlToFile(dataUrl, "picture.jpg");
   }
 
   // Paste a post link -> Cobalt lists its media -> fetch each tunnel URL in the
