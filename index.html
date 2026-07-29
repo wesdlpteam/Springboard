@@ -1315,7 +1315,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.33 · 2026-07-30";
+const APP_VERSION = "v0.9.34 · 2026-07-30";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -1649,7 +1649,7 @@ const ROUTINES = [
     bands: ["younger", "middle", "senior"], group: "Core observation and inquiry" },
   { steps: ["Look quietly for 30 seconds.","List 10 words or phrases about what you see.","Look again and add 10 more."], structure: "Individual, two timed rounds", name: "Looking: Ten Times Two", url: "https://pz.harvard.edu/resources/looking-ten-times-two",
     gist: "List ten words on a first look, then ten more on a second — builds sustained observation.",
-    bands: ["younger"], group: "Core observation and inquiry" },
+    bands: ["younger", "middle", "senior"], group: "Core observation and inquiry" },
   { steps: ["Listen quietly to the music.","List 10 words or phrases about what you hear.","Listen again and add 10 more."], structure: "Individual, two timed listening rounds", name: "Listening: Ten Times Two", url: "https://pz.harvard.edu/resources/listening-ten-times-two",
     gist: "The listening version of Ten Times Two, for music and sound.",
     bands: ["younger", "middle", "senior"], group: "Core observation and inquiry" },
@@ -1929,25 +1929,35 @@ const ROUTINE_SOURCE = "Harvard Project Zero Thinking Routines · pz.harvard.edu
 // The Understanding Map (Harvard Project Zero / Cultures of Thinking). The teacher
 // picks a Thinking Move first; Analyse then ranks routines FROM that move's list.
 // `routines` names MUST match ROUTINES[].name exactly — unmatched names are silently
-// dropped by movesRoutineList() below, never crash. Lists merge both source maps
-// (superset). Order follows the Understanding Map circle.
+// dropped by movesRoutineList() below, never crash. Order follows the Understanding
+// Map circle.
+//
+// Each list is drawn from the ROUTINES groups whose PURPOSE matches the move, not from
+// the handful of famous routines. An earlier merge took the superset of two source maps
+// and put See-Think-Wonder, Step Inside, Peel the Fruit and the reflection routines in
+// almost every move — so "Describe What's There" was recommending 3-2-1 Bridge and
+// I Used to Think... Now I Think... (both end-of-learning reflections, PZ's
+// "activating, connecting and reflecting" group) while omitting Looking: Ten Times Two,
+// the routine built for exactly that move. Reflection routines belong to Make
+// Connections (bridging prior to new) and to the REFLECT slide's own picker, not to
+// observation or analysis moves.
 const MOVES = [
   { name: "Wondering", question: "What are you curious about here?",
-    routines: ["Step Inside", "See, Think, Wonder", "Zoom In", "3-2-1 Bridge", "Think, Puzzle, Explore", "Chalk Talk", "Compass Points", "The Explanation Game"] },
+    routines: ["Think, Puzzle, Explore", "See, Think, Wonder", "Creative Questions", "Creative Question Starts", "The 3 Whys", "Imagine If...", "Imagine If... (For Younger Children)", "Chalk Talk", "What Can Be"] },
   { name: "Describe What's There", question: "What do you see and notice?",
-    routines: ["Step Inside", "See, Think, Wonder", "Zoom In", "3-2-1 Bridge", "I Used to Think... Now I Think...", "Chalk Talk", "Peel the Fruit"] },
+    routines: ["See, Think, Wonder", "Looking: Ten Times Two", "Zoom In", "Colors, Shapes, Lines", "The Elaboration Game", "Stop, Look, Listen", "Listening: Ten Times Two", "Thinking with Images", "Parts, Purposes, Complexities"] },
   { name: "Build Explanations", question: "What's really going on here?",
-    routines: ["See, Think, Wonder", "Zoom In", "Generate-Sort-Connect-Elaborate", "Think, Pair, Share", "I Used to Think... Now I Think...", "The Explanation Game", "Connect, Extend, Challenge", "MicroLab", "Claim, Support, Question", "Peel the Fruit"] },
+    routines: ["The Explanation Game", "What Makes You Say That?", "See, Think, Wonder", "Generate-Sort-Connect-Elaborate", "Think, Puzzle, Explore", "How Else and Why?", "Parts, People, Interactions", "Claim, Support, Question", "Peel the Fruit"] },
   { name: "Reason with Evidence", question: "Why do you think so?",
-    routines: ["Step Inside", "Circle of Viewpoints", "Tug of War", "Word-Phrase-Sentence", "Generate-Sort-Connect-Elaborate", "Peel the Fruit", "Claim, Support, Question", "MicroLab", "What Makes You Say That?"] },
+    routines: ["Claim, Support, Question", "What Makes You Say That?", "Tug for Truth", "Tug of War", "Red Light, Yellow Light", "Facts or Fiction", "Reporter's Notebook", "Take a Stand", "Sticking Points", "True for Who?"] },
   { name: "Make Connections", question: "How does this fit?",
-    routines: ["Step Inside", "Circle of Viewpoints", "Chalk Talk", "3-2-1 Bridge", "Compass Points", "The 4 Cs", "Peel the Fruit", "Connect, Extend, Challenge"] },
+    routines: ["Connect, Extend, Challenge", "3-2-1 Bridge", "Generate-Sort-Connect-Elaborate", "The 4 Cs", "Same, Different, Connect, Engage", "Compass Points", "Here Now / There Then", "Projecting Across Time", "Think, Pair, Share"] },
   { name: "Consider Different Viewpoints", question: "What's another angle on this?",
-    routines: ["Step Inside", "Circle of Viewpoints", "Tug of War", "See, Think, Wonder", "I Used to Think... Now I Think...", "Compass Points", "The Explanation Game", "Color, Symbol, Image", "Peel the Fruit"] },
+    routines: ["Circle of Viewpoints", "Step Inside", "Step In, Step Out, Step Back", "Think, Feel, Care", "Think, Feel, Care (For Younger Children)", "Same, Different, Connect, Engage", "My Perspective, Other Perspectives (For Exploring Complexity)", "Parts, Perspectives, Me", "Seek to See"] },
   { name: "Capture the Heart & Form Conclusions", question: "What's at the centre of this?",
-    routines: ["Step Inside", "Circle of Viewpoints", "Tug of War", "Zoom In", "Headlines", "Color, Symbol, Image", "The 4 Cs", "Peel the Fruit", "Word-Phrase-Sentence"] },
+    routines: ["Headlines", "Color, Symbol, Image", "Word-Phrase-Sentence", "The 4 Cs", "Take Note", "+1 Routine", "Beginning, Middle, End", "Stories", "Values, Identities, Actions"] },
   { name: "Uncovering Complexity", question: "What lies beneath the surface?",
-    routines: ["Step Inside", "Tug of War", "See, Think, Wonder", "Zoom In", "Word-Phrase-Sentence", "Claim, Support, Question", "Red Light, Yellow Light", "I Used to Think... Now I Think...", "Generate-Sort-Connect-Elaborate"] },
+    routines: ["Ways Things Can Be Complex", "The Complexity Scale", "Layers", "Lenses", "Outside In", "Slow Complexity Capture", "Hotspots", "Parts, Purposes, Complexities (For Exploring Complexity)", "Parts, Purposes, Complexities (For Younger Children)", "Peel the Fruit"] },
 ];
 // Resolve a move's routine names to ROUTINES objects for a band, dropping unmatched
 // names. Keeps the band filter (Nathan's choice) but tops the list back up from the
