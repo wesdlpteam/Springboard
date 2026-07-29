@@ -1312,7 +1312,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.28 · 2026-07-29";
+const APP_VERSION = "v0.9.29 · 2026-07-30";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2122,6 +2122,13 @@ function cleanArticleMarkdown(md) {
 // newsletter/subscribe art, share buttons, tracking pixels, author headshots.
 const JUNK_IMAGE = /logo|icon|sprite|avatar|headshot|placeholder|1x1|pixel|spacer|blank|beacon|tracking|favicon|badge|banner|promo|newsletter|subscri|share|social|byline|[-_/]ads?[-_/]|\.svg(\?|$)/i;
 
+// Sites behind a bot check (Cloudflare and friends) hand the reader service a challenge page
+// instead of the article. It answers HTTP 200 and carries enough words to pass a length check,
+// so without this the challenge wording became the "article" — and there was no picture to find.
+// Kept in sync with BOT_WALL in api/fetch-article.js.
+const BOT_WALL_TEXT = /just a moment|performing security verification|security verification|checking your browser|enable javascript and cookies|attention required|verify (?:you|that you) are (?:a )?human|are you a robot|captcha|cf-browser-verification|ddos protection|request unsuccessful/i;
+const looksLikeBotWall = (t) => BOT_WALL_TEXT.test(String(t || "").slice(0, 600));
+
 // Find the first real content image URL in reader markdown.
 function extractLeadImage(md) {
   const src = String(md || "");
@@ -2146,6 +2153,7 @@ function extractLeadImage(md) {
 // the wsrv.nl image proxy so CORS never blocks embedding it in the .pptx. "" on failure.
 async function urlToDataUrl(url) {
   if (!url) return "";
+  if (/^data:/i.test(url)) return url;                 // api/fetch-article already inlined the bytes
   const proxied = "https://images.weserv.nl/?url=" + encodeURIComponent(url.replace(/^https?:\/\//, "")) + "&output=jpg";
   try {
     const resp = await fetch(proxied);
@@ -3039,6 +3047,7 @@ function App() {
   const [suggestError, setSuggestError] = useState("");
 
   const [fetchingArticle, setFetchingArticle] = useState(false);
+  const [articleNote, setArticleNote] = useState(""); // soft status under the article link row
   const [error, setError] = useState("");
   const [rawDump, setRawDump] = useState("");
   const [spots, setSpots] = useState({});            // { [band]: deckObject }
@@ -3346,7 +3355,7 @@ function App() {
     const src = fetchedArticleRef.current;
     if (!src || !articleImageUrl) return;
     const head = (s) => String(s).replace(/\s+/g, " ").trim().slice(0, 80);
-    if (head(t) !== head(src)) { setArticleImageUrl(""); fetchedArticleRef.current = ""; }
+    if (head(t) !== head(src)) { setArticleImageUrl(""); setArticleNote(""); fetchedArticleRef.current = ""; }
   };
 
   const pdfSeqRef = React.useRef(0);
@@ -3360,31 +3369,72 @@ function App() {
       setArticleText(t); setPdfName(f.name + ` (${t.length.toLocaleString()} chars)`);
       // The PDF replaces whatever article was loaded before it, so drop that article's lead image
       // and link too — otherwise the deck printed the OLD story's photo and QR beside the new text.
-      setArticleImageUrl(""); setLink(""); fetchedArticleRef.current = "";
+      setArticleImageUrl(""); setLink(""); setArticleNote(""); fetchedArticleRef.current = "";
     } catch (err) {
       if (seq !== pdfSeqRef.current) return;
       setError("Could not extract text from that PDF: " + err.message); setPdfName("");
     }
   }
-  // Pull readable article text from a public link via the r.jina.ai reader
-  // (it allows browser/CORS requests). Hard paywalls may still fail.
+  // Reader 1: r.jina.ai turns a public page into markdown and allows browser/CORS requests, so
+  // the browser can call it straight. It runs from datacenter IPs though, so a site with a bot
+  // check serves it a challenge page instead of the article — caught by looksLikeBotWall.
+  async function readViaJina(url) {
+    const resp = await fetch("https://r.jina.ai/" + url);
+    if (!resp.ok) throw new Error("Reader service returned HTTP " + resp.status);
+    const rawMd = await resp.text();
+    const text = cleanArticleMarkdown(rawMd);
+    if (looksLikeBotWall(rawMd)) throw new Error("that site is running a robot check");
+    if (text.length < 40) throw new Error("got too little text back — the page may be paywalled or JS-only");
+    return { text, image: extractLeadImage(rawMd) }; // lead image read before the stripping
+  }
+
+  // Reader 2: our own backend fetches the page with browser-shaped headers, which gets through
+  // some walls the reader can't, and hands back the lead image inline (no CORS to fight).
+  async function readViaServer(url) {
+    const headers = { "Content-Type": "application/json" };
+    if (passcode.trim()) headers["x-sb-passcode"] = passcode.trim();
+    const resp = await fetch(API_BASE + "/api/fetch-article", { method: "POST", headers, body: JSON.stringify({ url }) });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(data.error || "couldn't read that page");
+    return { text: String(data.text || ""), image: String(data.imageDataUrl || data.image || "") };
+  }
+
+  // Pull readable article text + lead image from a public link. Try the reader service first
+  // (best prose), fall back to our own fetch when it's walled, and top up a missing picture from
+  // our fetch too — pages whose whole point IS the picture often carry no social preview image.
   async function fetchArticleFromLink(overrideUrl) {
     const url = (typeof overrideUrl === "string" ? overrideUrl : link).trim();
-    setError("");
+    setError(""); setArticleNote("");
     if (!/^https?:\/\//i.test(url)) { setError("Enter a full article link starting with http(s):// first."); return { text: "", image: "" }; }
     setLink(url);
     setFetchingArticle(true);
     try {
-      const resp = await fetch("https://r.jina.ai/" + url);
-      if (!resp.ok) throw new Error("Reader service returned HTTP " + resp.status);
-      const rawMd = await resp.text();
-      const text = cleanArticleMarkdown(rawMd);
-      if (text.length < 40) throw new Error("Got too little text back — the page may be paywalled or JS-only.");
-      const image = extractLeadImage(rawMd); // the article's lead image (before stripping)
-      setArticleText(text);
-      setArticleImageUrl(image);
-      fetchedArticleRef.current = text; // the image belongs to THIS text — see onArticleTextChange
-      return { text, image };
+      let out = null;
+      let why = "";
+      try { out = await readViaJina(url); }
+      catch (err) { why = err.message || String(err); }
+
+      if (!out) {
+        try { out = await readViaServer(url); }
+        catch (err) {
+          // Our own fetch says the more useful thing (what the site did and what to do about it);
+          // the reader service's reason is only worth showing when ours has nothing specific.
+          const server = String(err.message || "");
+          setError(server.length > 40 ? server : "Couldn't fetch that link (" + (why || server) + "). Paste the article text instead.");
+          return { text: "", image: "" };
+        }
+      } else if (!out.image) {
+        try { const s = await readViaServer(url); if (s.image) out = { ...out, image: s.image }; }
+        catch (_) { /* no picture available — text alone still works */ }
+      }
+
+      setArticleText(out.text);
+      setArticleImageUrl(out.image);
+      fetchedArticleRef.current = out.text; // the image belongs to THIS text — see onArticleTextChange
+      setArticleNote(out.image
+        ? "Text and picture loaded from the link."
+        : "Got the text, but no picture on that page the app could use. Save the picture yourself and add it as an image if you want one on the slides.");
+      return out;
     } catch (err) {
       setError("Couldn't fetch that link (" + (err.message || err) + "). Paste the article text instead.");
       return { text: "", image: "" };
@@ -4424,6 +4474,7 @@ function App() {
                   {fetchingArticle ? "Fetching…" : "Fetch text"}
                 </button>
               </div>
+              {articleNote && <div className="bx-alert" role="status" aria-live="polite">{articleNote}</div>}
               <textarea rows={6} value={articleText} onChange={e => onArticleTextChange(e.target.value)} placeholder="…or paste the article text here" />
               <p className="bx-note">The link also becomes a QR code on the Think slide, so students can read the whole article themselves.</p>
             </React.Fragment>
@@ -4998,6 +5049,7 @@ function App() {
                 </button>
               </div>
 
+              {articleNote && <div className="alert info" role="status" aria-live="polite" style={{ marginTop: 8 }}>{articleNote}</div>}
               <textarea style={{ marginTop: 8 }} aria-label="Article text" value={articleText} placeholder="…the fetched or pasted article text appears here (edit freely)" onChange={e => onArticleTextChange(e.target.value)} />
               <div className="hint"><b>Fetch text</b> pulls the article via a public reader service — works for open news sites (the link also becomes the QR code). Hard paywalls may fail; upload the PDF or paste the text instead.</div>
             </div>
