@@ -1315,7 +1315,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.30 · 2026-07-30";
+const APP_VERSION = "v0.9.31 · 2026-07-30";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -3273,15 +3273,42 @@ function App() {
     }
   }
 
+  // Plenty of pasted links aren't social posts at all — a museum object page, a news story, a blog
+  // post. The grabber can't touch those, but our own page reader can: take that page's lead image
+  // and add it exactly like an upload. Throws with a teacher-readable message when it can't.
+  async function importPageImage(url) {
+    const { image } = await readViaServer(url);           // data URL when the bytes came back
+    if (!image) throw new Error("No picture on that page the app could use.");
+    const dataUrl = /^data:/i.test(image) ? image : await urlToDataUrl(image);
+    if (!dataUrl) throw new Error("Found a picture but that site wouldn't let the app download it.");
+    const blob = await (await fetch(dataUrl)).blob();
+    return new File([blob], "picture.jpg", { type: blob.type || "image/jpeg" });
+  }
+
   // Paste a post link -> Cobalt lists its media -> fetch each tunnel URL in the
   // browser -> feed through addMediaFiles (same path as the picker). YouTube routes
-  // to its own metadata-only handler (Cobalt is bot-blocked on YouTube).
+  // to its own metadata-only handler (Cobalt is bot-blocked on YouTube). Anything Cobalt can't
+  // handle falls through to importPageImage, so an ordinary web page's photo still lands.
+  // Every failure goes to mediaNote, NOT setError: the chamber only draws {error} inside step
+  // three, so a setError here just snapped the button back to "Add from link" and said nothing.
   async function importFromPostLink(overrideUrl) {
     const url = (typeof overrideUrl === "string" ? overrideUrl : postLink).trim();
     setError(""); setMediaNote("");
-    if (!/^https?:\/\//i.test(url)) { setError("Paste a full post link starting with http(s):// first."); return; }
+    if (!/^https?:\/\//i.test(url)) { setMediaNote("Paste a full link starting with http(s):// first."); return; }
     if (MAX_MEDIA - media.length <= 0) { setMediaNote(`That's the limit of ${MAX_MEDIA} items — remove one to add more.`); return; }
     if (youtubeIdFromLink(url)) return importYouTubeLink(url);
+
+    // Last resort for a link the grabber couldn't use: try it as a plain web page with a picture.
+    const tryAsPage = async (grabberMsg) => {
+      try {
+        const file = await importPageImage(url);
+        await addMediaFiles([file]);
+        setMediaNote("Grabbed the picture from that page ✓");
+        setPostLink("");
+      } catch (pageErr) {
+        setMediaNote(grabberMsg || pageErr.message || "Couldn't get a photo or video from that link.");
+      }
+    };
 
     setImportingPost(true);
     try {
@@ -3289,9 +3316,11 @@ function App() {
       if (passcode.trim()) headers["x-sb-passcode"] = passcode.trim();
       const resp = await fetch(API_BASE + "/api/fetch-post-media", { method: "POST", headers, body: JSON.stringify({ url }) });
       const data = await resp.json().catch(() => ({}));
-      if (!resp.ok) { setError(data.error || "Couldn't fetch that post. Check the link and try again."); return; }
-      const items = Array.isArray(data.items) ? data.items : [];
-      if (!items.length) { setMediaNote(data.error || data.note || "No photos or videos found in that post."); return; }
+      const items = resp.ok && Array.isArray(data.items) ? data.items : [];
+      // A social-post failure (private, login-only, unsupported site) is worth saying out loud, but
+      // only after the page reader has also had a go — for a museum or news page it's the wrong
+      // diagnosis, so the page reader's own message wins when the grabber had nothing useful.
+      if (!items.length) return await tryAsPage(/private|login|isn't supported|YouTube/i.test(String(data.error || "")) ? data.error : "");
 
       const files = [];
       for (const it of items) {
@@ -3303,12 +3332,12 @@ function App() {
           files.push(new File([b], it.filename || (it.type === "video" ? "clip.mp4" : "photo.jpg"), { type: b.type || fallback }));
         } catch (_) { /* skip the ones the site blocks */ }
       }
-      if (!files.length) { setError("Found media but couldn't download it (the site may be blocking it)."); return; }
+      if (!files.length) return await tryAsPage("Found media but couldn't download it (the site may be blocking it).");
       await addMediaFiles(files);                          // handles cap + ingest + transcript
       if (data.note) setMediaNote(data.note);
       setPostLink("");
     } catch (_) {
-      setError("Couldn't reach the link-import service. Try again in a moment.");
+      await tryAsPage("Couldn't reach the link-import service. Try again in a moment.");
     } finally {
       setImportingPost(false);
     }
@@ -4430,7 +4459,8 @@ function App() {
                   {importingPost ? "Fetching…" : "Add from link"}
                 </button>
               </div>
-              {mediaNote && <div className="bx-alert" role="status" aria-live="polite">{mediaNote}</div>}
+              {/* one box, two moods: notes that end in ✓ are good news and must not look like a failure */}
+              {mediaNote && <div className={"bx-alert" + (/✓$/.test(mediaNote.trim()) ? " ok" : "")} role="status" aria-live="polite">{mediaNote}</div>}
               {media.length > 0 && <div className="bx-thumbs">{media.slice(0, 8).map((it, i) => <div className="bx-thumb" key={i}><img src={it.kind === "image" ? it.dataUrl : (it.poster || it.dataUrl)} alt="" /></div>)}</div>}
               {/* per-clip description box — YouTube can't be transcribed, and phone videos
                   often fail the auto-read, so the teacher needs somewhere to say what happens */}
