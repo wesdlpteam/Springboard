@@ -1315,7 +1315,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.32 · 2026-07-30";
+const APP_VERSION = "v0.9.33 · 2026-07-30";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2165,6 +2165,10 @@ function dataUrlToFile(dataUrl, name) {
   return new File([bytes], name, { type: mime });
 }
 
+function blobToDataUrl(blob) {
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
+}
+
 async function urlToDataUrl(url) {
   if (!url) return "";
   if (/^data:/i.test(url)) return url;                 // api/fetch-article already inlined the bytes
@@ -2173,31 +2177,62 @@ async function urlToDataUrl(url) {
     const resp = await fetch(proxied);
     if (!resp.ok) throw new Error("proxy " + resp.status);
     const blob = await resp.blob();
-    return await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
+    return await blobToDataUrl(blob);
   } catch (_) { return ""; }
 }
 
+// Wikimedia (and plenty of CDNs) send CORS headers, so try the host itself before the proxy —
+// one less hop, and full resolution.
+async function imageUrlToDataUrl(url) {
+  if (!url) return "";
+  try {
+    const resp = await fetch(url, { mode: "cors" });
+    if (resp.ok) {
+      const blob = await resp.blob();
+      if (blob.size) return await blobToDataUrl(blob);
+    }
+  } catch (_) { /* no CORS here — fall back to the proxy */ }
+  return urlToDataUrl(url);
+}
+
 // Find one relevant, free (CC-licensed) image for a topic via the Wikimedia
-// Commons API (keyless, CORS-enabled with origin=*). Returns a raster image URL,
-// or "" on any failure — so a missing image never breaks the flow.
-async function findRelevantImage(query) {
+// Commons API (keyless, CORS-enabled with origin=*). Returns {url, title}, or null on any
+// failure — so a missing image never breaks the flow.
+async function findFreeImage(query) {
   const q = String(query || "").replace(/[^a-zA-Z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
-  if (!q) return "";
+  if (!q) return null;
   try {
     const api = "https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrlimit=6&gsrsearch="
-      + encodeURIComponent(q) + "&prop=imageinfo&iiprop=url&iiurlwidth=1000&format=json&origin=*";
+      + encodeURIComponent(q) + "&prop=imageinfo&iiprop=url&iiurlwidth=1400&format=json&origin=*";
     const resp = await fetch(api);
-    if (!resp.ok) return "";
+    if (!resp.ok) return null;
     const data = await resp.json();
     const pages = (data.query && data.query.pages) ? Object.values(data.query.pages) : [];
     pages.sort((a, b) => (a.index || 0) - (b.index || 0)); // keep search relevance order
     for (const p of pages) {
       const info = p && p.imageinfo && p.imageinfo[0];
       const u = info && (info.thumburl || info.url);
-      if (u && /\.(jpe?g|png|webp)(\?|$)/i.test(u)) return u; // raster only (skip svg/icons)
+      if (u && /\.(jpe?g|png|webp)(\?|$)/i.test(u)) {     // raster only (skip svg/pdf/djvu)
+        return { url: u, title: String(p.title || "").replace(/^File:/i, "").replace(/\.[a-z0-9]+$/i, "") };
+      }
     }
-    return "";
-  } catch (_) { return ""; }
+    return null;
+  } catch (_) { return null; }
+}
+
+// Words worth searching, taken from a page link. Some sites (nma.gov.au) answer every server,
+// reader service and image proxy with 403 and only open for a real person's browser, so the link
+// itself is all the app can read. A slug like
+// "founding-australia-capt-arthur-phillip-rn-sydney-cove-jan-26th-1788-algernon-talmage-1937"
+// describes the artwork better than most page titles do.
+function keywordsFromLink(url) {
+  let path = "";
+  try { path = decodeURIComponent(new URL(url).pathname); } catch (_) { return ""; }
+  const junk = /^(images?|media|photos?|pictures?|news|story|stories|articles?|wiki|index|home|en|au|www|assets|files|default|sites|content|collections?|objects?|items?|view|page|p|s)$/i;
+  const words = path.replace(/\.(html?|php|aspx?|jpe?g|png|webp|gif)$/i, "")
+    .split(/[\/\-_+.]+/)
+    .filter(w => w && !junk.test(w) && !/^\d{1,2}(st|nd|rd|th)?$/i.test(w));
+  return words.slice(0, 12).join(" ");
 }
 
 async function extractPdfText(file) {
@@ -3304,6 +3339,45 @@ function App() {
     return dataUrlToFile(dataUrl, "picture.jpg");
   }
 
+  // Right-click a picture on ANY website -> "Copy image" -> press Ctrl+V here. The clipboard carries
+  // the real bytes out of the teacher's own browser, so this works even on sites that answer every
+  // server, reader service and image proxy with 403. In article mode the pasted picture becomes the
+  // lead image (deliberately chosen, so a later text edit must not clear it — hence no
+  // fetchedArticleRef stamp; see onArticleTextChange).
+  React.useEffect(() => {
+    const onPaste = async (e) => {
+      const items = e.clipboardData ? Array.from(e.clipboardData.items || []) : [];
+      const files = items.filter(it => it.kind === "file" && /^image\//i.test(it.type)).map(it => it.getAsFile()).filter(Boolean);
+      if (!files.length) return;                        // ordinary text paste — leave it alone
+      e.preventDefault();
+      if (mode === "article") {
+        try {
+          setArticleImageUrl(await blobToDataUrl(files[0]));
+          setArticleNote({ text: "Picture pasted in ✓", ok: true });
+        } catch (_) { setArticleNote({ text: "Couldn't read that pasted picture. Try saving it and uploading the file.", ok: false }); }
+        return;
+      }
+      await addMediaFiles(files);
+      setMediaNote("Pasted picture added ✓");
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, [mode, media.length]);
+
+  // When a site opens for nobody but a real person's browser, the words in its link are still
+  // readable. Search Wikimedia Commons for the same subject and add that free picture instead,
+  // naming it plainly so the teacher can throw it back if it's the wrong one. "" if nothing fits.
+  async function tryFreeVersion(url) {
+    const q = keywordsFromLink(url);
+    if (!q) return "";
+    const hit = await findFreeImage(q);
+    if (!hit) return "";
+    const dataUrl = await imageUrlToDataUrl(hit.url);
+    if (!dataUrl) return "";
+    await addMediaFiles([dataUrlToFile(dataUrl, "commons-picture.jpg")]);
+    return `That site won't open for the app, so I found a free version on Wikimedia Commons: “${hit.title}”. Remove it if it isn't the right picture ✓`;
+  }
+
   // Paste a post link -> Cobalt lists its media -> fetch each tunnel URL in the
   // browser -> feed through addMediaFiles (same path as the picker). YouTube routes
   // to its own metadata-only handler (Cobalt is bot-blocked on YouTube). Anything Cobalt can't
@@ -3317,7 +3391,9 @@ function App() {
     if (MAX_MEDIA - media.length <= 0) { setMediaNote(`That's the limit of ${MAX_MEDIA} items — remove one to add more.`); return; }
     if (youtubeIdFromLink(url)) return importYouTubeLink(url);
 
-    // Last resort for a link the grabber couldn't use: try it as a plain web page with a picture.
+    // Last resort for a link the grabber couldn't use: try it as a plain web page with a picture,
+    // and if even that is walled, hunt for a free version of the same subject on Wikimedia Commons
+    // using the words in the link itself (all the app can read when a site blocks every reader).
     const tryAsPage = async (grabberMsg) => {
       try {
         const file = await importPageImage(url);
@@ -3325,7 +3401,9 @@ function App() {
         setMediaNote("Grabbed the picture from that page ✓");
         setPostLink("");
       } catch (pageErr) {
-        setMediaNote(grabberMsg || pageErr.message || "Couldn't get a photo or video from that link.");
+        const freeNote = await tryFreeVersion(url);
+        setMediaNote(freeNote || grabberMsg || pageErr.message || "Couldn't get a photo or video from that link.");
+        if (freeNote) setPostLink("");
       }
     };
 
@@ -4465,7 +4543,7 @@ function App() {
                 onDragOver={e => { e.preventDefault(); setBxDrag(true); }} onDragLeave={() => setBxDrag(false)}
                 onDrop={e => { e.preventDefault(); setBxDrag(false); addMediaFiles(e.dataTransfer.files); }}>
                 {extractingVideo ? "Reading your video…" : "Drop a photo or video, or click to choose"}
-                <small>{media.length ? media.length + " added" : "JPG · PNG · MP4"}</small>
+                <small>{media.length ? media.length + " added" : "JPG · PNG · MP4 — or copy a picture from any website and press Ctrl+V"}</small>
               </div>
               {/* paste-a-link import (the original's video/social scraper) — grabs the photo or
                   video (and, for YouTube, its thumbnail) straight from a pasted link */}
@@ -4530,7 +4608,7 @@ function App() {
               </div>
               {articleNote && <div className={"bx-alert" + (articleNote.ok ? " ok" : "")} role={articleNote.ok ? "status" : "alert"} aria-live="polite">{articleNote.text}</div>}
               <textarea rows={6} value={articleText} onChange={e => onArticleTextChange(e.target.value)} placeholder="…or paste the article text here" />
-              <p className="bx-note">The link also becomes a QR code on the Think slide, so students can read the whole article themselves.</p>
+              <p className="bx-note">The link also becomes a QR code on the Think slide, so students can read the whole article themselves. For the article's picture, copy it on the page (right-click → Copy image) and press Ctrl+V here.</p>
             </React.Fragment>
           )}
         </div>
