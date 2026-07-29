@@ -887,6 +887,8 @@
   .bx-prog-txt { margin-top: 9px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .bx-prog-txt b { font-weight: 600; color: var(--ink); }
   .bx-alert { font-size: 13px; color: #8f1d2e; background: #fdeaee; border: 1px solid #f0b8c4; border-radius: 4px; padding: 8px 11px; margin-top: 10px; }
+  /* same box, good news: "we got it" must not look like a failure */
+  .bx-alert.ok { color: var(--good-ink); background: var(--good-bg); border-color: var(--good); }
 
   .bx-foot { padding: 40px clamp(20px,4vw,52px) 60px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12.5px; line-height: 1.6; position: relative; z-index: 2; }
   .bx-foot a { color: var(--ink-soft); }
@@ -1176,6 +1178,7 @@
     box-shadow: 0 3px 14px rgba(43,40,31,.06); }
   .ww-chamber .bx-btn.mv { background: var(--purple); color: #fff; } /* purple = the only interactive voice */
   .ww-chamber .bx-alert { background: #FDAFBD33; border-color: #8F1D2E55; color: #8F1D2E; }
+  .ww-chamber .bx-alert.ok { background: #CFE9D355; border-color: #58C33777; color: #3C5238; }
   /* paste-a-link import row in the chamber's stimulus step */
   .bx-linkrow { display: flex; gap: 6px; margin-top: 8px; }
   .bx-linkrow .bx-input { flex: 1; min-width: 0; }
@@ -1312,7 +1315,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.29 · 2026-07-30";
+const APP_VERSION = "v0.9.30 · 2026-07-30";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -3047,7 +3050,10 @@ function App() {
   const [suggestError, setSuggestError] = useState("");
 
   const [fetchingArticle, setFetchingArticle] = useState(false);
-  const [articleNote, setArticleNote] = useState(""); // soft status under the article link row
+  // Status for the article link row: {text, ok}. It lives HERE, beside the link box, because the
+  // chamber's only <div>{error}</div> sits inside step three's post-analysis block -- a failed
+  // fetch set that error and the teacher saw absolutely nothing happen.
+  const [articleNote, setArticleNote] = useState(null);
   const [error, setError] = useState("");
   const [rawDump, setRawDump] = useState("");
   const [spots, setSpots] = useState({});            // { [band]: deckObject }
@@ -3355,7 +3361,7 @@ function App() {
     const src = fetchedArticleRef.current;
     if (!src || !articleImageUrl) return;
     const head = (s) => String(s).replace(/\s+/g, " ").trim().slice(0, 80);
-    if (head(t) !== head(src)) { setArticleImageUrl(""); setArticleNote(""); fetchedArticleRef.current = ""; }
+    if (head(t) !== head(src)) { setArticleImageUrl(""); setArticleNote(null); fetchedArticleRef.current = ""; }
   };
 
   const pdfSeqRef = React.useRef(0);
@@ -3369,7 +3375,7 @@ function App() {
       setArticleText(t); setPdfName(f.name + ` (${t.length.toLocaleString()} chars)`);
       // The PDF replaces whatever article was loaded before it, so drop that article's lead image
       // and link too — otherwise the deck printed the OLD story's photo and QR beside the new text.
-      setArticleImageUrl(""); setLink(""); setArticleNote(""); fetchedArticleRef.current = "";
+      setArticleImageUrl(""); setLink(""); setArticleNote(null); fetchedArticleRef.current = "";
     } catch (err) {
       if (seq !== pdfSeqRef.current) return;
       setError("Could not extract text from that PDF: " + err.message); setPdfName("");
@@ -3404,8 +3410,9 @@ function App() {
   // our fetch too — pages whose whole point IS the picture often carry no social preview image.
   async function fetchArticleFromLink(overrideUrl) {
     const url = (typeof overrideUrl === "string" ? overrideUrl : link).trim();
-    setError(""); setArticleNote("");
-    if (!/^https?:\/\//i.test(url)) { setError("Enter a full article link starting with http(s):// first."); return { text: "", image: "" }; }
+    const fail = (msg) => { setArticleNote({ text: msg, ok: false }); return { text: "", image: "" }; };
+    setError(""); setArticleNote(null);
+    if (!/^https?:\/\//i.test(url)) return fail("Enter a full article link starting with http(s):// first.");
     setLink(url);
     setFetchingArticle(true);
     try {
@@ -3420,8 +3427,7 @@ function App() {
           // Our own fetch says the more useful thing (what the site did and what to do about it);
           // the reader service's reason is only worth showing when ours has nothing specific.
           const server = String(err.message || "");
-          setError(server.length > 40 ? server : "Couldn't fetch that link (" + (why || server) + "). Paste the article text instead.");
-          return { text: "", image: "" };
+          return fail(server.length > 40 ? server : "Couldn't fetch that link (" + (why || server) + "). Paste the article text instead.");
         }
       } else if (!out.image) {
         try { const s = await readViaServer(url); if (s.image) out = { ...out, image: s.image }; }
@@ -3432,12 +3438,11 @@ function App() {
       setArticleImageUrl(out.image);
       fetchedArticleRef.current = out.text; // the image belongs to THIS text — see onArticleTextChange
       setArticleNote(out.image
-        ? "Text and picture loaded from the link."
-        : "Got the text, but no picture on that page the app could use. Save the picture yourself and add it as an image if you want one on the slides.");
+        ? { text: "Text and picture loaded from the link.", ok: true }
+        : { text: "Got the text, but no picture on that page the app could use. Save the picture yourself and add it as an image if you want one on the slides.", ok: false });
       return out;
     } catch (err) {
-      setError("Couldn't fetch that link (" + (err.message || err) + "). Paste the article text instead.");
-      return { text: "", image: "" };
+      return fail("Couldn't fetch that link (" + (err.message || err) + "). Paste the article text instead.");
     } finally {
       setFetchingArticle(false);
     }
@@ -4474,7 +4479,7 @@ function App() {
                   {fetchingArticle ? "Fetching…" : "Fetch text"}
                 </button>
               </div>
-              {articleNote && <div className="bx-alert" role="status" aria-live="polite">{articleNote}</div>}
+              {articleNote && <div className={"bx-alert" + (articleNote.ok ? " ok" : "")} role={articleNote.ok ? "status" : "alert"} aria-live="polite">{articleNote.text}</div>}
               <textarea rows={6} value={articleText} onChange={e => onArticleTextChange(e.target.value)} placeholder="…or paste the article text here" />
               <p className="bx-note">The link also becomes a QR code on the Think slide, so students can read the whole article themselves.</p>
             </React.Fragment>
@@ -5049,7 +5054,7 @@ function App() {
                 </button>
               </div>
 
-              {articleNote && <div className="alert info" role="status" aria-live="polite" style={{ marginTop: 8 }}>{articleNote}</div>}
+              {articleNote && <div className={"alert " + (articleNote.ok ? "info" : "bad")} role={articleNote.ok ? "status" : "alert"} aria-live="polite" style={{ marginTop: 8 }}>{articleNote.text}</div>}
               <textarea style={{ marginTop: 8 }} aria-label="Article text" value={articleText} placeholder="…the fetched or pasted article text appears here (edit freely)" onChange={e => onArticleTextChange(e.target.value)} />
               <div className="hint"><b>Fetch text</b> pulls the article via a public reader service — works for open news sites (the link also becomes the QR code). Hard paywalls may fail; upload the PDF or paste the text instead.</div>
             </div>
