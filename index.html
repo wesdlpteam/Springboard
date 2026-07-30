@@ -815,6 +815,31 @@
   .bx-btn.ghost { background: none; color: var(--ink); border: 1px solid var(--ink); }
   .bx-btn.mv { background: var(--mv); color: #fff; }
 
+  /* Zoom In reveal (crop) tool. The dim outside the frame is one huge spread shadow on the frame
+     itself, so there is nothing to keep in sync as the frame moves. No transitions: the box must
+     track the pointer exactly, and a lagging crop box reads as broken (also nothing to disable
+     under reduced motion). */
+  .rv-wrap { margin-top: 14px; }
+  .rv-strip { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .rv-thumb { display: flex; flex-direction: column; gap: 5px; padding: 4px; border: 1px solid var(--line);
+    border-radius: 4px; background: var(--paper-2); font: inherit; cursor: pointer; }
+  .rv-thumb.on { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+  .rv-thumb.fixed { cursor: default; opacity: .75; }
+  .rv-thumb-img { display: block; width: 74px; height: 52px; border-radius: 2px; background-repeat: no-repeat; background-color: var(--line); }
+  .rv-thumb-lab { font-size: 11px; font-weight: 600; color: var(--muted); text-align: center; }
+  .rv-thumb.on .rv-thumb-lab { color: var(--ink); }
+  .rv-stage { position: relative; max-width: 520px; border-radius: 4px; overflow: hidden; touch-action: none; cursor: crosshair; }
+  .rv-stage img { display: block; width: 100%; height: auto; -webkit-user-select: none; user-select: none; }
+  .rv-hole { position: absolute; border: 2px solid #fff; box-shadow: 0 0 0 9999px rgba(12,12,16,.68); cursor: move; }
+  .rv-hole:focus-visible { outline: 3px solid var(--mv, #17171b); outline-offset: 3px; }
+  .rv-ctl { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .rv-btn { border: 1px solid var(--line-strong); background: var(--paper-2); color: var(--ink); font: inherit;
+    font-size: 12.5px; font-weight: 600; padding: 6px 12px; border-radius: 3px; cursor: pointer; }
+  .rv-btn:hover:not(:disabled) { background: var(--paper); }
+  .rv-btn:disabled { opacity: .4; cursor: default; }
+  /* Styled here, not via .bx-note: the same editor renders in Classic view, where .bx-note has no rules. */
+  .rv-help { margin: 10px 0 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
+
   .bx-routines { display: flex; flex-direction: column; gap: 2px; }
   /* Selected routine must be obvious at a glance (not italics alone): move-coloured left
      bar + tinted card + tick in place of the index + a "Chosen" pill. Pill/tick stay ink so
@@ -1320,7 +1345,7 @@ const BAND_ORDER = ["Early","Junior","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.39 · 2026-07-30";
+const APP_VERSION = "v0.9.40 · 2026-07-30";
 
 // Maps a class's year level to a teaching band (Prep-Y2 / Y3-6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2844,6 +2869,119 @@ function MediaCarousel({ items, index, setIndex }) {
   );
 }
 
+/* ---------------------- Zoom In: the reveal (crop) tool ----------------------
+   Zoom In is the one routine whose method IS what the class can see: reveal a sliver, take a
+   hypothesis, reveal more, and only then show the whole picture (Nathan, 2026-07-30 — before this
+   the deck put the entire photo on slide 1, which gives the game away on the routine's first move).
+   Frames are normalised rects (0-1 of the photo) so they hold at any display or export size, and
+   the whole picture is always the last reveal, never one of the frames. */
+const REVEAL_MAX_FRAMES = 3;
+const DEFAULT_REVEAL_FRAMES = [{ x: 0.36, y: 0.36, w: 0.28, h: 0.28 }, { x: 0.2, y: 0.2, w: 0.6, h: 0.6 }];
+const clampFrame = (r) => {
+  const w = Math.min(1, Math.max(0.08, r.w)), h = Math.min(1, Math.max(0.08, r.h));
+  return { x: +Math.min(1 - w, Math.max(0, r.x)).toFixed(4), y: +Math.min(1 - h, Math.max(0, r.y)).toFixed(4), w: +w.toFixed(4), h: +h.toFixed(4) };
+};
+// A frame drawn as a CSS-cropped thumbnail (no canvas work for the on-screen previews).
+const revealThumbStyle = (src, r) => ({
+  backgroundImage: "url(" + src + ")",
+  backgroundSize: (100 / Math.max(0.02, r.w)).toFixed(1) + "% " + (100 / Math.max(0.02, r.h)).toFixed(1) + "%",
+  backgroundPosition: (r.w >= 1 ? 50 : (r.x / (1 - r.w)) * 100).toFixed(1) + "% " + (r.h >= 1 ? 50 : (r.y / (1 - r.h)) * 100).toFixed(1) + "%",
+});
+// Bake a crop into a fresh JPEG. Deliberately NOT pptxgenjs `sizing:{type:"crop"}`: that keeps the
+// whole photo inside the .pptx (a student can drag the frame open and spoil the reveal) and it
+// stretches the picture the same way sizing:"contain" does. Resolves null if the canvas can't be
+// read (a cross-origin lead image taints it), and the caller then leaves the deck untouched.
+function cropImageToDataUrl(src, r, maxW = 1600) {
+  return new Promise(res => {
+    const im = new Image();
+    im.onload = () => {
+      try {
+        const nw = im.naturalWidth, nh = im.naturalHeight;
+        const sx = Math.max(0, Math.round(r.x * nw)), sy = Math.max(0, Math.round(r.y * nh));
+        const sw = Math.max(1, Math.min(nw - sx, Math.round(r.w * nw)));
+        const sh = Math.max(1, Math.min(nh - sy, Math.round(r.h * nh)));
+        const k = Math.min(1, maxW / sw);
+        const cv = document.createElement("canvas");
+        cv.width = Math.max(1, Math.round(sw * k));
+        cv.height = Math.max(1, Math.round(sh * k));
+        cv.getContext("2d").drawImage(im, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
+        res({ dataUrl: cv.toDataURL("image/jpeg", 0.86), aspect: cv.width / cv.height });
+      } catch (_) { res(null); }
+    };
+    im.onerror = () => res(null);
+    im.src = src;
+  });
+}
+
+// The crop tool itself. Drag on the photo to draw the selected frame; the frame is also focusable
+// so arrow keys move it and +/- resize it (Smaller/Bigger do the same), because a drag-only crop
+// tool can't be used from a keyboard.
+function RevealEditor({ src, frames, setFrames, idx, setIdx }) {
+  const stageRef = React.useRef(null);
+  const dragRef = React.useRef(null);
+  const cur = frames[idx] || frames[0];
+  const write = (r) => setFrames(frames.map((f, i) => (i === idx ? clampFrame(r) : f)));
+  const at = (e) => {
+    const b = stageRef.current.getBoundingClientRect();
+    return { x: Math.min(1, Math.max(0, (e.clientX - b.left) / b.width)), y: Math.min(1, Math.max(0, (e.clientY - b.top) / b.height)) };
+  };
+  const onDown = (e) => {
+    if (e.button) return;
+    if (stageRef.current.setPointerCapture) stageRef.current.setPointerCapture(e.pointerId);
+    dragRef.current = at(e);
+  };
+  const onMove = (e) => {
+    if (!dragRef.current) return;
+    const a = dragRef.current, b = at(e);
+    const r = { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(b.x - a.x), h: Math.abs(b.y - a.y) };
+    if (r.w > 0.03 && r.h > 0.03) write(r);
+  };
+  const onUp = () => { dragRef.current = null; };
+  const resize = (k) => { const w = cur.w * k, h = cur.h * k; write({ x: cur.x + (cur.w - w) / 2, y: cur.y + (cur.h - h) / 2, w, h }); };
+  const onKey = (e) => {
+    const d = e.shiftKey ? 0.1 : 0.02;
+    const act = { ArrowLeft: () => write({ ...cur, x: cur.x - d }), ArrowRight: () => write({ ...cur, x: cur.x + d }),
+                  ArrowUp: () => write({ ...cur, y: cur.y - d }), ArrowDown: () => write({ ...cur, y: cur.y + d }),
+                  "+": () => resize(1.12), "=": () => resize(1.12), "-": () => resize(0.9) }[e.key];
+    if (act) { e.preventDefault(); act(); }
+  };
+  const pct = (v) => (v * 100).toFixed(2) + "%";
+  const frameLabel = (i) => (i === 0 ? "First look" : "Reveal " + (i + 1));
+  return (
+    <div className="rv-wrap">
+      <div className="rv-strip">
+        {frames.map((f, i) => (
+          <button key={i} type="button" className={"rv-thumb" + (i === idx ? " on" : "")} aria-pressed={i === idx}
+            onClick={() => setIdx(i)}>
+            <span className="rv-thumb-img" style={revealThumbStyle(src, f)} aria-hidden="true" />
+            <span className="rv-thumb-lab">{frameLabel(i)}</span>
+          </button>
+        ))}
+        <span className="rv-thumb fixed">
+          <span className="rv-thumb-img" style={revealThumbStyle(src, { x: 0, y: 0, w: 1, h: 1 })} aria-hidden="true" />
+          <span className="rv-thumb-lab">Whole picture</span>
+        </span>
+      </div>
+      <div className="rv-stage" ref={stageRef} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
+        <img src={src} alt="" draggable="false" />
+        <div className="rv-hole" style={{ left: pct(cur.x), top: pct(cur.y), width: pct(cur.w), height: pct(cur.h) }}
+          tabIndex={0} role="group" onKeyDown={onKey}
+          aria-label={frameLabel(idx) + ": the part of the picture students see. Arrow keys move it, plus and minus change its size."} />
+      </div>
+      <div className="rv-ctl">
+        <button type="button" className="rv-btn" onClick={() => resize(0.9)}>− Smaller</button>
+        <button type="button" className="rv-btn" onClick={() => resize(1.12)}>+ Bigger</button>
+        <button type="button" className="rv-btn" disabled={frames.length >= REVEAL_MAX_FRAMES}
+          onClick={() => { setFrames(frames.concat([clampFrame({ x: 0.12, y: 0.12, w: 0.76, h: 0.76 })])); setIdx(frames.length); }}>+ Add a reveal</button>
+        <button type="button" className="rv-btn" disabled={frames.length < 2}
+          onClick={() => { setFrames(frames.filter((_, i) => i !== idx)); setIdx(Math.max(0, idx - 1)); }}>Remove this one</button>
+        <button type="button" className="rv-btn" onClick={() => { setFrames(DEFAULT_REVEAL_FRAMES.map(r => ({ ...r }))); setIdx(0); }}>Start again</button>
+      </div>
+      <p className="bx-note rv-help">Drag on the picture to draw the frame students see. Slide 1 shows the <b>first look</b> only, each reveal after it is its own slide, and the whole picture comes last. If you added more than one photo, the reveal uses the first one.</p>
+    </div>
+  );
+}
+
 const KEY_STORE = "sb_passcode";
 
 // Admin-analytics password popup. Validates the password against the server before
@@ -3161,6 +3299,11 @@ function App() {
   const [reflectRoutine, setReflectRoutine] = useState("");   // "" = let the model vary the end-of-lesson reflection routine; else a pinned REFLECT_ROUTINES name
   const [intention, setIntention] = useState("");             // teacher's learning intention; "" = the app writes one
   const [intentionAuto, setIntentionAuto] = useState(false);  // true after "Let AI decide", purely so the UI can say so
+  // Zoom In only: the crops the class sees before the whole picture, in reveal order (see
+  // RevealEditor). null whenever the tool doesn't apply, which is also the deck's "behave as
+  // before" signal. Not persisted — they're measured against this stimulus, nothing else.
+  const [revealFrames, setRevealFrames] = useState(null);
+  const [revealIdx, setRevealIdx] = useState(0);
 
   // Outcome source: teacher pastes from their planner, or AI suggests curriculum connections.
   const [outcomeMode, setOutcomeMode] = useState("paste");    // "paste" | "ai"
@@ -3697,6 +3840,22 @@ function App() {
   }, [analyseBandRoutines]);
   const routineUrl = (name) => (ROUTINES.find(r => r.name === name) || {}).url || "https://pz.harvard.edu/thinking-routines";
 
+  /* ------- Zoom In's reveal frames ------- */
+  // The tool applies to exactly one case: the Zoom In routine over a photo the teacher uploaded.
+  // (A video, an article's lead image or a link-only stimulus has nothing local to crop.) Picking
+  // the routine, or changing the photo, resets the frames to a small centre box growing outward —
+  // a teacher who does nothing at all still gets a real reveal.
+  const revealPhoto = useMemo(
+    () => (mode === "media" ? (media.find(m => m && m.kind === "image" && m.dataUrl) || null) : null),
+    [mode, media]);
+  const zoomInPicked = selectedRoutine === "Zoom In" && !!revealPhoto;
+  useEffect(() => {
+    setRevealFrames(zoomInPicked ? DEFAULT_REVEAL_FRAMES.map(r => ({ ...r })) : null);
+    setRevealIdx(0);
+  }, [zoomInPicked, revealPhoto && revealPhoto.id]);
+  // Frames that survive into the export: only while Zoom In is still the routine and the photo is still there.
+  const activeReveal = zoomInPicked && Array.isArray(revealFrames) && revealFrames.length ? revealFrames : null;
+
   /* ------- generate ------- */
   async function generate() {
     if (regenSlide || loading) return; // a slide regen is in flight, or a generate is already running
@@ -3870,10 +4029,31 @@ function App() {
 
       const showAdvisory = !!(deck.advisory && deck.advisory.flag) && includeAdvisory;
       const showReflect = !!includeReflect;
-      // Student-facing slides only: IGNITE + THINK, plus REFLECT and the advisory when kept. The
-      // teacher preface and the "Where to next" slides are excluded — a student never sees them, so
-      // counting them made the footer lie about how far through the lesson the class was.
-      const total = 2 + (showAdvisory ? 1 : 0) + (showReflect ? 1 : 0);
+
+      // ZOOM IN reveal: bake the teacher's frames (the crop tool) into slide-sized JPEGs, then add
+      // the whole photo as the final reveal. IGNITE draws revealShots[0] instead of the full photo,
+      // and every later shot gets its own student-facing slide before THINK. Guarded on the routine
+      // STILL being Zoom In and a crop actually succeeding, so any other lesson exports as before.
+      const revealPhotoNow = (routine === "Zoom In" && activeReveal) ? revealPhoto : null;
+      const revealShots = [];
+      if (revealPhotoNow) {
+        for (const r of activeReveal) {
+          const shot = await cropImageToDataUrl(revealPhotoNow.dataUrl, r);
+          if (shot) revealShots.push(shot);
+        }
+        if (revealShots.length) revealShots.push({
+          dataUrl: revealPhotoNow.dataUrl,
+          aspect: revealPhotoNow.aspect || (await imageAspect(revealPhotoNow.dataUrl)) || 4 / 3,
+          full: true,
+        });
+      }
+      const revealExtra = Math.max(0, revealShots.length - 1); // slides added between IGNITE and THINK
+
+      // Student-facing slides only: IGNITE + THINK, plus the Zoom In reveals, REFLECT and the
+      // advisory when kept. The teacher preface and the "Where to next" slides are excluded — a
+      // student never sees them, so counting them made the footer lie about how far through the
+      // lesson the class was.
+      const total = 2 + revealExtra + (showAdvisory ? 1 : 0) + (showReflect ? 1 : 0);
 
       await loadScript(PPTX_SRC, PPTX_SRI);
       const pptx = new PptxGenJS();
@@ -4016,7 +4196,14 @@ function App() {
         // reserve a QR + link row when there's a link, plus any caption band the caller asked for
         const mediaH = h - ((url && !opts.noLink) ? 0.7 : 0) - (opts.reserveBottom || 0);
 
-        if (items.length === 1) {
+        if (opts.revealFrame) {
+          // Zoom In: the class sees this crop and nothing else. No click-to-enlarge link — the point
+          // of the routine is that the rest of the photo is still hidden.
+          const rf = opts.revealFrame;
+          const box = contain(x, y, w, Math.max(0.5, mediaH), rf.aspect);
+          s.addImage({ data: rf.dataUrl, x: box.x, y: box.y, w: box.w, h: box.h });
+          drew = true;
+        } else if (items.length === 1) {
           const it = items[0];
           const box = contain(x, y, w, Math.max(0.5, mediaH), it.aspect || (it.kind === "video" ? 16 / 9 : w / mediaH));
           if (it.kind === "image") { s.addImage({ data: it.dataUrl, x: box.x, y: box.y, w: box.w, h: box.h, ...enlarge(it.dataUrl, it.aspect) }); drew = true; }
@@ -4127,15 +4314,17 @@ function App() {
         // "Where to next" slide per idea. The zoom slides are appended after all of those, and their
         // numbers are frozen at draw time, so this count must be exact — add any new content slide
         // that lands after IGNITE here too. (The pad loop further down covers an undercount only.)
-        zoomBase = pptx.slides.length + 1 + (showReflect ? 1 : 0) + nextIdeas.length;
+        zoomBase = pptx.slides.length + revealExtra + 1 + (showReflect ? 1 : 0) + nextIdeas.length;
         const imgX = 7.0, imgY = 1.5, imgW = 5.6, imgH = 5.3;
         const zoomsBefore = zooms.length;
         // A click-to-enlarge caption is coming whenever a photo (not just a video poster) will be
         // drawn, so reserve its band UP FRONT — it used to be printed below the QR row, reading as
         // a caption for the link instead of for the picture.
-        const willCaption = (mode === "media" && Array.isArray(media) && media.some(m => m && m.kind === "image" && m.dataUrl)) || !!artLead;
+        const willCaption = !revealShots.length
+          && ((mode === "media" && Array.isArray(media) && media.some(m => m && m.kind === "image" && m.dataUrl)) || !!artLead);
         const capBand = willCaption ? 0.32 : 0;
-        const drew = await drawStimulus(s, imgX, imgY, imgW, imgH, { reserveBottom: capBand });
+        const drew = await drawStimulus(s, imgX, imgY, imgW, imgH,
+          { reserveBottom: capBand, revealFrame: revealShots.length ? revealShots[0] : null });
         // Tell the room the photo is clickable — nothing on a slide says so on its own.
         if (zooms.length > zoomsBefore) s.addText(zooms.length - zoomsBefore > 1 ? "Click any photo to fill the screen" : "Click the photo to fill the screen",
           { x: imgX, y: imgY + imgH - ((link || "").trim() ? 0.7 : 0) - capBand, w: imgW, h: 0.3, fontSize: 9.5, color: SUB, align: "center", fontFace: FONT });
@@ -4175,6 +4364,28 @@ function App() {
         pageNo(s, true);
         s.addNotes(noteFor("ignite"));
       }
+
+      // ---------------- ZOOM IN reveals (student-facing, between IGNITE and THINK) ----------------
+      // One slide per frame after the first, ending on the whole picture. The prompt on each is the
+      // routine's own move ("has your thinking changed?"), and the notes carry the bit that makes it
+      // work: every student commits to a guess BEFORE the click.
+      revealShots.slice(1).forEach((shot, i) => {
+        const s = newWhite();
+        const last = !!shot.full;
+        const n = i + 2, of = revealShots.length;
+        kicker(s, last ? "Zoom in — the whole picture" : "Zoom in — reveal " + n + " of " + of);
+        s.addText(last ? "Now you can see all of it. What changed in your thinking?" : "What can you see now? Has your thinking changed?",
+          { x: 0.7, y: 1.02, w: W - 1.4, h: 0.55, fontSize: 22, bold: true, color: P, valign: "top", fontFace: FONT, fit: "shrink" });
+        const box = contain(0.7, 1.72, W - 1.4, 4.55, shot.aspect);
+        // No click-to-enlarge on a reveal, not even the last one: these images already fill the slide,
+        // and the enlarge slide's "click to go back" returns to IGNITE — which would rewind the class
+        // to the first crop and make them sit through the reveals again.
+        s.addImage({ data: shot.dataUrl, x: box.x, y: box.y, w: box.w, h: box.h });
+        s.addNotes("ZOOM IN — reveal " + n + " of " + of + "."
+          + "\nBefore you show this, make every student commit: say or write the guess they're holding, and what in the picture makes them say it. A guess they own is a guess they want to check."
+          + "\nThen reveal, and ask who changed their mind and what changed it — not just what the picture is."
+          + (last ? "\nThis is the whole picture. Name what nobody could have known from the first frame; that gap is the lesson." : ""));
+      });
 
       // ---------------- THINK ----------------
       {
@@ -4876,6 +5087,13 @@ function App() {
                   <label key={r.name} style={{ display: "flex", gap: 8, alignItems: "center", padding: "5px 0", fontSize: 13, cursor: "pointer" }}>
                     <input type="radio" name="bx-routine" checked={selectedRoutine === r.name} onChange={() => pickRoutine(r.name)} />{r.name}</label>))}</div>
               </details>
+              {zoomInPicked && activeReveal && (
+                <div style={{ marginTop: 18 }}>
+                  <span className="bx-step-n">Zoom In</span>
+                  <h3 style={{ fontFamily: "var(--bx-display)", fontWeight: 500, fontSize: 17, margin: "2px 0 4px" }}>What do they see first?</h3>
+                  <RevealEditor src={revealPhoto.dataUrl} frames={activeReveal} setFrames={setRevealFrames} idx={revealIdx} setIdx={setRevealIdx} />
+                </div>
+              )}
               <div style={{ marginTop: 16 }}>
                 {loading ? (
                   <div className="bx-prog" role="status" aria-live="polite">
@@ -5542,6 +5760,14 @@ function App() {
                   ))}
                 </details>
               </React.Fragment>
+            )}
+            {/* Zoom In's crop tool — same component the brain view uses (Classic must not silently
+                export default frames the teacher never saw). */}
+            {zoomInPicked && activeReveal && (
+              <div className="group" style={{ marginTop: 14 }}>
+                <label className="cap">Zoom In · what do they see first?</label>
+                <RevealEditor src={revealPhoto.dataUrl} frames={activeReveal} setFrames={setRevealFrames} idx={revealIdx} setIdx={setRevealIdx} />
+              </div>
             )}
           </div>
 
