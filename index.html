@@ -1315,7 +1315,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.37 · 2026-07-30";
+const APP_VERSION = "v0.9.38 · 2026-07-30";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2332,6 +2332,11 @@ function shapeDeck(parsed, { routineName }) {
     // actually used today. It replaced a seven-line generic stem bank that printed identically on
     // every deck (and duplicated the student stems already on the slide).
     reflect: { revisit: str(re.revisit), prompts: arr(re.prompts, 4), metacognition: str(re.metacognition) },
+    // next = the three teacher-only "Where to next" slides that close the deck: the lessons AFTER
+    // this one. Kept to 3 because that's what the deck draws.
+    next: (Array.isArray(p.next) ? p.next : []).slice(0, 3)
+      .map(n => ({ title: str(obj(n).title), idea: str(obj(n).idea), thinking: str(obj(n).thinking) }))
+      .filter(n => n.title || n.idea),
     notes:   { ignite: str(no.ignite), think: str(no.think), launch: str(no.launch), reflect: str(no.reflect) },
     advisory:{ flag: !!ad.flag, reason: str(ad.reason) },
   };
@@ -2423,15 +2428,18 @@ FACILITATION: … TIMING: … ENABLING PROMPT: … EXTENDING PROMPT: … CURRICU
 ENABLING PROMPT = how to simplify the task so a student who is stuck can still take part (a sentence stem, a smaller step, a concrete support).
 EXTENDING PROMPT = how to push a student who finds it easy further into the same thinking (not extra work — deeper work).
 Set advisory.flag true only for sensitive themes (grief, violence, body image, etc.) with a one-line reason.
-Return STRICT JSON with keys: title, intention, keywords, ignite{question}, think{routine, steps, structure, summary}, launch{connection, bridge, question, ideas}, reflect{revisit, prompts, metacognition}, notes{ignite, think, launch, reflect}, advisory{flag, reason}.`;
+Return STRICT JSON with keys: title, intention, keywords, ignite{question}, think{routine, steps, structure, summary}, launch{connection, bridge, question, ideas}, reflect{revisit, prompts, metacognition}, next[3]{title, idea, thinking}, notes{ignite, think, launch, reflect}, advisory{flag, reason}.`;
 
   // Single-slide regenerate: rebuild only the scoped slide + its notes, copying the rest verbatim.
   if (scope !== "all") {
     // Ask for the scoped part ONLY. The old wording made the model re-emit the whole deck verbatim
     // just so we could throw all but one slide away — roughly double the output tokens on every
     // "New options" click, against a budget the model's reasoning already eats most of.
-    sys += `\nThis is a TARGETED rewrite of ONE part of an existing lesson. Here is the lesson as it stands: ${JSON.stringify(current)}
-Return JSON with ONLY these two keys: "${scope}" (a genuinely different version of that part, not a reword) and "notes" containing just its "${scope}" entry. Do NOT return the other parts — they are staying exactly as they are. Keep your new version consistent with the rest of the lesson above.`;
+    sys += `\nThis is a TARGETED rewrite of ONE part of an existing lesson. Here is the lesson as it stands: ${JSON.stringify(current)}`;
+    // "next" is the array of teacher-only follow-up lessons, not a slide with notes of its own.
+    sys += scope === "next"
+      ? `\nReturn JSON with ONLY the key "next": 3 genuinely different follow-up lesson ideas (not rewords of the ones above). Keep them consistent with the lesson above.`
+      : `\nReturn JSON with ONLY these two keys: "${scope}" (a genuinely different version of that part, not a reword) and "notes" containing just its "${scope}" entry. Do NOT return the other parts — they are staying exactly as they are. Keep your new version consistent with the rest of the lesson above.`;
   }
 
   // Teacher pinned a specific end-of-lesson reflection routine from the REFLECT dropdown:
@@ -2451,13 +2459,22 @@ Return JSON with ONLY these two keys: "${scope}" (a genuinely different version 
       ? `intention: return the teacher's learning intention EXACTLY as written, unchanged: "${intention.trim()}". Every other field must serve this intention — the ignite question, the routine steps, the launch question and the reflection all work toward it.`
       : `intention: the lesson's learning intention, student-facing, <=18 words, starting "We are learning to". Name BOTH the thinking move and the content (e.g. "We are learning to describe what we can actually see before we explain what it means"). It must match what the rest of this deck actually asks students to do.`,
     `keywords: 3-6 short search terms a teacher might type to find this lesson later.`,
-    `ignite.question: ONE provocative question.`,
-    `think.routine MUST be exactly "${routine.name}". This routine's real moves are: ${(routine.steps || []).map((s, i) => `${i + 1}) ${s}`).join(" ")}. think.steps: take THOSE actual moves and lightly tailor the wording to THIS stimulus — keep the routine's real moves and their order, do NOT invent different ones; <=4 short student-facing prompts. think.structure: "${routine.structure || "Think-pair-share, 3 min"}".`,
+    // Stickiness has to land on the slides STUDENTS see, not only in the teacher notes. Measured on a
+    // real Year 4 deck (2026-07-30): the notes said "collect three guesses before confirming" and
+    // "the painting is dated 1937", while the slides carried a soft "imagine a child…" question. The
+    // lesson was sticky to run and looked generic. Hence: commit out loud, and one true concrete
+    // anchor on the slide.
+    `ignite.question: ONE provocative question, <=18 words. It MUST be answerable from what students can actually SEE OR READ at that moment — if the routine reveals the stimulus in stages, the question must work from the first fragment alone. It MUST ask for a commitment students could turn out to be wrong about (a guess, a stance, a prediction), not a safe invitation to imagine. Where the stimulus gives you one, anchor it with a true concrete detail from the stimulus itself (a number, a date, a name, a visible object). NEVER ask students to imagine what someone outside the frame thinks or feels before they have seen the whole stimulus — that is an end-of-lesson reflection question, not an opening one.`,
+    `think.routine MUST be exactly "${routine.name}". This routine's real moves are: ${(routine.steps || []).map((s, i) => `${i + 1}) ${s}`).join(" ")}. think.steps: take THOSE actual moves and write each one FOR THIS STIMULUS — keep the routine's real moves and their order, do NOT invent different ones; <=4 short student-facing prompts. Each step must name the actual thing students are looking at, reading or doing at that moment (for a staged-reveal routine, name what that reveal shows: "the raised flag and the arms", "the trees on the left"), so a step could not be pasted onto a different lesson. Generic wording like "see one tiny section" or "look closely at the image" is a failure. Make the FINAL step surface the single most surprising TRUE thing about this stimulus — who made it, when, what it leaves out, where it came from — and ask students what that changes about their thinking. Never invent a fact to be surprising: if nothing surprising is genuinely knowable from the stimulus, make the final step compare their first idea with their last. think.structure: "${routine.structure || "Think-pair-share, 3 min"}".`,
     `think.summary: ${isArticleStim
       ? `EXACTLY 5 sentences summarising the article FOR STUDENTS, printed beside the routine so they can read it while they think. Tone: ${tone}. Make the situation CONCRETE — establish clearly WHAT happened and the specifics a ${classInfo.yearLevel} student needs to follow it. Lead with the most surprising or relatable angle, use plain vivid language, and end on a note that invites discussion. NEVER invent quotes, names, numbers, or events that are not in the supplied text; if the article is vague on something important, leave it out rather than guessing. Punchy, never a dry recap.`
       : `"" — an empty string. The stimulus is an image/video reel, not an article, so there is nothing to summarise.`}`,
     `launch.connection: <=25 words curriculum connection; launch.bridge: <=20 words from the stimulus to today's lesson; launch.question: the lesson launch question; launch.ideas: EXACTLY 3 short, distinct ways to run the launch so students work toward launch.question (e.g. a quick debate, a rank/sort, a role-play, a prediction, a quick-write) — one sentence each, <=20 words.`,
     `reflect.revisit: <=15 words revisiting the ignite question. For reflect.prompts, CHOOSE the end-of-lesson reflection routine that best fits THIS lesson, and VARY the choice across lessons (do NOT always use the same one). Pick from: (a) I Used to Think… / Now I Think…; (b) Connect–Extend–Challenge — one new connection, one way it extends thinking, one lingering challenge or question; (c) 3-2-1 Bridge — 3 thoughts, 2 questions, 1 analogy; (d) Headlines — a one-line headline capturing today's core idea; (e) Reflect–Connect–Project — reflect on it, connect to prior learning, project forward; (f) Think About Your Thinking (metacognition) — Task: did your plan/approach work and how do you know; Strategy: which strategy helped and what will you do differently next time; Self: what did you learn about yourself as a learner. Use THAT routine's real prompt stems as reflect.prompts (<=4 short stems). Tie every stem to THIS lesson's content (never generic), and ALWAYS make at least one stem a forward-looking metacognitive prompt — what the student will do differently, or which strategy they'll reuse, next time.`,
+    // "Where to next" — three teacher-only slides at the end of the deck. These are the NEXT
+    // LESSONS, not more ways to run today's: the teacher has just finished this lesson and wants to
+    // know where the thinking goes from here.
+    `next: EXACTLY 3 follow-up LESSON ideas for the lessons AFTER this one, in a sensible teaching order (each builds on the last). Each: title <=7 words; idea = what students would actually DO, one sentence <=28 words, concrete enough to run without further planning; thinking = the Understanding Map thinking move it grows into and why that is the natural next step, <=18 words. They must follow from what THIS lesson's stimulus and routine established — never generic "research the topic" filler, and never a repeat of today's task.`,
     `reflect.metacognition: <=30 words, TEACHER-facing (it rides in the notes, never on a slide). Name the ONE thinking strategy students actually used in THIS lesson and the question that gets them to notice they used it. Be specific to this lesson's task — never a generic "reflect on your learning".`,
   ].join("\n");
   const instruction = `Create the Springboard now. Respect every word limit:\n${limits}\nReturn STRICT JSON only — no markdown, no code fences, plain text in every field.`;
@@ -2665,6 +2682,9 @@ ${guide ? "A curriculum extract is appended below. Ground every suggestion in TH
 function mergeScopedFields(deck, scope, parsed) {
   const shaped = shapeDeck(parsed, { routineName: deck.think.routine });
   const SLICES = ["ignite", "think", "launch", "reflect"];
+  // "next" is a top-level array (the three teacher-only Where-to-next slides), not a slide object
+  // with its own notes, so it merges on its own rather than through the [scope] path below.
+  if (scope === "next") return { ...deck, next: shaped.next };
   // "all"/unexpected → full shape. shapeDeck builds a fresh object, so re-attach the teacher's
   // ticked curriculum focus (it lives on the deck, not in the model's reply) or the LAUNCH notes
   // would silently lose it.
@@ -3755,6 +3775,10 @@ function App() {
   const patchNote = (slide, text) => setSpot(s => ({ ...s, notes: { ...s.notes, [slide]: text } }));
   // (|| [] guards: launch.ideas can be absent on a deck the model returned without it.)
   const patchArr = (slide, key, i, val) => setSpot(s => { const a = (s[slide][key] || []).slice(); a[i] = val; return { ...s, [slide]: { ...s[slide], [key]: a } }; });
+  // deck.next is an array of {title, idea, thinking} — one per "Where to next" slide.
+  const patchNext = (i, key, val) => setSpot(s => { const a = (s.next || []).slice(); a[i] = { ...(a[i] || {}), [key]: val }; return { ...s, next: a }; });
+  const addNext = () => setSpot(s => ({ ...s, next: [...(s.next || []), { title: "", idea: "", thinking: "" }].slice(0, 3) }));
+  const delNext = (i) => setSpot(s => ({ ...s, next: (s.next || []).filter((_, j) => j !== i) }));
   const addArr = (slide, key) => setSpot(s => ({ ...s, [slide]: { ...s[slide], [key]: [...(s[slide][key] || []), ""] } }));
   const delArr = (slide, key, i) => setSpot(s => ({ ...s, [slide]: { ...s[slide], [key]: (s[slide][key] || []).filter((_, j) => j !== i) } }));
 
@@ -3812,6 +3836,11 @@ function App() {
       const igniteQ = ((deck.ignite && deck.ignite.question) || "").trim();
       // Learning intention: whatever the teacher typed, else the one the model wrote for this lesson.
       const lessonIntent = (deck.intention || "").trim();
+      // The three teacher-only "Where to next" slides that close the deck (empty on a deck generated
+      // before this field existed — the loop below then simply draws none).
+      const nextIdeas = (Array.isArray(deck.next) ? deck.next : []).filter(n => n && (n.title || n.idea)).slice(0, 3);
+      const focusLines = (Array.isArray(deck.curriculumFocus) && deck.curriculumFocus.length)
+        ? "Curriculum focus (teacher): " + deck.curriculumFocus.join("; ") : "";
       const curriculum = (classInfo.curriculum || "").trim();
       const subject = (classInfo.subject || "").trim();
       const yearLevel = (classInfo.yearLevel || "").trim();
@@ -3822,7 +3851,10 @@ function App() {
 
       const showAdvisory = !!(deck.advisory && deck.advisory.flag) && includeAdvisory;
       const showReflect = !!includeReflect;
-      const total = 3 + (showAdvisory ? 1 : 0) + (showReflect ? 1 : 0);
+      // Student-facing slides only: IGNITE + THINK, plus REFLECT and the advisory when kept. The
+      // teacher preface and the "Where to next" slides are excluded — a student never sees them, so
+      // counting them made the footer lie about how far through the lesson the class was.
+      const total = 2 + (showAdvisory ? 1 : 0) + (showReflect ? 1 : 0);
 
       await loadScript(PPTX_SRC, PPTX_SRI);
       const pptx = new PptxGenJS();
@@ -3925,24 +3957,19 @@ function App() {
           body = (body.slice(0, curr.index) + body.slice(curr.index + curr[0].length)).replace(/\n{3,}/g, "\n\n").trim();
           body = body.replace(/(EXTENDING PROMPT:[^\n]*)/i, "$1\n" + curr[2]);
         }
-        // On LAUNCH the study-design-aligned "Curriculum connection" appended below says the same thing
-        // as the generic CURRICULUM LINKS line, so drop that line to remove the double-up (the
-        // connection is the richer one — it carries the real study-design / AC codes).
-        // (^|\n), not just \n: the model sometimes leads the note with this section, and the old
-        // pattern silently left it in place, so the deck printed the curriculum point twice.
-        if (key === "launch") body = body.replace(/(^|\n)\s*CURRICULUM LINKS:[^\n]*/i, "").trim();
         let out = NOTE_HEAD[key] + (body ? "\n\n" + body : "");
         // Presenter View should open on the intention: it's what the teacher says out loud first.
         if (key === "ignite" && lessonIntent) out = NOTE_HEAD[key] + "\n\nLEARNING INTENTION: " + lessonIntent + (body ? "\n\n" + body : "");
         if (key === "ignite" && kw.length) out += "\n\nKeywords: " + kw.join(", ");
-        // Curriculum connection is teacher-only — it rides in the LAUNCH speaker notes, never the projected slide.
-        if (key === "launch") {
-          // Give the teacher several ways to run the launch toward the question, not just the one in
-          // FACILITATION, so they can pick what suits the class.
+        // The old LAUNCH slide's payload now rides here, on THINK: the destination question the
+        // teacher says out loud while students work, and the three ways to run today's task. The
+        // curriculum connection goes to the first "Where to next" slide instead — that's where the
+        // teacher is planning, so that's where it's useful.
+        if (key === "think") {
+          const lq = ((deck.launch && deck.launch.question) || "").trim();
+          if (lq) out += "\n\nToday's destination question (say it, don't project it): " + lq;
           const ideas = (Array.isArray(deck.launch && deck.launch.ideas) ? deck.launch.ideas : []).map(s => String(s).trim()).filter(Boolean).slice(0, 3);
-          if (ideas.length) out += "\n\nLaunch ideas (pick one):\n" + ideas.map((t, i) => (i + 1) + ") " + t).join("\n");
-          const conn = ((deck.launch && deck.launch.connection) || "").trim(); if (conn) out += "\n\nCurriculum connection: " + conn;
-          if (Array.isArray(deck.curriculumFocus) && deck.curriculumFocus.length) out += "\n\nCurriculum focus (teacher): " + deck.curriculumFocus.join("; ");
+          if (ideas.length) out += "\n\nWays to run today's task (pick one):\n" + ideas.map((t, i) => (i + 1) + ") " + t).join("\n");
         }
         if (key === "reflect") {
           // Metacognition helper (EEF Task · Strategy · Self). This used to be a four-bullet stem bank
@@ -4077,9 +4104,11 @@ function App() {
         // so a portrait phone image is clearly visible, not a sliver. imgX..imgX+imgW clears the
         // crest (which sits above, ending ~y1.15).
         igniteNum = pptx.slides.length; // zoom slides link back here (real slide number, not the footer's)
-        // Slides still to come after IGNITE: THINK, LAUNCH, and REFLECT when the teacher kept it.
-        // The zoom slides are appended after those. Add any new content slide AFTER IGNITE here too.
-        zoomBase = pptx.slides.length + 2 + (showReflect ? 1 : 0);
+        // Slides still to come after IGNITE: THINK, REFLECT when the teacher kept it, and one
+        // "Where to next" slide per idea. The zoom slides are appended after all of those, and their
+        // numbers are frozen at draw time, so this count must be exact — add any new content slide
+        // that lands after IGNITE here too. (The pad loop further down covers an undercount only.)
+        zoomBase = pptx.slides.length + 1 + (showReflect ? 1 : 0) + nextIdeas.length;
         const imgX = 7.0, imgY = 1.5, imgW = 5.6, imgH = 5.3;
         const zoomsBefore = zooms.length;
         // A click-to-enlarge caption is coming whenever a photo (not just a video poster) will be
@@ -4190,30 +4219,13 @@ function App() {
         s.addNotes(noteFor("think"));
       }
 
-      // ---------------- LAUNCH ----------------
-      {
-        const s = newWhite();
-        kicker(s, "LAUNCH");
-        // No "Into today's lesson" subtitle — the LAUNCH kicker already says it. Bridge is a plain
-        // lead-in (no teacher-jargon "From the stimulus" label); the question is framed as the lesson's
-        // destination — "By the end of today, you'll answer:" — so students read it as their task, not
-        // just another question. Curriculum connection stays teacher-only (in the notes).
-        // The slide used to be two thin lines marooned in white space (a ~1.7" dead band above the
-        // gold rule and a dead third below the question). Tightened into one block so the question
-        // is unmistakably the hero, and the bridge is big enough to read from the back of the room.
-        const lqW = W - 1.4;
-        const lBridge = ((deck.launch && deck.launch.bridge) || "").trim();
-        const lQ = ((deck.launch && deck.launch.question) || "").trim();
-        if (lBridge) s.addText(lBridge, { x: 0.7, y: 1.35, w: lqW, h: 1.0, fontSize: fitFontSize(lBridge, lqW, 1.0, 19, 14), color: INK, valign: "top", lineSpacingMultiple: 1.15, fontFace: FONT });
-        s.addShape(pptx.ShapeType.rect, { x: 0.7, y: 2.75, w: 2.1, h: 0.045, fill: { color: GOLD } });
-        cap(s, "By the end of today, you'll answer:", 2.95);
-        // valign middle, not top: a one- or two-line question then sits in the optical centre of the
-        // lower half instead of hugging the rule with a dead third of the slide under it.
-        s.addText(lQ, { x: 0.7, y: 3.5, w: lqW, h: 2.7, fontSize: fitFontSize(lQ, lqW, 2.7, 34, 20), bold: true, color: P, valign: "middle", fontFace: FONT, fit: "shrink" });
-        s.addNotes(noteFor("launch"));
-      }
-
-      // ---------------- REFLECT (optional) ----------------
+      // ---------------- REFLECT (optional) — straight after the thinking routine ----------------
+      // Nathan, 2026-07-30: reflection belongs immediately after the thinking, not after a slide
+      // about the rest of the lesson. The old LAUNCH slide used to sit here and read as a puzzle
+      // ("I still don't understand slide 4"), so it is gone as a projected slide: its destination
+      // question and its three ways-to-run-it now ride in the IGNITE and THINK speaker notes, and
+      // its curriculum connection moves to the first "Where to next" slide below. Nothing is lost,
+      // it's just teacher-facing, which is what it always was.
       if (showReflect) {
         const s = newWhite();
         kicker(s, "REFLECT");
@@ -4233,6 +4245,42 @@ function App() {
         });
         s.addNotes(noteFor("reflect"));
       }
+
+      // ---------------- WHERE TO NEXT (teacher-only, up to 3 slides) ----------------
+      // The three lessons that follow this one. hidden = PowerPoint never projects them, so a teacher
+      // can present straight through without students seeing their planning; they still read them in
+      // the slide rail, the notes pane and print/handout views. Not counted in the "n / total" footer,
+      // for the same reason the teacher preface isn't.
+      nextIdeas.forEach((n, i) => {
+        const s = pptx.addSlide();
+        s.hidden = true;
+        s.background = { color: WHITE };
+        s.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: W, h: 0.12, fill: { color: P } });
+        goldCrest(s, 0.95);
+        wordmark(s);
+        kicker(s, "Where to next — teacher only");
+        cap(s, `Idea ${i + 1} of ${nextIdeas.length} · the lesson after this one`, 1.12);
+        const nW = W - 1.4;
+        const nTitle = (n.title || "").trim();
+        const nIdea = (n.idea || "").trim();
+        const nThink = (n.thinking || "").trim();
+        if (nTitle) s.addText(nTitle, { x: 0.7, y: 1.6, w: nW, h: 1.1, fontSize: fitFontSize(nTitle, nW, 1.1, 34, 22), bold: true, color: P, valign: "top", fontFace: FONT, fit: "shrink" });
+        s.addShape(pptx.ShapeType.rect, { x: 0.7, y: 2.85, w: 2.1, h: 0.045, fill: { color: GOLD } });
+        if (nIdea) s.addText(nIdea, { x: 0.7, y: 3.15, w: nW, h: 1.9, fontSize: fitFontSize(nIdea, nW, 1.9, 22, 15), color: INK, valign: "top", lineSpacingMultiple: 1.2, fontFace: FONT });
+        if (nThink) s.addText([
+          { text: "THE THINKING IT GROWS INTO  ", options: { fontSize: 10, bold: true, color: GOLD_INK, charSpacing: 1.2 } },
+          { text: nThink, options: { fontSize: 14, color: INK } },
+        ], { x: 0.7, y: 5.25, w: nW, h: 1.0, valign: "top", lineSpacingMultiple: 1.15, fontFace: FONT, fit: "shrink" });
+        // The curriculum connection was the real payload of the old LAUNCH notes, so it rides on the
+        // first of these slides — the teacher is planning here, which is when they want it.
+        const bits = [`WHERE TO NEXT ${i + 1} of ${nextIdeas.length} — teacher planning, not shown to students.`];
+        if (i === 0) {
+          const conn = ((deck.launch && deck.launch.connection) || "").trim();
+          if (conn) bits.push("Curriculum connection: " + conn);
+          if (focusLines) bits.push(focusLines);
+        }
+        s.addNotes(bits.join("\n\n"));
+      });
 
       // ---------------- Click-to-enlarge targets (hidden, appended last) ----------------
       // One per photo drawn above, in registration order, so the numbers `enlarge()` handed out
@@ -4896,17 +4944,19 @@ function App() {
               </details>
             </div>
 
-            {/* LAUNCH */}
+            {/* TODAY'S TASK — no longer a projected slide; this all rides in the THINK speaker notes
+                (the destination question and the ways to run it) and on the first WHERE TO NEXT slide
+                (the curriculum connection). Kept editable because teachers still read it in class. */}
             <div className="bx-edit" style={{ "--cc": SLIDE_CC.launch }}>
               <div className="bx-edit-head">
-                <span className="k">LAUNCH</span><h4>Into the lesson</h4>
+                <span className="k">TEACHER</span><h4>Today's task</h4><span className="sub">rides in your notes, not on a slide</span>
                 <span className="sp" />{bxRegen("launch")}
               </div>
               <label className="bx-lab" htmlFor="bx-launch-bridge">Bridge from the stimulus</label>
               <textarea id="bx-launch-bridge" className="bx-ta" rows={2} value={spot.launch.bridge} placeholder="From the stimulus to today's lesson…" onChange={e => patchSlide("launch", { bridge: e.target.value })} />
               <label className="bx-lab" htmlFor="bx-launch-q">Lesson launch question</label>
               <textarea id="bx-launch-q" className="bx-ta" rows={2} value={spot.launch.question} placeholder="The question that opens the lesson…" onChange={e => patchSlide("launch", { question: e.target.value })} />
-              <span className="bx-lab">Ways to run it · up to 3, teacher notes only</span>
+              <span className="bx-lab">Ways to run today's task · up to 3, teacher notes only</span>
               {launchIdeas.map((idea, i) => (
                 <div className="bx-listrow" key={i}>
                   <span className="n">{i + 1}</span>
@@ -4957,6 +5007,27 @@ function App() {
                   <textarea className="bx-ta" style={{ marginTop: 8 }} rows={2} aria-label="Metacognition line for the teacher notes" value={spot.reflect.metacognition || ""} disabled={!includeReflect} placeholder="Metacognition — the strategy students used today, and how to get them to notice it" onChange={e => patchSlide("reflect", { metacognition: e.target.value })} />
                 </details>
               </div>
+            </div>
+
+            {/* WHERE TO NEXT — the last slides in the deck, hidden so they're never projected. */}
+            <div className="bx-edit" style={{ "--cc": SLIDE_CC.launch }}>
+              <div className="bx-edit-head">
+                <span className="k">WHERE TO NEXT</span><h4>The 3 lessons after this one</h4><span className="sub">teacher-only slides, hidden from the slideshow</span>
+                <span className="sp" />{bxRegen("next")}
+              </div>
+              {(spot.next || []).map((n, i) => (
+                <div className="bx-desc" key={i} style={{ marginTop: i ? 12 : 4 }}>
+                  <div className="bx-listrow">
+                    <span className="n">{i + 1}</span>
+                    <textarea className="bx-ta" rows={1} aria-label={"Next lesson " + (i + 1) + " title"} value={n.title || ""} placeholder="Short title for the next lesson…" onChange={e => patchNext(i, "title", e.target.value)} />
+                    <button type="button" className="bx-x" title="Remove" aria-label={"Remove next lesson " + (i + 1)} onClick={() => delNext(i)}>×</button>
+                  </div>
+                  <textarea className="bx-ta" style={{ marginTop: 6 }} rows={2} aria-label={"What students do in next lesson " + (i + 1)} value={n.idea || ""} placeholder="What students would actually do…" onChange={e => patchNext(i, "idea", e.target.value)} />
+                  <textarea className="bx-ta" style={{ marginTop: 6 }} rows={1} aria-label={"Thinking move for next lesson " + (i + 1)} value={n.thinking || ""} placeholder="The thinking move it grows into…" onChange={e => patchNext(i, "thinking", e.target.value)} />
+                </div>
+              ))}
+              {(spot.next || []).length < 3 && <button type="button" className="bx-add" onClick={addNext}>+ Add a next-lesson idea</button>}
+              {!(spot.next || []).length && <p className="bx-note">Nothing here yet — rebuild the lesson and Springboard will suggest three follow-up lessons.</p>}
             </div>
 
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap", paddingTop: 20, borderTop: "1px solid var(--line)" }}>
