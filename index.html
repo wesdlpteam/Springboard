@@ -1315,7 +1315,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.34 · 2026-07-30";
+const APP_VERSION = "v0.9.35 · 2026-07-30";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -1774,10 +1774,12 @@ const ROUTINES = [
   // --- Perspective taking and empathy ---
   { steps: ["Brainstorm different perspectives on the topic.","Choose one perspective to explore.","I think... (describe the topic from that viewpoint).","A question I have from this viewpoint is..."], structure: "Individual or group, speak in role", name: "Circle of Viewpoints", url: "https://pz.harvard.edu/resources/circle-of-viewpoints",
     gist: "Brainstorm the different perspectives around a topic, then speak from one of them.",
-    bands: ["senior"], group: "Perspective taking and empathy" },
+    // Nathan, 2026-07-30: works from Year 3 up. The band vocabulary's junior tier is Prep-Y6,
+    // so "Y3 and up" can only be expressed as all three bands.
+    bands: ["younger", "middle", "senior"], group: "Perspective taking and empathy" },
   { steps: ["What can the person or thing perceive?","What might they know or believe?","What might they care about?","Speak or write from their point of view."], structure: "Individual role, share as monologue", name: "Step Inside", url: "https://pz.harvard.edu/resources/step-inside",
     gist: "Step into the perspective of a person or thing and speak from within it.",
-    bands: ["senior"], group: "Perspective taking and empathy" },
+    bands: ["younger", "middle", "senior"], group: "Perspective taking and empathy" }, // Y3 up — see Circle of Viewpoints
   { steps: ["Step In: what might this person feel, believe, or know?","Step Out: what would you need to learn to understand them better?","Step Back: what does this show about your own perspective?"], structure: "Small groups, sticky notes then share", name: "Step In, Step Out, Step Back", url: "https://pz.harvard.edu/resources/step-step-out-step-back",
     gist: "Take another's perspective, note the limits of what you can know, then reflect on your own thinking.",
     bands: ["younger", "middle", "senior"], group: "Perspective taking and empathy" },
@@ -1932,32 +1934,39 @@ const ROUTINE_SOURCE = "Harvard Project Zero Thinking Routines · pz.harvard.edu
 // dropped by movesRoutineList() below, never crash. Order follows the Understanding
 // Map circle.
 //
-// Each list is drawn from the ROUTINES groups whose PURPOSE matches the move, not from
-// the handful of famous routines. An earlier merge took the superset of two source maps
-// and put See-Think-Wonder, Step Inside, Peel the Fruit and the reflection routines in
-// almost every move — so "Describe What's There" was recommending 3-2-1 Bridge and
-// I Used to Think... Now I Think... (both end-of-learning reflections, PZ's
-// "activating, connecting and reflecting" group) while omitting Looking: Ten Times Two,
-// the routine built for exactly that move. Reflection routines belong to Make
-// Connections (bridging prior to new) and to the REFLECT slide's own picker, not to
-// observation or analysis moves.
+// Every one of the 93 routines was read (name, gist and steps) and allocated by the
+// THINKING it demands, not by its catalogue group — a routine can sit under several moves
+// where it genuinely does that thinking (Nathan's call, 2026-07-30). Two earlier faults are
+// fixed here: the lists used to be the superset of two source maps, so the famous routines
+// landed in nearly every move (Step Inside in 7 of 8), and reflection routines were being
+// offered for observation work — "Describe What's There" recommended 3-2-1 Bridge and
+// I Used to Think... Now I Think... while omitting Looking: Ten Times Two.
+//
+// Deliberately in NO move list:
+//   What Makes You Say That? — Nathan: not really a routine, it's a follow-up question.
+//   I Used to Think... Now I Think... / Reflect, Connect, Project — end-of-lesson
+//     reflections; they belong to the REFLECT slide's own picker, which already has them.
+//   Creating Space for Learning — a settling/attention routine, not a thinking move.
+//   Digital Habits Checkup — a personal-habits audit, no stimulus thinking to rank.
+// Routines whose catalogue group misleads: Stop, Look, Listen is filed under observation
+// but its steps are source-and-bias checking, so it sits under Reason with Evidence.
 const MOVES = [
   { name: "Wondering", question: "What are you curious about here?",
-    routines: ["Think, Puzzle, Explore", "See, Think, Wonder", "Creative Questions", "Creative Question Starts", "The 3 Whys", "Imagine If...", "Imagine If... (For Younger Children)", "Chalk Talk", "What Can Be"] },
+    routines: ["Think, Puzzle, Explore", "See, Think, Wonder", "Creative Questions", "Creative Question Starts", "See Wonder Connect x2", "See, Feel, Think, Wonder", "The Explanation Game", "How Else and Why?", "Imagine If...", "Imagine If... (For Younger Children)", "What Can Be", "Options Explosion", "Creative Comparisons", "Portable Surprise", "Chalk Talk"] },
   { name: "Describe What's There", question: "What do you see and notice?",
-    routines: ["See, Think, Wonder", "Looking: Ten Times Two", "Zoom In", "Colors, Shapes, Lines", "The Elaboration Game", "Stop, Look, Listen", "Listening: Ten Times Two", "Thinking with Images", "Parts, Purposes, Complexities"] },
+    routines: ["See, Think, Wonder", "Looking: Ten Times Two", "Listening: Ten Times Two", "Zoom In", "Colors, Shapes, Lines", "The Elaboration Game", "Name, Describe, Act", "Parts, Purposes, Complexities", "Parts, Purposes, Complexities (For Younger Children)", "See, Feel, Think, Wonder", "See, Think, Me, We", "See Wonder Connect x2", "Slow Complexity Capture", "Reporter's Notebook", "Same and Different", "Creative Hunt"] },
   { name: "Build Explanations", question: "What's really going on here?",
-    routines: ["The Explanation Game", "What Makes You Say That?", "See, Think, Wonder", "Generate-Sort-Connect-Elaborate", "Think, Puzzle, Explore", "How Else and Why?", "Parts, People, Interactions", "Claim, Support, Question", "Peel the Fruit"] },
+    routines: ["The Explanation Game", "Claim, Support, Question", "See, Think, Wonder", "Zoom In", "Peel the Fruit", "Parts, People, Interactions", "Layers", "Facts or Fiction", "Beginning, Middle, End", "Thinking with Images", "How Else and Why?"] },
   { name: "Reason with Evidence", question: "Why do you think so?",
-    routines: ["Claim, Support, Question", "What Makes You Say That?", "Tug for Truth", "Tug of War", "Red Light, Yellow Light", "Facts or Fiction", "Reporter's Notebook", "Take a Stand", "Sticking Points", "True for Who?"] },
+    routines: ["Claim, Support, Question", "Tug for Truth", "Tug of War", "True for Who?", "Facts or Fiction", "Red Light, Yellow Light", "Reporter's Notebook", "Take a Stand", "Sticking Points", "Hotspots", "Stop, Look, Listen", "Does It Fit?", "Options Diamond", "Compass Points", "The 4 Cs"] },
   { name: "Make Connections", question: "How does this fit?",
-    routines: ["Connect, Extend, Challenge", "3-2-1 Bridge", "Generate-Sort-Connect-Elaborate", "The 4 Cs", "Same, Different, Connect, Engage", "Compass Points", "Here Now / There Then", "Projecting Across Time", "Think, Pair, Share"] },
+    routines: ["Connect, Extend, Challenge", "3-2-1 Bridge", "Generate-Sort-Connect-Elaborate", "The 4 Cs", "Same, Different, Connect, Engage", "Here Now / There Then", "Projecting Across Time", "Projecting Across Distance", "The 3 Whys", "Circles of Action", "Outside In", "Creative Comparisons", "Portable Surprise", "Think, Puzzle, Explore", "Pass the Parcel", "Think, Pair, Share", "Walk the Week"] },
   { name: "Consider Different Viewpoints", question: "What's another angle on this?",
-    routines: ["Circle of Viewpoints", "Step Inside", "Step In, Step Out, Step Back", "Think, Feel, Care", "Think, Feel, Care (For Younger Children)", "Same, Different, Connect, Engage", "My Perspective, Other Perspectives (For Exploring Complexity)", "Parts, Perspectives, Me", "Seek to See"] },
+    routines: ["Circle of Viewpoints", "Step Inside", "Step In, Step Out, Step Back", "Think, Feel, Care", "Think, Feel, Care (For Younger Children)", "Same, Different, Connect, Engage", "My Perspective, Other Perspectives (For Exploring Complexity)", "Parts, Perspectives, Me", "Parts, Perspectives, Me (For Exploring Complexity)", "Seek to See", "Who Am I?", "True for Who?", "Lenses", "Unveiling Stories", "MicroLab", "Feelings and Options"] },
   { name: "Capture the Heart & Form Conclusions", question: "What's at the centre of this?",
-    routines: ["Headlines", "Color, Symbol, Image", "Word-Phrase-Sentence", "The 4 Cs", "Take Note", "+1 Routine", "Beginning, Middle, End", "Stories", "Values, Identities, Actions"] },
+    routines: ["Headlines", "Color, Symbol, Image", "Word-Phrase-Sentence", "Take Note", "+1 Routine", "The 4 Cs", "Generate-Sort-Connect-Elaborate", "Beauty and Truth", "Values, Identities, Actions", "Stories", "Beginning, Middle, End", "Does It Fit?", "Take a Stand", "See, Think, Make, Discuss", "Circles of Action"] },
   { name: "Uncovering Complexity", question: "What lies beneath the surface?",
-    routines: ["Ways Things Can Be Complex", "The Complexity Scale", "Layers", "Lenses", "Outside In", "Slow Complexity Capture", "Hotspots", "Parts, Purposes, Complexities (For Exploring Complexity)", "Parts, Purposes, Complexities (For Younger Children)", "Peel the Fruit"] },
+    routines: ["Ways Things Can Be Complex", "The Complexity Scale", "Slow Complexity Capture", "Layers", "Lenses", "Hotspots", "Sticking Points", "Peel the Fruit", "Parts, Purposes, Complexities (For Exploring Complexity)", "Parts, Purposes, Complexities (For Younger Children)", "Parts, People, Interactions", "Parts, People, Interactions (For Exploring Complexity)", "Parts, People, Interactions (For Younger Children)", "Parts, Perspectives, Me (For Exploring Complexity)", "Tug of War", "Options Diamond", "Unveiling Stories", "Stories"] },
 ];
 // Resolve a move's routine names to ROUTINES objects for a band, dropping unmatched
 // names. Keeps the band filter (Nathan's choice) but tops the list back up from the
