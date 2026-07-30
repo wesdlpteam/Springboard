@@ -1315,7 +1315,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.36 · 2026-07-30";
+const APP_VERSION = "v0.9.37 · 2026-07-30";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2316,6 +2316,9 @@ function shapeDeck(parsed, { routineName }) {
   const ig = obj(p.ignite), th = obj(p.think), la = obj(p.launch), re = obj(p.reflect), no = obj(p.notes), ad = obj(p.advisory);
   return {
     title: str(p.title),
+    // The teacher's own words when they typed one, otherwise the model's. Whitelisted here or it
+    // would be dropped before the slide and the editor ever saw it.
+    intention: str(p.intention),
     keywords: arr(p.keywords, 6),
     ignite:  { question: str(ig.question) },
     // summary = the 5 sentences students read beside the routine on THINK (article stimulus only;
@@ -2394,7 +2397,7 @@ const REFLECT_ROUTINES = [
 
 /* --------------------------- Backend call --------------------------- */
 
-async function generateSpringboard({ passcode, mode, media = [], sourceText = "", classInfo, routineName, reflectRoutine = "", scope = "all", current = null }) {
+async function generateSpringboard({ passcode, mode, media = [], sourceText = "", classInfo, routineName, reflectRoutine = "", intention = "", scope = "all", current = null }) {
   const routine = ROUTINES.find(r => r.name === routineName) || ROUTINES[0];
   // Article stimulus (PDF / pasted text / fetched link) rather than a reel of images+video.
   // Only an article gets think.summary — the 5 sentences students read on the THINK slide.
@@ -2420,7 +2423,7 @@ FACILITATION: … TIMING: … ENABLING PROMPT: … EXTENDING PROMPT: … CURRICU
 ENABLING PROMPT = how to simplify the task so a student who is stuck can still take part (a sentence stem, a smaller step, a concrete support).
 EXTENDING PROMPT = how to push a student who finds it easy further into the same thinking (not extra work — deeper work).
 Set advisory.flag true only for sensitive themes (grief, violence, body image, etc.) with a one-line reason.
-Return STRICT JSON with keys: title, keywords, ignite{question}, think{routine, steps, structure, summary}, launch{connection, bridge, question, ideas}, reflect{revisit, prompts, metacognition}, notes{ignite, think, launch, reflect}, advisory{flag, reason}.`;
+Return STRICT JSON with keys: title, intention, keywords, ignite{question}, think{routine, steps, structure, summary}, launch{connection, bridge, question, ideas}, reflect{revisit, prompts, metacognition}, notes{ignite, think, launch, reflect}, advisory{flag, reason}.`;
 
   // Single-slide regenerate: rebuild only the scoped slide + its notes, copying the rest verbatim.
   if (scope !== "all") {
@@ -2441,6 +2444,12 @@ Return JSON with ONLY these two keys: "${scope}" (a genuinely different version 
   // Field word-limits, kept beside the schema keys so the model honours them.
   const limits = [
     `title: <=8 words.`,
+    // The teacher either brings the intention or asks the app for one. When they bring it, the whole
+    // deck has to serve THAT intention (and it must come back word-for-word so the slide shows what
+    // they wrote); when they don't, write one and let every part line up behind it.
+    intention.trim()
+      ? `intention: return the teacher's learning intention EXACTLY as written, unchanged: "${intention.trim()}". Every other field must serve this intention — the ignite question, the routine steps, the launch question and the reflection all work toward it.`
+      : `intention: the lesson's learning intention, student-facing, <=18 words, starting "We are learning to". Name BOTH the thinking move and the content (e.g. "We are learning to describe what we can actually see before we explain what it means"). It must match what the rest of this deck actually asks students to do.`,
     `keywords: 3-6 short search terms a teacher might type to find this lesson later.`,
     `ignite.question: ONE provocative question.`,
     `think.routine MUST be exactly "${routine.name}". This routine's real moves are: ${(routine.steps || []).map((s, i) => `${i + 1}) ${s}`).join(" ")}. think.steps: take THOSE actual moves and lightly tailor the wording to THIS stimulus — keep the routine's real moves and their order, do NOT invent different ones; <=4 short student-facing prompts. think.structure: "${routine.structure || "Think-pair-share, 3 min"}".`,
@@ -3111,6 +3120,8 @@ function App() {
   const [selectedMove, setSelectedMove] = useState("");       // "" until the teacher picks a Thinking Move (the new first step); else a MOVES name
   const selectedMoveObj = MOVES.find(m => m.name === selectedMove) || null;
   const [reflectRoutine, setReflectRoutine] = useState("");   // "" = let the model vary the end-of-lesson reflection routine; else a pinned REFLECT_ROUTINES name
+  const [intention, setIntention] = useState("");             // teacher's learning intention; "" = the app writes one
+  const [intentionAuto, setIntentionAuto] = useState(false);  // true after "Let AI decide", purely so the UI can say so
 
   // Outcome source: teacher pastes from their planner, or AI suggests curriculum connections.
   const [outcomeMode, setOutcomeMode] = useState("paste");    // "paste" | "ai"
@@ -3673,7 +3684,7 @@ function App() {
       const genBand = BAND_KEY_OF[bandOf(classInfo.yearLevel)];
       const { parsed, raw } = await generateSpringboard({
         passcode: passcode.trim(), mode, media, sourceText,
-        classInfo, routineName: selectedRoutine, reflectRoutine, scope: "all",
+        classInfo, routineName: selectedRoutine, reflectRoutine, intention, scope: "all",
       });
       const deck = shapeDeck(parsed, { routineName: selectedRoutine });
       deck.curriculumFocus = Array.isArray(classInfo.focus) ? classInfo.focus.slice() : [];
@@ -3713,6 +3724,8 @@ function App() {
       const { parsed } = await generateSpringboard({
         passcode: passcode.trim(), mode, media, sourceText,
         classInfo, routineName: spot.think.routine || selectedRoutine, reflectRoutine: rr,
+        // A regenerated slide must keep serving the intention the deck already carries, whoever wrote it.
+        intention: (spot.intention || intention || "").trim(),
         scope, current: spot,
       });
       setSpot(s => mergeScopedFields(s, scope, parsed));
@@ -3797,6 +3810,8 @@ function App() {
       const steps = (Array.isArray(deck.think && deck.think.steps) ? deck.think.steps : []).map(s => String(s).trim()).filter(Boolean).slice(0, 4);
       const prompts = (Array.isArray(deck.reflect && deck.reflect.prompts) ? deck.reflect.prompts : []).map(s => String(s).trim()).filter(Boolean).slice(0, 4);
       const igniteQ = ((deck.ignite && deck.ignite.question) || "").trim();
+      // Learning intention: whatever the teacher typed, else the one the model wrote for this lesson.
+      const lessonIntent = (deck.intention || "").trim();
       const curriculum = (classInfo.curriculum || "").trim();
       const subject = (classInfo.subject || "").trim();
       const yearLevel = (classInfo.yearLevel || "").trim();
@@ -3917,6 +3932,8 @@ function App() {
         // pattern silently left it in place, so the deck printed the curriculum point twice.
         if (key === "launch") body = body.replace(/(^|\n)\s*CURRICULUM LINKS:[^\n]*/i, "").trim();
         let out = NOTE_HEAD[key] + (body ? "\n\n" + body : "");
+        // Presenter View should open on the intention: it's what the teacher says out loud first.
+        if (key === "ignite" && lessonIntent) out = NOTE_HEAD[key] + "\n\nLEARNING INTENTION: " + lessonIntent + (body ? "\n\n" + body : "");
         if (key === "ignite" && kw.length) out += "\n\nKeywords: " + kw.join(", ");
         // Curriculum connection is teacher-only — it rides in the LAUNCH speaker notes, never the projected slide.
         if (key === "launch") {
@@ -4089,13 +4106,23 @@ function App() {
             ...(metaLine ? [{ text: metaLine, options: { fontSize: 12.5, color: SUB, charSpacing: 0.5, paraSpaceBefore: 16 } }] : []),
           ], { x: 0.7, y: 1.0, w: colW, h: 2.45, valign: "top", fontFace: FONT });
           s.addShape(pptx.ShapeType.rect, { x: 0.7, y: 3.62, w: 2.2, h: 0.05, fill: { color: GOLD } });
-          s.addText(igniteQ, { x: 0.7, y: 3.85, w: colW, h: 2.85, fontSize: 26, bold: true, color: GOLD, valign: "top", fontFace: FONT, fit: "shrink" });
+          s.addText(igniteQ, { x: 0.7, y: 3.85, w: colW, h: 2.55, fontSize: 26, bold: true, color: GOLD, valign: "top", fontFace: FONT, fit: "shrink" });
+          // Learning intention rides under the question, small: it frames the lesson without competing
+          // with the provocation for attention.
+          if (lessonIntent) s.addText([
+            { text: "WE ARE LEARNING TO  ", options: { fontSize: 9.5, bold: true, color: SUB, charSpacing: 0.8 } },
+            { text: lessonIntent.replace(/^we are learning to\s*/i, ""), options: { fontSize: 12, color: WHITE } },
+          ], { x: 0.7, y: 6.5, w: colW, h: 0.75, valign: "top", lineSpacingMultiple: 1.1, fontFace: FONT, fit: "shrink" });
         } else {
           // No stimulus: title up top, the provocative question owns the whole stage.
           s.addText(tCase(title), { x: 0.7, y: 1.0, w: W - 2.5, h: 1.4, fontSize: 44, bold: true, color: WHITE, valign: "top", fontFace: FONT, charSpacing: -0.5, fit: "shrink" });
           if (metaLine) s.addText(metaLine, { x: 0.7, y: 2.5, w: W - 1.4, h: 0.4, fontSize: 12.5, color: SUB, charSpacing: 0.5, fontFace: FONT });
           s.addShape(pptx.ShapeType.rect, { x: 0.7, y: 3.35, w: 2.4, h: 0.05, fill: { color: GOLD } });
-          s.addText(igniteQ, { x: 0.7, y: 3.55, w: W - 1.4, h: 2.6, fontSize: 40, bold: true, color: GOLD, valign: "middle", fontFace: FONT, fit: "shrink" });
+          s.addText(igniteQ, { x: 0.7, y: 3.55, w: W - 1.4, h: 2.4, fontSize: 40, bold: true, color: GOLD, valign: "middle", fontFace: FONT, fit: "shrink" });
+          if (lessonIntent) s.addText([
+            { text: "WE ARE LEARNING TO  ", options: { fontSize: 10, bold: true, color: SUB, charSpacing: 0.8 } },
+            { text: lessonIntent.replace(/^we are learning to\s*/i, ""), options: { fontSize: 13, color: WHITE } },
+          ], { x: 0.7, y: 6.2, w: W - 1.4, h: 0.8, valign: "top", lineSpacingMultiple: 1.1, fontFace: FONT, fit: "shrink" });
         }
         pageNo(s, true);
         s.addNotes(noteFor("ignite"));
@@ -4734,6 +4761,21 @@ function App() {
             </details>
           )}
           <div className="bx-field"><label>Learning focus (optional)</label><input className="bx-input" value={classInfo.outcome} onChange={e => saveClassInfo({ ...classInfo, outcome: e.target.value })} placeholder="e.g. how structure shapes meaning" /></div>
+          {/* Learning intention: the teacher's own "we are learning to…", or the app writes one.
+              Typed text always wins — the whole deck is then built to serve it. */}
+          <div className="bx-field">
+            <label htmlFor="bx-intention">Learning intention</label>
+            <textarea id="bx-intention" className="bx-input" rows={2} value={intention}
+              placeholder={intentionAuto ? "Springboard will write one to match this lesson" : "We are learning to…"}
+              onChange={e => { setIntention(e.target.value); if (e.target.value.trim()) setIntentionAuto(false); }} />
+            <div className="bx-linkrow" style={{ marginTop: 6 }}>
+              <button type="button" className="bx-btn ghost" onClick={() => { setIntention(""); setIntentionAuto(true); }}>Let AI decide</button>
+              <small className="bx-note" style={{ margin: 0, alignSelf: "center" }}>
+                {intention.trim() ? "Your wording is used word-for-word, and the lesson is built around it."
+                  : "Left blank, Springboard writes one to match the lesson. You can edit it afterwards."}
+              </small>
+            </div>
+          </div>
         </div>
         {/* thinking */}
         <div className="bx-panel">
@@ -4794,6 +4836,10 @@ function App() {
             <div className="bx-edit">
               <label className="bx-lab" htmlFor="bx-title" style={{ marginTop: 0 }}>Lesson title</label>
               <textarea id="bx-title" className="bx-ta big" rows={1} value={spot.title} placeholder="A short, catchy title…" onChange={e => patch({ title: e.target.value })} />
+              {/* The intention prints small on the IGNITE slide and opens the teacher notes, so it's
+                  editable here whether the teacher wrote it or the app did. */}
+              <label className="bx-lab" htmlFor="bx-intention-edit" style={{ marginTop: 10 }}>Learning intention</label>
+              <textarea id="bx-intention-edit" className="bx-ta" rows={2} value={spot.intention || ""} placeholder="We are learning to…" onChange={e => patch({ intention: e.target.value })} />
               {spot.advisory && spot.advisory.flag && (
                 <div className="bx-advisory">
                   <div className="w">⚠ CONTENT ADVISORY</div>
@@ -5464,6 +5510,7 @@ function App() {
                 <div className="slide"><div className="bar" style={barStyle}></div><div className="body">
                   <div className="slide-head"><div className="slide-tag"><span className="n">★</span> <h2 style={{ font: "inherit", margin: 0, display: "inline" }}>Springboard title</h2> <span className="aside">· ≤8 words · band &amp; topic shown here</span></div></div>
                   <textarea className="editable titlebig" rows={1} aria-label="Springboard title" value={spot.title} placeholder="A short, catchy title…" onChange={e => patch({ title: e.target.value })} />
+                  <textarea className="editable" rows={2} aria-label="Learning intention" value={spot.intention || ""} placeholder="We are learning to…" onChange={e => patch({ intention: e.target.value })} />
                   <div className="meta-chips">
                     <span className={"chip band-" + band.toLowerCase()}>{bandLabel}{year ? " · " + year : ""}</span>
                     {theme && <span className="chip gold">{theme}</span>}
