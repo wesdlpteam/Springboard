@@ -1315,7 +1315,7 @@ const BAND_ORDER = ["PYP","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.35 · 2026-07-30";
+const APP_VERSION = "v0.9.36 · 2026-07-30";
 
 // Maps a class's year level to a teaching band (Prep-Y6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -1948,6 +1948,8 @@ const ROUTINE_SOURCE = "Harvard Project Zero Thinking Routines · pz.harvard.edu
 //     reflections; they belong to the REFLECT slide's own picker, which already has them.
 //   Creating Space for Learning — a settling/attention routine, not a thinking move.
 //   Digital Habits Checkup — a personal-habits audit, no stimulus thinking to rank.
+//   Think, Pair, Share / MicroLab — ways of organising talk, not thinking moves
+//     (Nathan, 2026-07-30, same grounds as What Makes You Say That?).
 // Routines whose catalogue group misleads: Stop, Look, Listen is filed under observation
 // but its steps are source-and-bias checking, so it sits under Reason with Evidence.
 const MOVES = [
@@ -1960,9 +1962,9 @@ const MOVES = [
   { name: "Reason with Evidence", question: "Why do you think so?",
     routines: ["Claim, Support, Question", "Tug for Truth", "Tug of War", "True for Who?", "Facts or Fiction", "Red Light, Yellow Light", "Reporter's Notebook", "Take a Stand", "Sticking Points", "Hotspots", "Stop, Look, Listen", "Does It Fit?", "Options Diamond", "Compass Points", "The 4 Cs"] },
   { name: "Make Connections", question: "How does this fit?",
-    routines: ["Connect, Extend, Challenge", "3-2-1 Bridge", "Generate-Sort-Connect-Elaborate", "The 4 Cs", "Same, Different, Connect, Engage", "Here Now / There Then", "Projecting Across Time", "Projecting Across Distance", "The 3 Whys", "Circles of Action", "Outside In", "Creative Comparisons", "Portable Surprise", "Think, Puzzle, Explore", "Pass the Parcel", "Think, Pair, Share", "Walk the Week"] },
+    routines: ["Connect, Extend, Challenge", "3-2-1 Bridge", "Generate-Sort-Connect-Elaborate", "The 4 Cs", "Same, Different, Connect, Engage", "Here Now / There Then", "Projecting Across Time", "Projecting Across Distance", "The 3 Whys", "Circles of Action", "Outside In", "Creative Comparisons", "Portable Surprise", "Think, Puzzle, Explore", "Pass the Parcel", "Walk the Week"] },
   { name: "Consider Different Viewpoints", question: "What's another angle on this?",
-    routines: ["Circle of Viewpoints", "Step Inside", "Step In, Step Out, Step Back", "Think, Feel, Care", "Think, Feel, Care (For Younger Children)", "Same, Different, Connect, Engage", "My Perspective, Other Perspectives (For Exploring Complexity)", "Parts, Perspectives, Me", "Parts, Perspectives, Me (For Exploring Complexity)", "Seek to See", "Who Am I?", "True for Who?", "Lenses", "Unveiling Stories", "MicroLab", "Feelings and Options"] },
+    routines: ["Circle of Viewpoints", "Step Inside", "Step In, Step Out, Step Back", "Think, Feel, Care", "Think, Feel, Care (For Younger Children)", "Same, Different, Connect, Engage", "My Perspective, Other Perspectives (For Exploring Complexity)", "Parts, Perspectives, Me", "Parts, Perspectives, Me (For Exploring Complexity)", "Seek to See", "Who Am I?", "True for Who?", "Lenses", "Unveiling Stories", "Feelings and Options"] },
   { name: "Capture the Heart & Form Conclusions", question: "What's at the centre of this?",
     routines: ["Headlines", "Color, Symbol, Image", "Word-Phrase-Sentence", "Take Note", "+1 Routine", "The 4 Cs", "Generate-Sort-Connect-Elaborate", "Beauty and Truth", "Values, Identities, Actions", "Stories", "Beginning, Middle, End", "Does It Fit?", "Take a Stand", "See, Think, Make, Discuss", "Circles of Action"] },
   { name: "Uncovering Complexity", question: "What lies beneath the surface?",
@@ -2413,8 +2415,10 @@ async function generateSpringboard({ passcode, mode, media = [], sourceText = ""
 Audience tone: ${tone}. Slides carry MINIMAL text — every field respects its word limit.
 Thinking routine to scaffold the THINK part: "${routine.name}" — ${routine.gist} (${routine.url}).
 ${outcomeLine}
-Each notes field is a teacher script with EXACTLY these labelled sections, each 1-3 sentences:
-FACILITATION: … TIMING: … DIFFERENTIATION: … CURRICULUM LINKS: … EXTENSIONS: …
+Each notes field is a teacher script with EXACTLY these labelled sections, IN THIS ORDER, each 1-3 sentences:
+FACILITATION: … TIMING: … ENABLING PROMPT: … EXTENDING PROMPT: … CURRICULUM LINKS: …
+ENABLING PROMPT = how to simplify the task so a student who is stuck can still take part (a sentence stem, a smaller step, a concrete support).
+EXTENDING PROMPT = how to push a student who finds it easy further into the same thinking (not extra work — deeper work).
 Set advisory.flag true only for sensitive themes (grief, violence, body image, etc.) with a one-line reason.
 Return STRICT JSON with keys: title, keywords, ignite{question}, think{routine, steps, structure, summary}, launch{connection, bridge, question, ideas}, reflect{revisit, prompts, metacognition}, notes{ignite, think, launch, reflect}, advisory{flag, reason}.`;
 
@@ -3891,7 +3895,21 @@ function App() {
         let body = ((deck.notes && deck.notes[key]) || "").trim();
         // The model returns the five labelled sections run together on one line. Break each onto its
         // own line so the exported speaker-notes pane is readable (FACILITATION stays first).
-        body = body.replace(/\s+(TIMING|DIFFERENTIATION|CURRICULUM LINKS|EXTENSIONS):/g, "\n$1:");
+        // Old label names stay in the pattern so a deck saved before v0.9.36 still formats, and are
+        // renamed below: differentiation means enabling OR extending, so the two prompts say which.
+        // FACILITATION is in the pattern too: the model sometimes leads a note with CURRICULUM LINKS,
+        // and if FACILITATION never got its own line, deleting or moving the curriculum line took the
+        // facilitation script with it (caught by test-notes.mjs before this shipped).
+        body = body.replace(/\s+(FACILITATION|TIMING|ENABLING PROMPT|EXTENDING PROMPT|DIFFERENTIATION|CURRICULUM LINKS|EXTENSIONS):/g, "\n$1:");
+        body = body.replace(/(^|\n)\s*DIFFERENTIATION:/gi, "$1ENABLING PROMPT:").replace(/(^|\n)\s*EXTENSIONS?:/gi, "$1EXTENDING PROMPT:");
+        // Curriculum sits between the two prompts in the model's output often enough to be worth
+        // forcing: the teacher wants enabling and extending side by side, curriculum after them.
+        const curr = /(^|\n)(CURRICULUM LINKS:[^\n]*)/i.exec(body);
+        const ext = /(^|\n)(EXTENDING PROMPT:[^\n]*)/i.exec(body);
+        if (curr && ext && curr.index < ext.index) {
+          body = (body.slice(0, curr.index) + body.slice(curr.index + curr[0].length)).replace(/\n{3,}/g, "\n\n").trim();
+          body = body.replace(/(EXTENDING PROMPT:[^\n]*)/i, "$1\n" + curr[2]);
+        }
         // On LAUNCH the study-design-aligned "Curriculum connection" appended below says the same thing
         // as the generic CURRICULUM LINKS line, so drop that line to remove the double-up (the
         // connection is the richer one — it carries the real study-design / AC codes).
@@ -4206,7 +4224,11 @@ function App() {
         s.addText(" ", { x: 0, y: 0, w: W, h: H, fill: { color: "000000" }, hyperlink: { ...back } });
         const box = contain(0.2, 0.2, W - 0.4, H - 0.8, z.aspect);
         s.addImage({ data: z.data, x: box.x, y: box.y, w: box.w, h: box.h, hyperlink: { ...back } });
-        s.addText("Click anywhere to go back", { x: 0.2, y: H - 0.52, w: W - 0.4, h: 0.32, fontSize: 10, color: "8C8C8C", align: "center", fontFace: FONT });
+        // The caption MUST carry the link too. It sits on top of the full-slide backdrop, so without
+        // its own hyperlink the one strip that says "click here" was the only dead zone on the slide:
+        // a click there advanced instead, and since the zoom slides are last, the show ended and
+        // PowerPoint dropped the teacher back on slide 1. Reported by Nathan 2026-07-30.
+        s.addText("Click anywhere to go back", { x: 0.2, y: H - 0.52, w: W - 0.4, h: 0.32, fontSize: 10, color: "8C8C8C", align: "center", fontFace: FONT, hyperlink: { ...back } });
       });
 
       // Core + custom document properties (surface in File ▸ Info and search).
@@ -4794,7 +4816,7 @@ function App() {
               <textarea id="bx-ignite-q" className="bx-ta" rows={2} value={spot.ignite.question} placeholder="One provocative question…" onChange={e => patchSlide("ignite", { question: e.target.value })} />
               <details>
                 <summary>Teacher notes · not shown to students</summary>
-                <textarea className="bx-ta" style={{ marginTop: 8 }} rows={6} aria-label="Ignite teacher notes" value={spot.notes.ignite} placeholder="FACILITATION: … TIMING: … DIFFERENTIATION: … CURRICULUM LINKS: … EXTENSIONS: …" onChange={e => patchNote("ignite", e.target.value)} />
+                <textarea className="bx-ta" style={{ marginTop: 8 }} rows={6} aria-label="Ignite teacher notes" value={spot.notes.ignite} placeholder="FACILITATION: … TIMING: … ENABLING PROMPT: … EXTENDING PROMPT: … CURRICULUM LINKS: …" onChange={e => patchNote("ignite", e.target.value)} />
               </details>
             </div>
 
@@ -4824,7 +4846,7 @@ function App() {
               {spot.think.steps.length < 4 && <button type="button" className="bx-add" onClick={() => addArr("think", "steps")}>+ Add prompt</button>}
               <details>
                 <summary>Teacher notes · not shown to students</summary>
-                <textarea className="bx-ta" style={{ marginTop: 8 }} rows={6} aria-label="Think teacher notes" value={spot.notes.think} placeholder="FACILITATION: … TIMING: … DIFFERENTIATION: … CURRICULUM LINKS: … EXTENSIONS: …" onChange={e => patchNote("think", e.target.value)} />
+                <textarea className="bx-ta" style={{ marginTop: 8 }} rows={6} aria-label="Think teacher notes" value={spot.notes.think} placeholder="FACILITATION: … TIMING: … ENABLING PROMPT: … EXTENDING PROMPT: … CURRICULUM LINKS: …" onChange={e => patchNote("think", e.target.value)} />
               </details>
             </div>
 
@@ -4852,7 +4874,7 @@ function App() {
                 <label className="bx-lab" htmlFor="bx-launch-conn">Curriculum connection</label>
                 <textarea id="bx-launch-conn" className="bx-ta" rows={2} value={spot.launch.connection} placeholder="How this links to your outcome…" onChange={e => patchSlide("launch", { connection: e.target.value })} />
                 <label className="bx-lab" htmlFor="bx-launch-notes">Notes</label>
-                <textarea id="bx-launch-notes" className="bx-ta" rows={6} value={spot.notes.launch} placeholder="FACILITATION: … TIMING: … DIFFERENTIATION: … EXTENSIONS: …" onChange={e => patchNote("launch", e.target.value)} />
+                <textarea id="bx-launch-notes" className="bx-ta" rows={6} value={spot.notes.launch} placeholder="FACILITATION: … TIMING: … ENABLING PROMPT: … EXTENDING PROMPT: …" onChange={e => patchNote("launch", e.target.value)} />
               </details>
             </div>
 
@@ -4885,7 +4907,7 @@ function App() {
                 {includeReflect && spot.reflect.prompts.length < 4 && <button type="button" className="bx-add" onClick={() => addArr("reflect", "prompts")}>+ Add prompt</button>}
                 <details>
                   <summary>Teacher notes · not shown to students</summary>
-                  <textarea className="bx-ta" style={{ marginTop: 8 }} rows={6} aria-label="Reflect teacher notes" value={spot.notes.reflect} disabled={!includeReflect} placeholder="FACILITATION: … TIMING: … DIFFERENTIATION: … CURRICULUM LINKS: … EXTENSIONS: …" onChange={e => patchNote("reflect", e.target.value)} />
+                  <textarea className="bx-ta" style={{ marginTop: 8 }} rows={6} aria-label="Reflect teacher notes" value={spot.notes.reflect} disabled={!includeReflect} placeholder="FACILITATION: … TIMING: … ENABLING PROMPT: … EXTENDING PROMPT: … CURRICULUM LINKS: …" onChange={e => patchNote("reflect", e.target.value)} />
                   <textarea className="bx-ta" style={{ marginTop: 8 }} rows={2} aria-label="Metacognition line for the teacher notes" value={spot.reflect.metacognition || ""} disabled={!includeReflect} placeholder="Metacognition — the strategy students used today, and how to get them to notice it" onChange={e => patchSlide("reflect", { metacognition: e.target.value })} />
                 </details>
               </div>
@@ -5480,7 +5502,7 @@ function App() {
                   )}
                   <details className="notes-details">
                     <summary>Teacher notes</summary>
-                    <textarea className="editable" rows={5} aria-label="Ignite teacher notes" value={spot.notes.ignite} placeholder="FACILITATION: … TIMING: … DIFFERENTIATION: … CURRICULUM LINKS: … EXTENSIONS: …" onChange={e => patchNote("ignite", e.target.value)} />
+                    <textarea className="editable" rows={5} aria-label="Ignite teacher notes" value={spot.notes.ignite} placeholder="FACILITATION: … TIMING: … ENABLING PROMPT: … EXTENDING PROMPT: … CURRICULUM LINKS: …" onChange={e => patchNote("ignite", e.target.value)} />
                   </details>
                 </div></div>
 
@@ -5511,7 +5533,7 @@ function App() {
                   {spot.think.steps.length < 4 && <button type="button" className="addbtn" onClick={() => addArr("think", "steps")}>+ Add prompt</button>}
                   <details className="notes-details">
                     <summary>Teacher notes</summary>
-                    <textarea className="editable" rows={5} aria-label="Think teacher notes" value={spot.notes.think} placeholder="FACILITATION: … TIMING: … DIFFERENTIATION: … CURRICULUM LINKS: … EXTENSIONS: …" onChange={e => patchNote("think", e.target.value)} />
+                    <textarea className="editable" rows={5} aria-label="Think teacher notes" value={spot.notes.think} placeholder="FACILITATION: … TIMING: … ENABLING PROMPT: … EXTENDING PROMPT: … CURRICULUM LINKS: …" onChange={e => patchNote("think", e.target.value)} />
                   </details>
                 </div></div>
 
@@ -5527,7 +5549,7 @@ function App() {
                     <div className="cap">Curriculum connection</div>
                     <textarea className="editable" rows={2} aria-label="Curriculum connection" value={spot.launch.connection} placeholder="How this links to your outcome…" onChange={e => patchSlide("launch", { connection: e.target.value })} />
                     <div className="cap" style={{ marginTop: 10 }}>Notes</div>
-                    <textarea className="editable" rows={5} aria-label="Launch teacher notes" value={spot.notes.launch} placeholder="FACILITATION: … TIMING: … DIFFERENTIATION: … CURRICULUM LINKS: … EXTENSIONS: …" onChange={e => patchNote("launch", e.target.value)} />
+                    <textarea className="editable" rows={5} aria-label="Launch teacher notes" value={spot.notes.launch} placeholder="FACILITATION: … TIMING: … ENABLING PROMPT: … EXTENDING PROMPT: … CURRICULUM LINKS: …" onChange={e => patchNote("launch", e.target.value)} />
                   </details>
                 </div></div>
 
@@ -5565,7 +5587,7 @@ function App() {
                     {includeReflect && spot.reflect.prompts.length < 4 && <button type="button" className="addbtn" onClick={() => addArr("reflect", "prompts")}>+ Add prompt</button>}
                     <details className="notes-details">
                       <summary>Teacher notes</summary>
-                      <textarea className="editable" rows={5} aria-label="Reflect teacher notes" value={spot.notes.reflect} placeholder="FACILITATION: … TIMING: … DIFFERENTIATION: … CURRICULUM LINKS: … EXTENSIONS: …" onChange={e => patchNote("reflect", e.target.value)} disabled={!includeReflect} />
+                      <textarea className="editable" rows={5} aria-label="Reflect teacher notes" value={spot.notes.reflect} placeholder="FACILITATION: … TIMING: … ENABLING PROMPT: … EXTENDING PROMPT: … CURRICULUM LINKS: …" onChange={e => patchNote("reflect", e.target.value)} disabled={!includeReflect} />
                       <textarea className="editable" style={{ marginTop: 8 }} rows={2} aria-label="Metacognition line for the teacher notes" value={spot.reflect.metacognition || ""} placeholder="Metacognition — the strategy students used today, and how to get them to notice it" onChange={e => patchSlide("reflect", { metacognition: e.target.value })} disabled={!includeReflect} />
                     </details>
                   </div>
