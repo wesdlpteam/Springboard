@@ -5,7 +5,11 @@
   "type": "module",
   "scripts": {
     "test": "node --test test/**/*.test.js",
-    "check:ui": "node tools/compile-check.mjs"
+    "check:ui": "node tools/compile-check.mjs",
+    "audit": "node tools/audit-static.cjs && node tools/audit-deck.mjs && node tools/audit-ui.mjs",
+    "audit:static": "node tools/audit-static.cjs",
+    "audit:deck": "node tools/audit-deck.mjs",
+    "audit:ui": "node tools/audit-ui.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "0.10.4"

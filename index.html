@@ -689,7 +689,9 @@
   .bx-mast .bx-word:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; border-radius: 3px; }
   .bx-mast .bx-word i { font-style: italic; font-weight: 400; }
   .bx-mast .bx-nav { display: flex; align-items: baseline; gap: 22px; font-size: 12.5px; letter-spacing: .01em; }
-  .bx-mast .bx-nav a, .bx-mast .bx-nav button { color: var(--muted); text-decoration: none; border: 0; background: none; cursor: pointer; font: inherit; padding: 0; transition: color .2s; }
+  /* padding, not size: WCAG 2.2 target size wants 24px of hittable area, and a 19px nav link is
+     also a small target for a teacher on a touchscreen. The text stays the same size. */
+  .bx-mast .bx-nav a, .bx-mast .bx-nav button { color: var(--muted); text-decoration: none; border: 0; background: none; cursor: pointer; font: inherit; padding: 4px 2px; transition: color .2s; display: inline-flex; align-items: center; min-height: 24px; }
   .bx-mast .bx-nav a:hover, .bx-mast .bx-nav button:hover { color: var(--ink); }
   .bx-mast .bx-nav .on { color: var(--ink); }
   .bx-tog { border: 1px solid var(--line-strong); border-radius: 999px; padding: 5px 12px; }
@@ -770,9 +772,14 @@
   .bx-tool { padding: clamp(92px,11vh,124px) clamp(20px,4vw,52px) 120px; position: relative; z-index: 2; }
   .bx-tool-head, #bx-result { scroll-margin-top: 78px; } /* clear the fixed masthead when scrolled to */
   .bx-tool-head { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
-  .bx-tool-head .bx-back { font-size: 13px; color: var(--muted); border: 0; background: none; cursor: pointer; padding: 0; }
+  .bx-tool-head .bx-back { font-size: 13px; color: var(--muted); border: 0; background: none; cursor: pointer;
+    padding: 5px 4px 5px 0; min-height: 24px; } /* 24px hit area (WCAG 2.2 target size) */
   .bx-tool-head .bx-back:hover { color: var(--ink); }
-  .bx-tool-head h2 { font-family: var(--bx-display); font-weight: 400; font-size: clamp(26px,3.4vw,44px); letter-spacing: -.02em; margin: 0; color: var(--mv, var(--ink)); font-style: italic; }
+  /* The move's own colour, pulled most of the way to ink. The raw bloom colours are pale washes
+     (measured 1.49:1 on paper for "Describe What's There") — the hue still reads, the words are
+     actually legible. */
+  .bx-tool-head h1, .bx-tool-head h2 { font-family: var(--bx-display); font-weight: 400; font-size: clamp(26px,3.4vw,44px); letter-spacing: -.02em; margin: 0;
+    color: color-mix(in srgb, var(--mv, var(--ink)) 32%, var(--ink)); font-style: italic; }
   .bx-tool-sub { color: var(--muted); font-size: 14.5px; max-width: 54ch; margin: 0 0 34px; }
   .bx-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: clamp(20px,3vw,40px); align-items: start; }
   .bx-panel { border-top: 2px solid var(--ink); padding-top: 18px; }
@@ -1013,10 +1020,13 @@
   .ww-kicker { font-size: clamp(11px, 1.2vw, 12.5px); font-weight: 600; letter-spacing: .18em; text-transform: uppercase;
     color: var(--purple); margin-bottom: 20px; }
   /* Fraunces display voice (matches the map title + labels); "thinking" italic-purple accent */
-  .ww-cover h1 { font-family: var(--bx-display); font-weight: 500;
+  .ww-cover h1, .ww-cover h2 { font-family: var(--bx-display); font-weight: 500;
     font-size: clamp(36px, 5.4vw, 72px); line-height: 1.03; letter-spacing: -.02em;
-    color: var(--gold); text-wrap: balance; margin: 0; }
-  .ww-cover h1 .pu { color: var(--purple); font-style: italic; }
+    /* Raw brand gold (#C59F40) on the cover paper is 2.18:1 — it fails AA even at this display size,
+       where 3:1 is the bar. This deeper gold is 3.7:1 and still reads as the brand gold; the palette
+       already keeps a darker goldInk for small text for exactly this reason. */
+    color: #9e731e; text-wrap: balance; margin: 0; }
+  .ww-cover h1 .pu, .ww-cover h2 .pu { color: var(--purple); font-style: italic; }
   .ww-sub { margin: 24px 0 0; font-size: clamp(15px, 1.35vw, 17.5px); line-height: 1.6;
     max-width: 46ch; color: var(--ink-soft); }
   /* Enter: Fraunces italic on a purple pill with a gold arrow that slides on hover + a soft
@@ -1040,7 +1050,9 @@
   /* quiet cover footer: attributions pinned along the bottom, out of the hero */
   .ww-foot { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
     display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 24px;
-    padding: 0 clamp(22px, 5vw, 72px) 22px; font-size: 12px; color: #7c766a; pointer-events: auto;
+    /* #7c766a measured 3.94:1 on the cover paper — under AA for 12px text. #5f594d is 6.1:1 and
+       reads the same weight at this size. */
+    padding: 0 clamp(22px, 5vw, 72px) 22px; font-size: 12px; color: #5f594d; pointer-events: auto;
     padding-right: 78px; } /* reserve a lane for the floating mute button (right:20 + 46 wide) */
   .ww-foot a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
   .ww-foot span:last-child { color: var(--purple); font-weight: 500; }
@@ -1049,7 +1061,7 @@
   /* short/laptop heights: keep the headline + CTA above the fold */
   @media (max-height: 760px) {
     .ww-cover { padding-top: clamp(88px, 12vh, 104px); }
-    .ww-cover h1 { font-size: clamp(30px, 4.4vw, 52px); }
+    .ww-cover h1, .ww-cover h2 { font-size: clamp(30px, 4.4vw, 52px); }
     .ww-sub { margin-top: 16px; } .ww-enter { margin-top: 22px; } .ww-credit { margin-top: 12px; }
   }
   /* Tall / squarish windows (phones, portrait tablets, aspect <=7/5): the right-biased brain
@@ -1073,7 +1085,7 @@
   @media (max-width: 520px) {
     /* copy sits near the top; the brain video goes below it (see the aspect-ratio block above) */
     .ww-cover { padding: 100px 20px 30px; justify-content: flex-start; }
-    .ww-cover h1 { font-size: clamp(32px, 9vw, 44px); }
+    .ww-cover h1, .ww-cover h2 { font-size: clamp(32px, 9vw, 44px); }
     .ww-sub { font-size: 15px; max-width: none; }
     /* the Blackrush brush CTA needs real size to fill the pill — 18px left it a tiny speck; the
        desktop 66px is too wide for a phone, so 40px is the phone sweet spot (tight line-box + snug
@@ -1148,7 +1160,8 @@
      across the paper. Kicker first, then the big name. */
   .ww-title { position: absolute; transform: translate(-50%, -50%); z-index: 2; text-align: center;
     pointer-events: none; margin: 0; max-width: min(46vw, 560px); }
-  .ww-title .k { display: block; font-size: clamp(11px, 1vw, 13px); font-weight: 600; letter-spacing: .22em; text-transform: uppercase; color: var(--gold); margin-bottom: 8px;
+  /* goldInk, not raw gold: at 12px the brand gold is 2.18:1 on paper. Same family, 6.6:1. */
+  .ww-title .k { display: block; font-size: clamp(11px, 1vw, 13px); font-weight: 600; letter-spacing: .22em; text-transform: uppercase; color: #6a5018; margin-bottom: 8px;
     animation: wwWrite 1s ease .35s both; }
   .ww-title .n { display: block; font-family: "Fraunces", Georgia, serif; font-style: italic; font-weight: 600;
     font-size: clamp(38px, 5.2vw, 76px); line-height: .98; letter-spacing: -.02em; color: var(--purple);
@@ -1165,7 +1178,7 @@
     .ww-maplist { display: flex; flex-direction: column; gap: 8px; position: absolute; inset: 0;
       overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 84px 16px 28px; }
     .ww-maplist-head { text-align: center; margin: 4px 0 18px; }
-    .ww-maplist-head .k { display: block; font-size: 11px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: var(--gold); }
+    .ww-maplist-head .k { display: block; font-size: 11px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: #6a5018; } /* goldInk: raw gold is 2.18:1 at 11px */
     .ww-maplist-head .n { display: block; font-family: var(--bx-display); font-style: italic; font-weight: 600; font-size: clamp(30px, 9vw, 40px); color: var(--purple); margin-top: 4px; }
     .ww-maplist-row { display: flex; align-items: center; gap: 12px; width: 100%;
       background: rgba(255,255,255,.55); border: 1px solid rgba(43,40,31,.12); border-radius: 16px;
@@ -1356,7 +1369,7 @@ const BAND_ORDER = ["Early","Junior","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.45 · 2026-07-30";
+const APP_VERSION = "v0.9.46 · 2026-07-31";
 
 // Maps a class's year level to a teaching band (Prep-Y2 / Y3-6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2147,20 +2160,20 @@ const ROUTINE_SOURCE = "Harvard Project Zero Thinking Routines · pz.harvard.edu
 // but its steps are source-and-bias checking, so it sits under Reason with Evidence.
 const MOVES = [
   { name: "Wondering", question: "What are you curious about here?",
-    routines: ["Think, Puzzle, Explore", "See, Think, Wonder", "Creative Questions", "Creative Question Starts", "See Wonder Connect x2", "See, Feel, Think, Wonder", "The Explanation Game", "How Else and Why?", "Imagine If...", "Imagine If... (For Younger Children)", "What Can Be", "Options Explosion", "Creative Comparisons", "Portable Surprise", "Chalk Talk"] },
+    routines: ["Think, Puzzle, Explore", "See, Think, Wonder", "Creative Questions", "Creative Question Starts", "See Wonder Connect x2", "See, Feel, Think, Wonder", "The Explanation Game", "How Else and Why?", "Imagine If...", "Imagine If... (For Younger Children)", "What Can Be", "Options Explosion", "Creative Comparisons", "Portable Surprise", "Chalk Talk", "Creating Space for Learning"] },
   { name: "Describe What's There", question: "What do you see and notice?",
     routines: ["See, Think, Wonder", "Looking: Ten Times Two", "Listening: Ten Times Two", "Zoom In", "Colors, Shapes, Lines", "The Elaboration Game", "Name, Describe, Act", "Parts, Purposes, Complexities", "Parts, Purposes, Complexities (For Younger Children)", "See, Feel, Think, Wonder", "See, Think, Me, We", "See Wonder Connect x2", "Slow Complexity Capture", "Reporter's Notebook", "Same and Different", "Creative Hunt"] },
   { name: "Build Explanations", question: "What's really going on here?",
-    routines: ["The Explanation Game", "Claim, Support, Question", "See, Think, Wonder", "Zoom In", "Peel the Fruit", "Parts, People, Interactions", "Layers", "Facts or Fiction", "Beginning, Middle, End", "Thinking with Images", "How Else and Why?"] },
+    routines: ["The Explanation Game", "Claim, Support, Question", "See, Think, Wonder", "Zoom In", "Peel the Fruit", "Parts, People, Interactions", "Layers", "Facts or Fiction", "Beginning, Middle, End", "Thinking with Images", "How Else and Why?", "Think, Pair, Share"] },
   // The Explanation Game ("what makes you think so?") and Zoom In ("what's your hypothesis?" then
   // revise it as more is revealed) are the two Prep-Y2 ways INTO this move — without them an Early
   // Years teacher hits moveRoutineList's top-up and gets Tug of War.
   { name: "Reason with Evidence", question: "Why do you think so?",
-    routines: ["Claim, Support, Question", "Tug for Truth", "Tug of War", "True for Who?", "Facts or Fiction", "Red Light, Yellow Light", "Reporter's Notebook", "Take a Stand", "Sticking Points", "Hotspots", "Stop, Look, Listen", "Does It Fit?", "Options Diamond", "Compass Points", "The 4 Cs", "The Explanation Game", "Zoom In"] },
+    routines: ["Claim, Support, Question", "Tug for Truth", "Tug of War", "True for Who?", "Facts or Fiction", "Red Light, Yellow Light", "Reporter's Notebook", "Take a Stand", "Sticking Points", "Hotspots", "Stop, Look, Listen", "Does It Fit?", "Options Diamond", "Compass Points", "The 4 Cs", "The Explanation Game", "Zoom In", "What Makes You Say That?"] },
   { name: "Make Connections", question: "How does this fit?",
-    routines: ["Connect, Extend, Challenge", "3-2-1 Bridge", "Generate-Sort-Connect-Elaborate", "The 4 Cs", "Same, Different, Connect, Engage", "Here Now / There Then", "Projecting Across Time", "Projecting Across Distance", "The 3 Whys", "Circles of Action", "Outside In", "Creative Comparisons", "Portable Surprise", "Think, Puzzle, Explore", "Pass the Parcel", "Walk the Week"] },
+    routines: ["Connect, Extend, Challenge", "3-2-1 Bridge", "Generate-Sort-Connect-Elaborate", "The 4 Cs", "Same, Different, Connect, Engage", "Here Now / There Then", "Projecting Across Time", "Projecting Across Distance", "The 3 Whys", "Circles of Action", "Outside In", "Creative Comparisons", "Portable Surprise", "Think, Puzzle, Explore", "Pass the Parcel", "Walk the Week", "Digital Habits Checkup"] },
   { name: "Consider Different Viewpoints", question: "What's another angle on this?",
-    routines: ["Circle of Viewpoints", "Step Inside", "Step In, Step Out, Step Back", "Think, Feel, Care", "Think, Feel, Care (For Younger Children)", "Same, Different, Connect, Engage", "My Perspective, Other Perspectives (For Exploring Complexity)", "Parts, Perspectives, Me", "Parts, Perspectives, Me (For Exploring Complexity)", "Seek to See", "Who Am I?", "True for Who?", "Lenses", "Unveiling Stories", "Feelings and Options"] },
+    routines: ["Circle of Viewpoints", "Step Inside", "Step In, Step Out, Step Back", "Think, Feel, Care", "Think, Feel, Care (For Younger Children)", "Same, Different, Connect, Engage", "My Perspective, Other Perspectives (For Exploring Complexity)", "Parts, Perspectives, Me", "Parts, Perspectives, Me (For Exploring Complexity)", "Seek to See", "Who Am I?", "True for Who?", "Lenses", "Unveiling Stories", "Feelings and Options", "MicroLab"] },
   { name: "Capture the Heart & Form Conclusions", question: "What's at the centre of this?",
     routines: ["Headlines", "Color, Symbol, Image", "Word-Phrase-Sentence", "Take Note", "+1 Routine", "The 4 Cs", "Generate-Sort-Connect-Elaborate", "Beauty and Truth", "Values, Identities, Actions", "Stories", "Beginning, Middle, End", "Does It Fit?", "Take a Stand", "See, Think, Make, Discuss", "Circles of Action"] },
   { name: "Uncovering Complexity", question: "What lies beneath the surface?",
@@ -5281,7 +5294,8 @@ function App() {
     <section className="bx-tool" id="bx-tool" style={{ "--mv": bxColor(selectedMove) }}>
       <div className="bx-tool-head" data-bx-reveal>
         <button className="bx-back" onClick={leaveChamber}>← All moves</button>
-        <h2>{selectedMove}</h2>
+        {/* h1, not h2: in the chamber this IS the page — the map is gone. */}
+        <h1>{selectedMove}</h1>
       </div>
       <p className="bx-tool-sub">{selectedMoveObj.question} Bring the stimulus your class will react to, and Springboard finds the routines that fit it.</p>
       <div className="bx-steps">
@@ -5377,8 +5391,10 @@ function App() {
           <h3>Your class</h3>
           <p className="bx-note">So the language and curriculum fit.</p>
           <div className="bx-two">
-            <div className="bx-field"><label>Year</label>
-              <select value={classInfo.yearLevel} onChange={e => {
+            {/* htmlFor/id on every one of these: a bare <label> next to a control is not read out
+                by a screen reader as its name. */}
+            <div className="bx-field"><label htmlFor="bx-year">Year</label>
+              <select id="bx-year" value={classInfo.yearLevel} onChange={e => {
                 const y = e.target.value;
                 const m = acYearNum(y);
                 const curriculum = (m === 11 || m === 12) ? "VCE"
@@ -5388,14 +5404,14 @@ function App() {
               }}>
                 <option value="">—</option>{["F","1","2","3","4","5","6","7","8","9","10","11","12"].map(y => <option key={y} value={y}>{y === "F" ? "Foundation" : "Year " + y}</option>)}
               </select></div>
-            <div className="bx-field"><label>Subject</label>
+            <div className="bx-field"><label htmlFor="bx-subject">Subject</label>
               {!classInfo.yearLevel
-                ? <select className="bx-input" disabled><option>Pick a year first</option></select>
+                ? <select id="bx-subject" className="bx-input" disabled><option>Pick a year first</option></select>
                 : subjectFreeform
-                ? <input className="bx-input" value={classInfo.subject} placeholder="Type your subject"
+                ? <input id="bx-subject" className="bx-input" value={classInfo.subject} placeholder="Type your subject"
                          onChange={e => saveClassInfo({ ...classInfo, subject: e.target.value })} />
                 : isVceSenior(classInfo)
-                ? <select className="bx-input" value={classInfo.subject} onChange={onPickBrainSubject}>
+                ? <select id="bx-subject" className="bx-input" value={classInfo.subject} onChange={onPickBrainSubject}>
                     <option value="">Choose your VCE study…</option>
                     {VCE_AREAS.map(area => (
                       <optgroup label={area} key={area}>
@@ -5405,7 +5421,7 @@ function App() {
                     <option value="__other__">Other / not listed…</option>
                   </select>
                 : isAcF10(classInfo)
-                ? <select className="bx-input" value={classInfo.subject} onChange={onPickBrainSubject}>
+                ? <select id="bx-subject" className="bx-input" value={classInfo.subject} onChange={onPickBrainSubject}>
                     <option value="">Choose your subject…</option>
                     {AC_AREAS.map(area => {
                       const subs = acSubjectsFor(classInfo.yearLevel).filter(s => s.area === area);
@@ -5417,7 +5433,7 @@ function App() {
                     })}
                     <option value="__other__">Other / not listed…</option>
                   </select>
-                : <input className="bx-input" value={classInfo.subject} placeholder="e.g. English"
+                : <input id="bx-subject" className="bx-input" value={classInfo.subject} placeholder="e.g. English"
                          onChange={e => saveClassInfo({ ...classInfo, subject: e.target.value })} />}
             </div>
           </div>
@@ -5451,7 +5467,7 @@ function App() {
               )}
             </details>
           )}
-          <div className="bx-field"><label>Learning focus (optional)</label><input className="bx-input" value={classInfo.outcome} onChange={e => saveClassInfo({ ...classInfo, outcome: e.target.value })} placeholder="e.g. how structure shapes meaning" /></div>
+          <div className="bx-field"><label htmlFor="bx-outcome">Learning focus (optional)</label><input id="bx-outcome" className="bx-input" value={classInfo.outcome} onChange={e => saveClassInfo({ ...classInfo, outcome: e.target.value })} placeholder="e.g. how structure shapes meaning" /></div>
           {/* Learning intention: the teacher's own "we are learning to…", or the app writes one.
               Typed text always wins — the whole deck is then built to serve it. */}
           <div className="bx-field">
@@ -5765,7 +5781,10 @@ function App() {
           </div>
           <div className="ww-cover-copy">
             <div className="ww-kicker">A thinking tool for Wesley teachers</div>
-            <h1>Start with the <span className="pu">thinking</span>, not the topic.</h1>
+            {/* The cover stays mounted behind the later scenes, so it hands the h1 over once the
+                teacher moves on — one page, one h1, whichever scene is showing. */}
+            {React.createElement(bxScene === "cover" ? "h1" : "h2", null,
+              "Start with the ", <span className="pu" key="p">thinking</span>, ", not the topic.")}
             <p className="ww-sub">Pick a thinking move, add a photo, film or article, and Springboard builds a lesson that takes your class from remembering into understanding.</p>
             <button className="ww-enter" autoFocus onClick={enterMind}><span>Enter the mind</span></button>
           </div>
@@ -5796,11 +5815,15 @@ function App() {
               src={BX_ASSETS.base + BX_ASSETS.bloom(IMG_MOVE_POS[m.name].bloom)} alt=""
               style={{ "--i": i }} />
           ))}
-          {/* the map's nameplate — a real h2 (this scene's only heading), written on left-to-right */}
-          <h2 ref={centreTitleRef} className="ww-title">
-            <span className="k">The Map of Understanding</span>
-            <span className="n">Thinking Moves</span>
-          </h2>
+          {/* The map's nameplate. It is this scene's ONLY heading, so it has to be the h1: the map
+              replaces the cover entirely, and a page with no h1 leaves screen-reader users with
+              nothing to orient by. */}
+          {React.createElement(bxScene === "inside" ? "h1" : "h2",
+            { ref: centreTitleRef, className: "ww-title" },
+            // The map stays mounted behind the chamber, so it steps down to an h2 there and the
+            // chamber's move name is the page's only h1. Two h1s is as unhelpful as none.
+            <span className="k" key="k">The Map of Understanding</span>,
+            <span className="n" key="n">Thinking Moves</span>)}
           {MOVES.map((m, i) => (
             <button key={m.name} ref={el => { labelEls.current[i] = el; }} className="ww-label"
               style={{ "--dot": bwTint(m.name), "--i": i, "--tilt": ([-1.6, 1.2, -1, 1.7, 1.3, -1.7, 1, -1.2][i] || 0) + "deg" }}

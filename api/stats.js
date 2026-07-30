@@ -1,10 +1,13 @@
-import { applyCors, requireAdmin } from "./_lib.js";
+import { applyCors, requireAdmin, rateLimit } from "./_lib.js";
 import { getSql } from "./_db.js";
 
 export default async function handler(req, res) {
   if (applyCors(req, res)) return;
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   if (!requireAdmin(req, res)) return;
+  // Seven aggregate queries per call, so a hot-reloading dashboard (or a bored admin) shouldn't be
+  // able to hammer Neon. Every other endpoint carries this gate; this one was the exception.
+  if (!rateLimit(req, res, { max: 30, windowMs: 60000, name: "stats" })) return;
 
   try {
     const sql = getSql();

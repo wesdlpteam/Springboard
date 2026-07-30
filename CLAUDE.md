@@ -12,6 +12,10 @@ Springboard turns a teacher-supplied stimulus (image, video, PDF, text, or link)
 npm test                          # backend unit tests (node --test, test/*.test.js)
 node --test test/lib.test.js      # run a single test file
 npm run check:ui                  # compile gate: inline JSX in index.html through Babel
+npm run audit                     # full system audit: ~1000 assertions across three suites
+npm run audit:static              # data, recipes, security, privacy, prompt rules (no browser, fast)
+npm run audit:deck                # exports four real decks headless, asserts on the .pptx XML
+npm run audit:ui                  # accessibility + contrast sweep, 4 scenes x 4 window shapes
 npx vercel dev                    # serve index.html + api/* locally (reads .env)
 node tools/stats-stub.mjs         # fake /api/stats for stats.html work (STUB_EMPTY=1 for empty state)
 node tools/build-ac-guides.mjs    # regenerate api/guides/ac-*.md from ACARA data
