@@ -863,6 +863,17 @@
   /* ---- the finished lesson: full content, editable in place (brain view's answer to the
      Classic editor). Fields write straight into the deck the .pptx export reads. ---- */
   .bx-edit-wrap { max-width: 760px; }
+  /* Wide window: one 760px column left most of the page empty (Nathan, 2026-07-30). Lay the slide
+     cards out in two columns instead, with the header block (title, intention, advisory) spanning
+     both so it still reads as the lesson's masthead. Line length inside a column stays ~500px, so
+     nothing gets harder to read — the page just stops wasting half itself.
+     Newspaper columns, not a 2-up grid: a grid row is as tall as its tallest card, so a short IGNITE
+     beside a tall THINK just moved the empty space instead of filling it. */
+  @media (min-width: 1100px) {
+    .bx-edit-wrap { max-width: 1180px; column-count: 2; column-gap: 48px; }
+    .bx-edit-wrap > .bx-edit { break-inside: avoid; }
+    .bx-edit-wrap > .bx-edit:first-child { column-span: all; }
+  }
   .bx-edit { border-top: 1px solid var(--line); padding: 18px 0 22px; }
   .bx-edit:first-child { border-top: 0; }
   .bx-edit-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 2px; }
@@ -1345,7 +1356,7 @@ const BAND_ORDER = ["Early","Junior","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.41 · 2026-07-30";
+const APP_VERSION = "v0.9.42 · 2026-07-30";
 
 // Maps a class's year level to a teaching band (Prep-Y2 / Y3-6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
