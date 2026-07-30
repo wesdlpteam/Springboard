@@ -1356,7 +1356,7 @@ const BAND_ORDER = ["Early","Junior","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.43 · 2026-07-30";
+const APP_VERSION = "v0.9.44 · 2026-07-30";
 
 // Maps a class's year level to a teaching band (Prep-Y2 / Y3-6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -1515,6 +1515,70 @@ function loadClassInfo() {
 // A "combined" deck serves several bands at once (one deck, shared language). It is
 // stored under its LOWEST band key so all the per-band machinery still works, and
 // carries deck.comboBands = ["Middle","Senior"] to drive its label/metadata.
+/* ---------------- How each routine actually lands on the slides ("recipes") ----------------
+   ROUTINES already carries each routine's real moves, but knowing the moves is not the same as
+   knowing how to STAGE them: Ten Times Two printed its own reveal and killed the surprise; a
+   perspective routine can ask students to "choose a viewpoint" without ever naming one that exists
+   in the stimulus. So each routine gets a family (how routines of that shape must be staged) plus,
+   where it matters, a line of its own. Only the chosen routine's text is sent, so this costs the
+   prompt ~120 words, and an unlisted routine simply falls back to the general rules.
+
+   Written against Springboard's actual fields: think.steps (what students read), think.reveal (what
+   is hidden behind the click), think.structure (which also sets the slide's countdown), and notes. */
+const ROUTINE_FAMILIES = {
+  // Look/listen hard BEFORE interpreting.
+  observe: "This routine's whole point is describing before interpreting. The early steps must ask ONLY for what can be seen or heard — a step that invites meaning, feelings or explanation too early breaks it, so say so in the step's own words ('no explaining yet'). If the routine names a number (ten words, two rounds), the step must carry that number, and think.structure must give the rounds and their minutes so the slide's countdown matches the task. Anything about what the stimulus REALLY is (who made it, when, what is missing) belongs in think.reveal, never in a step.",
+  // The stimulus arrives in stages; seeing it whole too early ruins it.
+  reveal: "The stimulus must never be described in full anywhere students can read it. ignite.question has to work from the FIRST fragment alone, and each step names what that particular stage shows. Save the identity of the whole thing for think.reveal, and make think.structure say the reveal is teacher-paced.",
+  // Take a position, then test it.
+  commit: "Students must get a position ON RECORD before they weigh evidence: an early step asks for the claim, stance or prediction in their own words, and a later step sends them back to the stimulus for what supports or undermines it. think.reveal carries the fact that tests the claim, and its question must ask what that does to the position they took.",
+  // Speak as someone else.
+  perspective: "Never write 'choose a perspective'. The steps must NAME three or four viewpoints that genuinely exist in THIS stimulus (the people in it, the people outside the frame, whoever made it, whoever it affects), and one step must be spoken in first person as one of them. The final step compares two viewpoints and asks what each one can and cannot see.",
+  // Before/after: the shift IS the routine.
+  shift: "This routine only works if the BEFORE is captured in writing at the very start, so the first step must ask for it explicitly and think.structure must say to keep it. The 'now I think' step comes after the reveal or the discussion, and must ask what specifically changed their mind. reflect must reuse the students' own before-wording rather than a generic revisit.",
+  // The output is a small, shaped artefact.
+  distil: "The output is a short artefact, so the step must give its exact shape and size (a headline of one line, one word / one phrase / one sentence, a colour + a symbol + an image). Put the frame in the step so students can copy it. A step that just says 'summarise' has thrown the routine away.",
+  // The steps are a protocol: who speaks, when, for how long.
+  protocol: "The steps ARE the protocol, so they must carry the turn-taking: who writes, who speaks, when they move, how long each part runs. think.structure must state the grouping AND the minutes, because that is what the slide's countdown uses. Silence, rotations and 'no talking yet' rules are part of the routine and belong in the student-facing steps, not only in the notes.",
+  // Take something apart, layer by layer.
+  systems: "Each step handles ONE layer, named against the actual thing in front of students — its real parts, their real purposes — never a generic 'identify the parts'. The last step must surface a complexity that genuinely exists here (something that serves two purposes, or breaks if one part changes), not an invented one.",
+  // Quantity first, judgement later.
+  generate: "Quantity before judgement: an early step asks for a NUMBER of ideas with no filtering allowed, and only a later step picks or tests one. Say the number in the step. If the routine uses a stem ('What if…', 'How else…'), the step must give the stem and one worked example built from this stimulus.",
+};
+// Batch 1: the routines that come up most. Unlisted routines still get the general rules.
+const ROUTINE_PLAY = {
+  "See, Think, Wonder": { family: "observe", note: "Keep the three moves strictly apart: step 1 sees, step 2 interprets, step 3 wonders. Step 2 must ask 'what makes you say that?' inside the step, and step 3 must ask for a question the class could actually chase, not idle curiosity." },
+  "Looking: Ten Times Two": { family: "observe", note: "Both rounds must be on the slide: ten observations, look again, ten MORE. Step 2 must say the second ten have to be different from the first, which is where the real looking happens. Structure should be two timed rounds of about two minutes." },
+  "Listening: Ten Times Two": { family: "observe", note: "Same two rounds, but for sound: the steps must name what students are listening to and forbid naming the source in round one." },
+  "Colors, Shapes, Lines": { family: "observe", note: "One step per lens (colours, then shapes, then lines), each asking what that lens alone reveals, and a final step asking which lens told them the most about this particular image." },
+  "Zoom In": { family: "reveal", note: "The crops the teacher set ARE the stages, so the steps must track them: hypothesis from the first sliver, then what changed, then what changed again. The final step must ask which of their earlier ideas survived the whole picture." },
+  "Claim, Support, Question": { family: "commit", note: "Step 1 is the claim in one sentence and must be arguable (two students could disagree). Step 2 sends them back to the stimulus for specific support. Step 3 must be a question the claim leaves open, not a question about the topic in general." },
+  "The Explanation Game": { family: "commit", note: "Students name one noticing, then explain WHY it might be that way, then push once more with 'what makes you say that?'. The steps must chain: each one builds on the answer to the last." },
+  "Circle of Viewpoints": { family: "perspective", note: "List the real viewpoints on the slide for students to pick from. The 'I think…' step must be first person and must include what that viewpoint cannot see." },
+  "Step Inside": { family: "perspective", note: "Name the one person or thing students step into, and keep the three probes distinct: what they perceive, what they know or believe, what they care about." },
+  "I Used to Think... Now I Think...": { family: "shift", note: "The 'I used to think' line has to be written BEFORE anything else on the slide happens, so make it step 1 and say it is written down, not just thought." },
+  "3-2-1 Bridge": { family: "shift", note: "The first 3-2-1 (three thoughts, two questions, one analogy) is captured cold at the start; the second comes after the thinking; the bridge step asks what moved between them." },
+  "Connect, Extend, Challenge": { family: "shift", note: "Each of the three must point at something specific: connect to prior learning by name, extend one idea in a stated direction, and name a challenge that is genuinely unresolved here." },
+  "Headlines": { family: "distil", note: "One line, newspaper-style, and the step must say the length. A later step asks whose headline captured the core best and why, which is where the thinking shows." },
+  "Word-Phrase-Sentence": { family: "distil", note: "One word, one phrase, one sentence, chosen from the actual text or image in front of them, plus a step asking what their three choices together say about what mattered to them." },
+  "Color, Symbol, Image": { family: "distil", note: "A colour, a symbol and an image for the core idea, each with a one-line reason. The step must ask for the reason, or it becomes decoration." },
+  "Chalk Talk": { family: "protocol", note: "Silent writing is the rule and must be stated on the slide: write, move, read, add to someone else's, return. Include the moving and the silence in the steps." },
+  "Think, Pair, Share": { family: "protocol", note: "Give each phase its own step and its own time: think alone (written), pair (compare and find one difference), share (report the difference, not just the agreement)." },
+  "MicroLab": { family: "protocol", note: "Equal timed turns with no interruption, then a shared response round. The steps must say how long each person speaks and that nobody responds until every turn is done." },
+  "Parts, Purposes, Complexities": { family: "systems", note: "Steps name the actual parts of THIS object, then ask what each part is for, then what gets complicated (a part with two jobs, or one that fails badly)." },
+  "Peel the Fruit": { family: "systems", note: "Work from the skin inwards: what is on the surface, what is under it, what is at the core, and a final step on what the core explains that the surface did not." },
+  "Think, Puzzle, Explore": { family: "generate", note: "Step 2 must ask for a stated number of puzzles (three or more) before any is chosen, and step 3 must ask HOW they would explore one, naming a method they could actually use here." },
+  "Creative Questions": { family: "generate", note: "Ask for a set number of questions using the stems, no filtering, then a step that picks one and asks what makes it worth chasing." },
+  "Imagine If...": { family: "generate", note: "Give the 'what if' stem with one worked example from this stimulus, ask for several more, then a step choosing the one that would change the most." },
+  "Imagine If... (For Younger Children)": { family: "generate", note: "Same shape, but the stem and the example must be concrete and spoken, and the number of ideas small (three)." },
+};
+function routinePlaybook(name) {
+  const p = ROUTINE_PLAY[name];
+  if (!p) return "";
+  return ["HOW THIS ROUTINE MUST BE STAGED (it is not enough to restate its moves):",
+          ROUTINE_FAMILIES[p.family] || "", p.note].filter(Boolean).join("\n");
+}
+
 const BAND_SHORT = { Early: "Early Years", Junior: "Junior", Middle: "Middle", Senior: "Senior" };
 const comboBandLabel = (keys) => (keys || []).map(k => BAND_SHORT[k] || bandLabelOf(k)).join(" & ");
 
@@ -2499,6 +2563,11 @@ Return STRICT JSON with keys: title, intention, keywords, ignite{question}, thin
       ? `\nReturn JSON with ONLY the key "next": 3 genuinely different follow-up lesson ideas (not rewords of the ones above). Keep them consistent with the lesson above.`
       : `\nReturn JSON with ONLY these two keys: "${scope}" (a genuinely different version of that part, not a reword) and "notes" containing just its "${scope}" entry. Do NOT return the other parts — they are staying exactly as they are. Keep your new version consistent with the rest of the lesson above.`;
   }
+
+  // Staging instructions for THIS routine (see ROUTINE_PLAY). Empty for routines not yet covered,
+  // which then fall back to the general rules below.
+  const playbook = routinePlaybook(routine.name);
+  if (playbook) sys += "\n" + playbook;
 
   // Teacher pinned a specific end-of-lesson reflection routine from the REFLECT dropdown:
   // override the "vary the choice" instruction below and lock reflect.prompts to it.
