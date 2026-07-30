@@ -1345,7 +1345,7 @@ const BAND_ORDER = ["Early","Junior","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.9.40 · 2026-07-30";
+const APP_VERSION = "v0.9.41 · 2026-07-30";
 
 // Maps a class's year level to a teaching band (Prep-Y2 / Y3-6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2509,7 +2509,7 @@ Return STRICT JSON with keys: title, intention, keywords, ignite{question}, thin
     // lesson was sticky to run and looked generic. Hence: commit out loud, and one true concrete
     // anchor on the slide.
     `ignite.question: ONE provocative question, <=18 words. It MUST be answerable from what students can actually SEE OR READ at that moment — if the routine reveals the stimulus in stages, the question must work from the first fragment alone. It MUST ask for a commitment students could turn out to be wrong about (a guess, a stance, a prediction), not a safe invitation to imagine. Where the stimulus gives you one, anchor it with a true concrete detail from the stimulus itself (a number, a date, a name, a visible object). NEVER ask students to imagine what someone outside the frame thinks or feels before they have seen the whole stimulus — that is an end-of-lesson reflection question, not an opening one.`,
-    `think.routine MUST be exactly "${routine.name}". This routine's real moves are: ${(routine.steps || []).map((s, i) => `${i + 1}) ${s}`).join(" ")}. think.steps: take THOSE actual moves and write each one FOR THIS STIMULUS — keep the routine's real moves and their order, do NOT invent different ones; <=4 short student-facing prompts. Each step must name the actual thing students are looking at, reading or doing at that moment (for a staged-reveal routine, name what that reveal shows: "the raised flag and the arms", "the trees on the left"), so a step could not be pasted onto a different lesson. Generic wording like "see one tiny section" or "look closely at the image" is a failure. Make the FINAL step surface the single most surprising TRUE thing about this stimulus — who made it, when, what it leaves out, where it came from — and ask students what that changes about their thinking. Never invent a fact to be surprising: if nothing surprising is genuinely knowable from the stimulus, make the final step compare their first idea with their last. think.structure: "${routine.structure || "Think-pair-share, 3 min"}".`,
+    `think.routine MUST be exactly "${routine.name}". This routine's real moves are: ${(routine.steps || []).map((s, i) => `${i + 1}) ${s}`).join(" ")}. think.steps: take THOSE actual moves and write each one FOR THIS STIMULUS — keep the routine's real moves and their order, do NOT invent different ones; <=4 short student-facing prompts. Each step must name the actual thing students are looking at, reading or doing at that moment (for a staged-reveal routine, name what that reveal shows: "the raised flag and the arms", "the trees on the left"), so a step could not be pasted onto a different lesson. Generic wording like "see one tiny section" or "look closely at the image" is a failure. Each step must also STAND ALONE as a complete instruction or question a student could act on without the teacher explaining it — a bare fragment tacked on the end ("What changes?") is a failure: name what changes and about what ("What does that change about who you thought this was made for?"). Make the FINAL step surface the single most surprising TRUE thing about this stimulus — who made it, when, what it leaves out, where it came from — and ask students what that changes about their thinking. Never invent a fact to be surprising: if nothing surprising is genuinely knowable from the stimulus, make the final step compare their first idea with their last. think.structure: "${routine.structure || "Think-pair-share, 3 min"}".`,
     `think.summary: ${isArticleStim
       ? `EXACTLY 5 sentences summarising the article FOR STUDENTS, printed beside the routine so they can read it while they think. Tone: ${tone}. Make the situation CONCRETE — establish clearly WHAT happened and the specifics a ${classInfo.yearLevel} student needs to follow it. Lead with the most surprising or relatable angle, use plain vivid language, and end on a note that invites discussion. NEVER invent quotes, names, numbers, or events that are not in the supplied text; if the article is vague on something important, leave it out rather than guessing. Punchy, never a dry recap.`
       : `"" — an empty string. The stimulus is an image/video reel, not an article, so there is nothing to summarise.`}`,
@@ -2518,7 +2518,11 @@ Return STRICT JSON with keys: title, intention, keywords, ignite{question}, thin
     // "Where to next" — three teacher-only slides at the end of the deck. These are the NEXT
     // LESSONS, not more ways to run today's: the teacher has just finished this lesson and wants to
     // know where the thinking goes from here.
-    `next: EXACTLY 3 follow-up LESSON ideas for the lessons AFTER this one, in a sensible teaching order (each builds on the last). Each: title <=7 words; idea = what students would actually DO, one sentence <=28 words, concrete enough to run without further planning; thinking = the Understanding Map thinking move it grows into and why that is the natural next step, <=18 words. They must follow from what THIS lesson's stimulus and routine established — never generic "research the topic" filler, and never a repeat of today's task.`,
+    // Measured failure (2026-07-30): "Draft and peer-check a 60-word label naming 1788, the 1937
+    // painting, invasion, one effect and the missing perspective." Every requirement was crammed into
+    // one 28-word sentence, and the teacher who has to run it could not tell what the lesson was.
+    // Hence: plain English, ONE task, and room to say it properly.
+    `next: EXACTLY 3 follow-up LESSON ideas for the lessons AFTER this one, in a sensible teaching order (each builds on the last). Each: title <=7 words; idea = 1-2 plain-English sentences (<=40 words total) a teacher could read aloud and immediately picture running — say what students make or do, and what they end up with; thinking = the Understanding Map thinking move it grows into and why that is the natural next step, <=18 words. WRITE IT FOR A BUSY TEACHER, NOT AS A SPEC: no comma-stuffed checklists of everything the task must contain, no shorthand ("60-word label naming 1788, the painting, invasion, one effect and the missing perspective" is a failure — it reads as a rubric, not a lesson). One clear task per idea, named in words a teacher uses. They must follow from what THIS lesson's stimulus and routine established — never generic "research the topic" filler, and never a repeat of today's task.`,
     `reflect.metacognition: <=30 words, TEACHER-facing (it rides in the notes, never on a slide). Name the ONE thinking strategy students actually used in THIS lesson and the question that gets them to notice they used it. Be specific to this lesson's task — never a generic "reflect on your learning".`,
   ].join("\n");
   const instruction = `Create the Springboard now. Respect every word limit:\n${limits}\nReturn STRICT JSON only — no markdown, no code fences, plain text in every field.`;
@@ -2717,6 +2721,72 @@ ${guide ? "A curriculum extract is appended below. Ground every suggestion in TH
     .filter(s => s.outcome);
   if (!out.length) throw new Error("No suggestions came back — try again.");
   return out.slice(0, 4);
+}
+
+/* ----------------------- Suggest a learning intention ("Let AI decide") -----------------------
+   Writes ONE student-facing intention on the spot so the teacher can read it, try another, or edit
+   it BEFORE the deck is built (the box then rides into generateSpringboard as the teacher's own
+   wording, word-for-word). Grounded in the stimulus when one exists, the chosen thinking
+   move/routine when picked, and the real curriculum extract via studyGuide. `avoid` carries the
+   wording already on screen so "Try another" comes back genuinely different, not a reword. */
+async function suggestIntention({ passcode, mode, media = [], sourceText = "", classInfo, move = null, routineName = "", avoid = "" }) {
+  const guide = vceStudyGuide(classInfo) || acStudyGuide(classInfo);
+  const focus = Array.isArray(classInfo.focus) ? classInfo.focus : [];
+  const studyGuide = guide ? (focus.length ? { ...guide, focus } : guide) : null;
+  const tone = { early: "very concrete, playful, spoken (ages 5-8)",
+                 junior: "concrete, inquiry-led, reason-giving (ages 8-12)",
+                 middle: "analytical, real-world (ages 12-15)",
+                 senior: "critical, ethical, conceptual (ages 15-18)" }[bandOf(classInfo.yearLevel)];
+  const routine = ROUTINES.find(r => r.name === routineName) || null;
+  const moveLine = move ? `The thinking students will do is the "${move.name}" move (${move.question}).\n` : "";
+  const routineLine = routine ? `They will do it through the "${routine.name}" routine — ${routine.gist}\n` : "";
+  const outcomeLine = classInfo.outcome && classInfo.outcome.trim()
+    ? `The teacher's learning focus for the lesson: "${classInfo.outcome.trim()}".\n` : "";
+
+  let sys = `You write ONE learning intention for a ${classInfo.curriculum} lesson: ${classInfo.subject}, year ${classInfo.yearLevel}.
+Audience tone: ${tone}.
+${moveLine}${routineLine}${outcomeLine}${guide ? "A curriculum extract is appended below. Keep the intention true to THAT extract, but write it in plain student words — never quote codes or curriculum jargon on a student slide.\n" : ""}Return STRICT JSON only: {"intention": string}
+The intention must: be student-facing and start "We are learning to"; be <=18 words; name BOTH the thinking move AND the actual content of this stimulus (e.g. "We are learning to describe what we can actually see before we explain what it means"); stay concrete and specific to this stimulus. A generic line like "We are learning to explore the topic" is a failure. Plain text, no markdown, no quote marks around it.`;
+  if (avoid) sys += `\nThe teacher has already seen this wording: "${avoid}". Write a genuinely different intention — a different angle on the thinking or the content — not a reword of it.`;
+
+  const userContent = [];
+  const mediaItems = Array.isArray(media) ? media : [];
+  if (mode === "media" && mediaItems.length) {
+    userContent.push({ type: "text", text: "Write the learning intention for this stimulus per the system instructions." });
+    mediaItems.forEach(m => {
+      if (m.kind === "image") userContent.push({ type: "image_url", image_url: { url: m.dataUrl } });
+      else if (m.kind === "youtube") { const y = m.thumb || m.poster; if (y) userContent.push({ type: "image_url", image_url: { url: y } }); }
+      else (m.frames || []).forEach(fr => userContent.push({ type: "image_url", image_url: { url: fr } }));
+    });
+  } else if ((sourceText || "").trim()) {
+    const trimmed = sourceText.slice(0, 12000).replace(/"{3,}/g, "“”");
+    userContent.push({ type: "text", text: `Write the learning intention for this article per the system instructions:\n\n"""\n${trimmed}\n"""` });
+  } else {
+    userContent.push({ type: "text", text: "No stimulus added yet. Write the learning intention from the class, subject and learning focus above, per the system instructions." });
+  }
+
+  const resp = await fetch(API_BASE + "/api/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-sb-passcode": passcode },
+    body: JSON.stringify({
+      messages: [
+        { role: "system", content: sys },
+        { role: "user", content: userContent },
+      ],
+      response_format: { type: "json_object" },
+      max_completion_tokens: 1600, // reasoning tokens are billed against this cap too — see generate
+      ...(studyGuide ? { studyGuide } : {}),
+    }),
+  });
+  if (!resp.ok) throw new Error(await backendErrorMessage(resp));
+
+  const data = await resp.json();
+  const raw = data?.choices?.[0]?.message?.content || "";
+  if (!raw.trim()) throw new Error("The model returned an empty response.");
+  const parsed = parseJsonLoose(raw);
+  const out = stripMd((parsed && parsed.intention) || "").replace(/^["“']|["”']$/g, "").trim();
+  if (!out) throw new Error("No intention came back — try again.");
+  return out;
 }
 
 /* Merge a scoped regenerate's parsed reply back into the deck: only the scoped slide
@@ -3298,7 +3368,10 @@ function App() {
   const selectedMoveObj = MOVES.find(m => m.name === selectedMove) || null;
   const [reflectRoutine, setReflectRoutine] = useState("");   // "" = let the model vary the end-of-lesson reflection routine; else a pinned REFLECT_ROUTINES name
   const [intention, setIntention] = useState("");             // teacher's learning intention; "" = the app writes one
-  const [intentionAuto, setIntentionAuto] = useState(false);  // true after "Let AI decide", purely so the UI can say so
+  const [intentionAuto, setIntentionAuto] = useState(false);  // true while the box is deliberately blank (the build writes one)
+  const [intentionBusy, setIntentionBusy] = useState(false);  // "Let AI decide" / "Try another" call in flight
+  const [intentionError, setIntentionError] = useState("");
+  const [intentionAi, setIntentionAi] = useState(false);      // the box holds an AI-written intention -> offer "Try another"
   // Zoom In only: the crops the class sees before the whole picture, in reveal order (see
   // RevealEditor). null whenever the tool doesn't apply, which is also the deck's "behave as
   // before" signal. Not persisted — they're measured against this stimulus, nothing else.
@@ -3422,6 +3495,23 @@ function App() {
     } catch (err) {
       setSuggests(null); setSuggestError(String((err && err.message) || err));
     } finally { setSuggesting(false); }
+  }
+
+  // "Let AI decide" on the Learning intention field: write one HERE, in the box, so the teacher can
+  // read it, try another, or edit it before the build — it used to just blank the box and defer the
+  // whole thing to generate. A blank box still works the old way (the build writes one).
+  async function runSuggestIntention() {
+    if (intentionBusy) return;
+    setIntentionBusy(true); setIntentionError("");
+    try {
+      const text = await suggestIntention({
+        passcode, mode, media, sourceText: articleText, classInfo,
+        move: selectedMoveObj, routineName: selectedRoutine, avoid: intention.trim(),
+      });
+      setIntention(text); setIntentionAi(true); setIntentionAuto(false);
+    } catch (err) {
+      setIntentionError(String((err && err.message) || err));
+    } finally { setIntentionBusy(false); }
   }
 
   // Keep reelIndex in range whenever the reel shrinks.
@@ -4072,15 +4162,21 @@ function App() {
       // BEFORE the zoom slide exists. zoomBase is therefore set in the IGNITE block from the live
       // slide count plus the slides still to come, and NOT from `total` — `total` is the teacher-
       // facing "n / 4" footer, which deliberately excludes the teacher-preface slide.
-      // Registering the same photo twice (IGNITE and THINK both draw it) returns the one slide.
       let zoomBase = 0;
+      let zoomBackTo = 0;  // the slide whose photos are being drawn right now; zooms return HERE
       const zooms = [];
       const enlarge = (data, aspect) => {
         if (!data || !zoomBase) return {};
-        let i = zooms.findIndex(z => z.data === data);
+        const back = zoomBackTo || igniteNum;
+        // Keyed on the photo AND the slide it was clicked from. One shared zoom slide can only carry
+        // ONE back-link, so when IGNITE and THINK drew the same picture, zooming from THINK returned
+        // the teacher to IGNITE — which the footer calls slide 1 ("it went back to slide 1", reported
+        // 2026-07-30). A zoom slide per (photo, source slide) keeps every return trip honest; they're
+        // hidden, so a duplicate costs nothing but bytes.
+        let i = zooms.findIndex(z => z.data === data && z.back === back);
         // aspect is required: pptxgenjs's own sizing:"contain" stretches the picture, so the zoom
         // slide letterboxes with the contain() helper instead, which needs the real ratio.
-        if (i === -1) { zooms.push({ data, aspect }); i = zooms.length - 1; }
+        if (i === -1) { zooms.push({ data, aspect, back }); i = zooms.length - 1; }
         return { hyperlink: { slide: zoomBase + i + 1, tooltip: "Click to enlarge" } };
       };
 
@@ -4310,11 +4406,13 @@ function App() {
         // so a portrait phone image is clearly visible, not a sliver. imgX..imgX+imgW clears the
         // crest (which sits above, ending ~y1.15).
         igniteNum = pptx.slides.length; // zoom slides link back here (real slide number, not the footer's)
+        zoomBackTo = igniteNum;
         // Slides still to come after IGNITE: THINK, REFLECT when the teacher kept it, and one
         // "Where to next" slide per idea. The zoom slides are appended after all of those, and their
         // numbers are frozen at draw time, so this count must be exact — add any new content slide
         // that lands after IGNITE here too. (The pad loop further down covers an undercount only.)
-        zoomBase = pptx.slides.length + revealExtra + 1 + (showReflect ? 1 : 0) + nextIdeas.length;
+        // + 1 for the "Where this thinking goes next" divider that introduces them (v0.9.41).
+        zoomBase = pptx.slides.length + revealExtra + 1 + (showReflect ? 1 : 0) + nextIdeas.length + (nextIdeas.length ? 1 : 0);
         const imgX = 7.0, imgY = 1.5, imgW = 5.6, imgH = 5.3;
         const zoomsBefore = zooms.length;
         // A click-to-enlarge caption is coming whenever a photo (not just a video poster) will be
@@ -4390,6 +4488,7 @@ function App() {
       // ---------------- THINK ----------------
       {
         const s = newWhite();
+        zoomBackTo = pptx.slides.length; // enlarging a photo from HERE must come back HERE, not to IGNITE
         kicker(s, "THINK");
         // Keep the provocation visible while students run the routine: show it again as a right-hand
         // panel and narrow the routine column. An IMAGE/video reel redraws the stimulus; an ARTICLE
@@ -4476,6 +4575,31 @@ function App() {
         s.addNotes(noteFor("reflect"));
       }
 
+      // ------- WHERE TO NEXT — divider (teacher-only, introduces the three that follow) -------
+      // Nathan, 2026-07-30: the three planning slides arrived with no warning after REFLECT, so it
+      // wasn't clear they were further explorations of today's task rather than more of the lesson.
+      // Hidden like the slides it introduces, so it never interrupts the class.
+      if (nextIdeas.length) {
+        const s = pptx.addSlide();
+        s.hidden = true;
+        s.background = { color: P };
+        goldCrest(s, 1.3);
+        eyebrow(s, "Where to next — teacher only", 0.7, 0.55, GOLD_LT);
+        s.addText("Where this thinking goes next", { x: 0.7, y: 1.3, w: W - 1.4, h: 1.2, fontSize: 36, bold: true, color: WHITE, valign: "top", fontFace: FONT, charSpacing: -0.4, fit: "shrink" });
+        s.addShape(pptx.ShapeType.rect, { x: 0.7, y: 2.7, w: 2.4, h: 0.05, fill: { color: GOLD } });
+        s.addText([
+          { text: `The next ${nextIdeas.length} slides are further explorations that grow out of today's task`, options: { color: WHITE, bold: true, breakLine: true } },
+          { text: "They are the lessons AFTER this one, in teaching order — each builds on the last. Planning slides for you, not for the class: PowerPoint skips them when you present, and they aren't in the lesson's slide count.", options: { color: SUB, paraSpaceBefore: 10 } },
+        ], { x: 0.7, y: 2.95, w: W - 1.4, h: 1.5, fontSize: 16.5, valign: "top", lineSpacingMultiple: 1.2, fontFace: FONT, fit: "shrink" });
+        // The arc at a glance, so the teacher can see where it's heading before reading three slides.
+        const arc = nextIdeas.map((n, i) => (i + 1) + ".  " + ((n.title || "").trim() || "Follow-up lesson " + (i + 1))).join("\n");
+        s.addText(arc, { x: 0.7, y: 4.6, w: W - 1.4, h: 1.9, fontSize: fitFontSize(arc, W - 1.4, 1.9, 20, 13), color: GOLD_LT, valign: "top", lineSpacingMultiple: 1.3, fontFace: FONT });
+        s.addNotes("WHERE TO NEXT — teacher planning, not shown to students.\n\n"
+          + `The ${nextIdeas.length} slides after this one are further explorations of today's task: the lessons that follow, in teaching order, each building on the last. They are hidden, so presenting this deck straight through never shows them to the class.\n\n`
+          + "Use them to plan the next lesson, or delete them before you share the deck. The curriculum connection for the unit sits in the notes of the first one.\n\n"
+          + nextIdeas.map((n, i) => (i + 1) + ". " + ((n.title || "").trim() || "Follow-up " + (i + 1)) + (n.idea ? " — " + n.idea.trim() : "")).join("\n"));
+      }
+
       // ---------------- WHERE TO NEXT (teacher-only, up to 3 slides) ----------------
       // The three lessons that follow this one. hidden = PowerPoint never projects them, so a teacher
       // can present straight through without students seeing their planning; they still read them in
@@ -4525,7 +4649,7 @@ function App() {
         const s = pptx.addSlide();
         s.hidden = true;
         s.background = { color: "000000" };
-        const back = { slide: igniteNum, tooltip: "Back to the question" };
+        const back = { slide: z.back || igniteNum, tooltip: "Back to the lesson" };
         s.addText(" ", { x: 0, y: 0, w: W, h: H, fill: { color: "000000" }, hyperlink: { ...back } });
         const box = contain(0.2, 0.2, W - 0.4, H - 0.8, z.aspect);
         s.addImage({ data: z.data, x: box.x, y: box.y, w: box.w, h: box.h, hyperlink: { ...back } });
@@ -5047,12 +5171,24 @@ function App() {
               placeholder={intentionAuto ? "Springboard will write one to match this lesson" : "We are learning to…"}
               onChange={e => { setIntention(e.target.value); if (e.target.value.trim()) setIntentionAuto(false); }} />
             <div className="bx-linkrow" style={{ marginTop: 6 }}>
-              <button type="button" className="bx-btn ghost" onClick={() => { setIntention(""); setIntentionAuto(true); }}>Let AI decide</button>
+              {intentionBusy
+                ? <div className="bx-working"><span className="sp" /> Writing an intention…</div>
+                : <React.Fragment>
+                    <button type="button" className="bx-btn ghost" disabled={!(classInfo.subject || "").trim()}
+                            onClick={runSuggestIntention}>{intentionAi ? "Try another" : "Let AI decide"}</button>
+                    {intention.trim() && (
+                      <button type="button" className="bx-btn ghost"
+                              onClick={() => { setIntention(""); setIntentionAi(false); setIntentionAuto(true); setIntentionError(""); }}>Clear</button>
+                    )}
+                  </React.Fragment>}
               <small className="bx-note" style={{ margin: 0, alignSelf: "center" }}>
-                {intention.trim() ? "Your wording is used word-for-word, and the lesson is built around it."
+                {intentionAi ? "Springboard wrote this. Edit it, or try another — the lesson is built around whatever the box says."
+                  : intention.trim() ? "Your wording is used word-for-word, and the lesson is built around it."
+                  : !(classInfo.subject || "").trim() ? "Choose your subject first, or leave this blank and Springboard writes one while it builds."
                   : "Left blank, Springboard writes one to match the lesson. You can edit it afterwards."}
               </small>
             </div>
+            {intentionError && <div className="bx-alert" role="alert">{intentionError}</div>}
           </div>
         </div>
         {/* thinking */}
