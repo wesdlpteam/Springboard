@@ -138,7 +138,11 @@ check("deck", "zoom back-link keyed per source slide", /z\.back \|\| igniteNum/.
 check("deck", "think animations injected after youtube pass", idx.indexOf("injectYouTubeVideos(blob") < idx.indexOf("injectThinkAnimations(blob"), "wrong order");
 check("deck", "timing ids start above the wrapper id", /let nextId = 2;/.test(idx), "id collision risk");
 check("deck", "reveal uses an entrance effect", /presetClass="entr"/.test(idx), "missing");
-check("deck", "timer wipes leftwards", /filter="wipe\(left\)"/.test(idx), "missing");
+// The draining gold bar was replaced by a digital MM:SS clock (2026-07-31). Each preset needs its
+// OWN build group or PowerPoint hands each clock label to whichever preset claims it first and
+// silently truncates the rest, and exits need a group of their own again or every hide is dropped.
+check("deck", "timer presets get their own build groups", /grpId="\$\{grp\}"/.test(idx) && /grpId="\$\{grp \+ 8\}"/.test(idx), "presets share a build group");
+check("deck", "clock ticks once a second", /const TIMER_STEP_SEC = 1;/.test(idx), "not per-second");
 check("deck", "every slide gets notes", (idx.match(/addNotes\(/g) || []).length >= 6, `${(idx.match(/addNotes\(/g) || []).length}`);
 check("deck", "fitFontSize used for long text blocks", (idx.match(/fitFontSize\(/g) || []).length >= 8, "too few");
 check("deck", "contain() used instead of sizing:contain", !/sizing:\s*\{\s*type:\s*"contain"/.test(idx), "stretching images");

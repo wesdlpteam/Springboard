@@ -854,35 +854,48 @@
 
   /* ---- the finished lesson: full content, editable in place (brain view's answer to the
      Classic editor). Fields write straight into the deck the .pptx export reads. ---- */
-  .bx-edit-wrap { max-width: 760px; }
+  /* Centred, not left-aligned: a single column pinned left wasted the right half of the
+     window, which is the complaint that produced the two-column layout in the first place. */
+  .bx-edit-wrap { max-width: 880px; margin-inline: auto; }
   /* Wide window: one 760px column left most of the page empty (Nathan, 2026-07-30). Lay the slide
      cards out in two columns instead, with the header block (title, intention) spanning
      both so it still reads as the lesson's masthead. Line length inside a column stays ~500px, so
      nothing gets harder to read — the page just stops wasting half itself.
      Newspaper columns, not a 2-up grid: a grid row is as tall as its tallest card, so a short IGNITE
      beside a tall THINK just moved the empty space instead of filling it. */
-  @media (min-width: 1100px) {
-    .bx-edit-wrap { max-width: 1180px; column-count: 2; column-gap: 48px; }
+  @media (min-width: 1400px) {
+    .bx-edit-wrap { max-width: 1320px; column-count: 2; column-gap: 72px; }
     .bx-edit-wrap > .bx-edit { break-inside: avoid; }
     .bx-edit-wrap > .bx-edit:first-child { column-span: all; }
   }
-  .bx-edit { border-top: 1px solid var(--line); padding: 18px 0 22px; }
-  .bx-edit:first-child { border-top: 0; }
-  .bx-edit-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 2px; }
+  /* Sections are separated by AIR, not by boxes inside boxes. The old editor drew a bordered,
+     filled box around every single field, so four slides' worth of fields read as one undivided
+     grey wall (Nathan, three times, 2026-07-31). Now: a coloured section rule, a big heading, and
+     the lesson's own words sitting on the paper. */
+  .bx-edit { padding: 0 0 20px; margin-top: 42px; }
+  .bx-edit:first-child { margin-top: 0; }
+  .bx-edit-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    margin-bottom: 16px; padding-bottom: 9px; border-bottom: 2px solid var(--cc, var(--line-strong)); }
   .bx-edit-head .k { font-size: 10px; letter-spacing: .14em; font-weight: 600; color: var(--cc, var(--muted)); }
-  .bx-edit-head h4 { font-family: var(--bx-display); font-weight: 500; font-size: 19px; margin: 0; }
+  .bx-edit-head h4 { font-family: var(--bx-display); font-weight: 500; font-size: 23px; margin: 0; }
   .bx-edit-head .sub { font-size: 12px; color: var(--muted); }
   .bx-edit-head .sp { flex: 1 1 auto; }
-  .bx-edit .bx-lab { display: block; font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; font-weight: 600;
-    color: var(--muted); margin: 14px 0 5px; }
-  /* min-height overrides the global textarea{min-height:88px} so a rows=1 field is one line */
-  .bx-ta { display: block; width: 100%; min-height: 42px; font: inherit; font-size: 14.5px; line-height: 1.5; color: var(--ink);
-    background: var(--paper-2); border: 1px solid var(--line); border-radius: 4px; padding: 9px 11px; resize: vertical; }
-  .bx-ta:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
-  .bx-ta:disabled { opacity: .5; }
-  .bx-ta.big { font-family: var(--bx-display); font-size: 19px; }
-  .bx-listrow { display: grid; grid-template-columns: 22px 1fr 28px; gap: 8px; align-items: start; margin-top: 7px; }
-  .bx-listrow .n { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; padding-top: 11px; }
+  .bx-edit .bx-lab { display: block; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; font-weight: 600;
+    color: var(--muted); margin: 20px 0 3px; }
+  /* No border, no fill: the field IS the text until you reach for it. Hover tints it so it still
+     reads as editable, focus outlines it properly (that is the part WCAG cares about).
+     resize:none + overflow:hidden because fitTextarea now owns the height -- an inner scrollbar is
+     exactly the clipping this replaced. */
+  .bx-edit-wrap .bx-ta { display: block; width: 100%; min-height: 0; font: inherit; font-size: 15px; line-height: 1.55; color: var(--ink);
+    background: transparent; border: 0; border-radius: 4px; padding: 5px 8px; margin-left: -8px;
+    resize: none; overflow: hidden; transition: background .12s; }
+  .bx-edit-wrap .bx-ta:hover { background: var(--paper-2); }
+  .bx-edit-wrap .bx-ta:focus, .bx-edit-wrap .bx-ta:focus-visible { background: var(--paper-2); outline: 2px solid var(--ink); outline-offset: 0; }
+  .bx-edit-wrap .bx-ta:disabled { opacity: .5; }
+  .bx-edit-wrap .bx-ta:disabled:hover { background: transparent; }
+  .bx-edit-wrap .bx-ta.big { font-family: var(--bx-display); font-size: 21px; line-height: 1.3; }
+  .bx-listrow { display: grid; grid-template-columns: 18px 1fr 28px; gap: 6px; align-items: start; margin-top: 10px; }
+  .bx-listrow .n { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; padding-top: 8px; }
   .bx-x { border: 0; background: none; cursor: pointer; color: var(--muted); font-size: 17px; line-height: 1; padding: 9px 4px; border-radius: 3px; }
   .bx-x:hover { color: var(--ink); background: rgba(23,23,27,.06); }
   .bx-add { margin-top: 8px; border: 1px dashed var(--line-strong); background: none; cursor: pointer; font: inherit;
@@ -1351,7 +1364,7 @@ const BAND_ORDER = ["Early","Junior","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.10.0 · 2026-07-31";
+const APP_VERSION = "v0.11.0 · 2026-07-31";
 
 // Maps a class's year level to a teaching band (Prep-Y2 / Y3-6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2471,6 +2484,14 @@ function parseJsonLoose(raw) {
     return JSON.parse(raw.slice(start, end + 1)); // may throw -> caller catches
   }
   throw new Error("No JSON object found in model output.");
+}
+
+// Grow a textarea to exactly fit its content. Height must be cleared first or scrollHeight only
+// ever reports the taller of (content, current height) and the field can grow but never shrink.
+function fitTextarea(el) {
+  if (!el || el.tagName !== "TEXTAREA") return;
+  el.style.height = "auto";
+  el.style.height = el.scrollHeight + "px";
 }
 
 // Strip stray markdown (bold/italic/code/heading markers) the model sometimes adds.
@@ -3699,6 +3720,20 @@ function App() {
   // generate could land off-screen and read as "nothing happened". Set on success, consumed
   // by the scroll effect once React has painted the deck.
   const jumpToDeck = useRef(false);
+  // Lesson editor: every textarea grows to fit its own text. The fields used to be fixed-height
+  // with an inner scrollbar, so a three-line prompt was clipped mid-sentence and the page read as a
+  // wall of half-sentences (Nathan, 2026-07-31). Re-fit on deck change and on resize, because the
+  // wrap goes from one column to two at 1100px and every field's line count changes with it.
+  const editWrapRef = useRef(null);
+  const fitAllTextareas = () => {
+    const w = editWrapRef.current;
+    if (w) w.querySelectorAll("textarea").forEach(fitTextarea);
+  };
+  useLayoutEffect(fitAllTextareas);
+  useEffect(() => {
+    window.addEventListener("resize", fitAllTextareas);
+    return () => window.removeEventListener("resize", fitAllTextareas);
+  }, []);
 
   // media reel
   const [extractCount, setExtractCount] = useState(0); // count of video extractions in flight (batch/overlap-safe)
@@ -5601,7 +5636,9 @@ function App() {
             <button className="bx-btn" disabled={exporting} onClick={download}>{exporting ? "Preparing…" : "Download the deck ↓"}</button>
           </div>
           <p className="bx-note" style={{ marginTop: 0, marginBottom: 18 }}>Every field below is yours to edit, and your edits go straight into the PowerPoint you download.</p>
-          <div className="bx-edit-wrap">
+          {/* onInput is delegated: every field in here grows to fit as you type, so a prompt can
+              never be clipped mid-sentence behind an inner scrollbar (Nathan, 2026-07-31). */}
+          <div className="bx-edit-wrap" ref={editWrapRef} onInput={e => fitTextarea(e.target)}>
 
             {/* title + intention */}
             <div className="bx-edit">
