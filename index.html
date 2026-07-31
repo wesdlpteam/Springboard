@@ -2514,7 +2514,12 @@ function shapeDeck(parsed, { routineName }) {
     ignite:  { question: str(ig.question) },
     // summary = the 5 sentences students read beside the routine on THINK (article stimulus only;
     // empty for an image/video reel, and empty on decks generated before this field existed).
+    // minutes drives the THINK slide's countdown. Seeded from the routine's own "how to run it"
+    // line, then owned by the teacher (the editor's Timer field), because timing always changes.
+    // thinkMinutes is declared further down the file and hoisted; it clamps to 1-30 and falls back
+    // to 3, so a missing or junk value cannot produce a broken timer.
     think:   { routine: str(routineName) || str(th.routine), steps: arr(th.steps, 4), structure: str(th.structure), summary: str(th.summary),
+               minutes: thinkMinutes(th.minutes != null ? String(th.minutes) + " min" : th.structure),
                // The withheld surprise + the question that follows it (see the THINK slide's
                // click-to-reveal). Absent for routines that have nothing to withhold.
                // label names WHAT is behind the button ("the painting's origin") so the pill reads
@@ -3343,19 +3348,29 @@ async function injectYouTubeVideos(blob, ytMarks) {
    That matters in class: a main-sequence effect would swallow the teacher's first ordinary click,
    so pressing on to REFLECT would instead start the timer. This way a click anywhere still advances
    the slide, and only clicking the bar (or the reveal pill) fires the effect. */
-const SB_TIMER_MARK = "SB-TIMERBAR";        // objectName is "SB-TIMERBAR::<milliseconds>"
+const SB_CLOCK_MARK = "SB-CLOCK";           // objectName is "SB-CLOCK::<secondsRemaining>"
+const SB_TIMERBTN_MARK = "SB-TIMERBTN";     // objectName is "SB-TIMERBTN::<totalSeconds>"
 const SB_REVEAL_TRIGGER = "SB-REVEAL-TRIGGER";
 const SB_REVEAL_BODY = "SB-REVEAL-BODY";
+const TIMER_PRESETS = [1, 2, 3, 5];         // minutes offered on the slide
+const TIMER_MAX_SEC = Math.max(...TIMER_PRESETS) * 60;
+// The clock ticks in 5-second steps. One label per SECOND (301 of them) opened a deck in 10.8s;
+// this keeps it to 61 labels. Measured in the timer spike, 2026-07-31.
+const TIMER_STEP_SEC = 5;
+const mmss = sec => Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
 // One interactive sequence: clicking TRIGGER runs EFFECT (already id-substituted) on its target.
-const sbInteractiveSeq = (id, triggerSpid, effectXml) =>
-  `<p:seq concurrent="1" nextAc="seek"><p:cTn id="${id}" restart="whenNotActive" fill="hold" evtFilter="cancelBubble" nodeType="interactiveSeq"><p:stCondLst><p:cond evt="onClick" delay="0"><p:tgtEl><p:spTgt spid="${triggerSpid}"/></p:tgtEl></p:cond></p:stCondLst><p:endSync evt="end" delay="0"><p:rtn val="all"/></p:endSync><p:childTnLst><p:par><p:cTn id="${id + 1}" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="${id + 2}" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst>${effectXml}</p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn><p:nextCondLst><p:cond evt="onClick" delay="0"><p:tgtEl><p:spTgt spid="${triggerSpid}"/></p:tgtEl></p:cond></p:nextCondLst></p:seq>`;
+const sbInteractiveSeq = (id, triggerSpid, effectXml, restart = "whenNotActive") =>
+  `<p:seq concurrent="1" nextAc="seek"><p:cTn id="${id}" restart="${restart}" fill="hold" evtFilter="cancelBubble" nodeType="interactiveSeq"><p:stCondLst><p:cond evt="onClick" delay="0"><p:tgtEl><p:spTgt spid="${triggerSpid}"/></p:tgtEl></p:cond></p:stCondLst><p:endSync evt="end" delay="0"><p:rtn val="all"/></p:endSync><p:childTnLst><p:par><p:cTn id="${id + 1}" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst><p:par><p:cTn id="${id + 2}" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst>${effectXml}</p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn><p:nextCondLst><p:cond evt="onClick" delay="0"><p:tgtEl><p:spTgt spid="${triggerSpid}"/></p:tgtEl></p:cond></p:nextCondLst></p:seq>`;
 // Appear (entrance): the target is invisible in the slideshow until this fires. It stays visible in
 // the normal editing view, which is what we want — the teacher reads the reveal while planning.
 const sbAppearEffect = (id, spid) =>
   `<p:par><p:cTn id="${id}" presetID="1" presetClass="entr" presetSubtype="0" fill="hold" grpId="0" nodeType="clickEffect"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst><p:set><p:cBhvr><p:cTn id="${id + 1}" dur="1" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val="visible"/></p:to></p:set></p:childTnLst></p:cTn></p:par>`;
-// Wipe out over `ms`, leftwards: the gold drains off the right end, so what's left IS the time left.
-const sbWipeOutEffect = (id, spid, ms) =>
-  `<p:par><p:cTn id="${id}" presetID="22" presetClass="exit" presetSubtype="8" fill="hold" grpId="0" nodeType="clickEffect"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst><p:animEffect transition="out" filter="wipe(left)"><p:cBhvr><p:cTn id="${id + 1}" dur="${ms}"/><p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl></p:cBhvr></p:animEffect><p:set><p:cBhvr><p:cTn id="${id + 2}" dur="1" fill="hold"><p:stCondLst><p:cond delay="${ms - 1}"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val="hidden"/></p:to></p:set></p:childTnLst></p:cTn></p:par>`;
+// One clock tick: show/hide a single MM:SS label at a fixed delay after the preset was clicked.
+// grp is the preset's build group — sharing grpId="0" across presets makes PowerPoint hand each
+// label to whichever preset claims it first and silently truncate the rest (measured in the spike:
+// the 2 min preset stopped at 1:01, the 3 min at 2:01).
+const sbClockStep = (id, spid, ms, show, first, grp) =>
+  `<p:par><p:cTn id="${id}" presetID="1" presetClass="${show ? "entr" : "exit"}" presetSubtype="0" fill="hold" grpId="${grp}" nodeType="${first ? "clickEffect" : "withEffect"}"><p:stCondLst><p:cond delay="${ms}"/></p:stCondLst><p:childTnLst><p:set><p:cBhvr><p:cTn id="${id + 1}" dur="1" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val="${show ? "visible" : "hidden"}"/></p:to></p:set></p:childTnLst></p:cTn></p:par>`;
 
 async function injectThinkAnimations(blob) {
   if (typeof JSZip === "undefined") return blob;
@@ -3363,24 +3378,62 @@ async function injectThinkAnimations(blob) {
   const slidePaths = Object.keys(zip.files).filter(p => /^ppt\/slides\/slide\d+\.xml$/.test(p));
   for (const sp of slidePaths) {
     let xml = await zip.file(sp).async("string");
-    if (xml.indexOf(SB_TIMER_MARK) === -1 && xml.indexOf(SB_REVEAL_TRIGGER) === -1) continue;
+    if (xml.indexOf(SB_CLOCK_MARK) === -1 && xml.indexOf(SB_REVEAL_TRIGGER) === -1) continue;
     const idOf = (name) => {
       const m = xml.match(new RegExp('<p:cNvPr id="(\\d+)" name="' + name + '(?:::(\\d+))?"'));
       return m ? { spid: m[1], arg: m[2] } : null;
     };
-    const bar = idOf(SB_TIMER_MARK), trig = idOf(SB_REVEAL_TRIGGER), body = idOf(SB_REVEAL_BODY);
+    const allOf = (name) => [...xml.matchAll(new RegExp('<p:cNvPr id="(\\d+)" name="' + name + '::(\\d+)"', "g"))]
+      .map(m => ({ spid: m[1], arg: +m[2] }));
+    const trig = idOf(SB_REVEAL_TRIGGER), body = idOf(SB_REVEAL_BODY);
     // Start our ids above anything already in the file: the YouTube pass may have written a timing
     // block on this slide, and two nodes sharing a cTn id is a corrupt deck.
     // Starts at 2, never 1: on a slide with no timing yet the wrapper we write below owns id 1 for
     // its tmRoot, and two nodes sharing an id makes PowerPoint repair the file on open.
     let nextId = 2;
     for (const m of xml.matchAll(/<p:cTn id="(\d+)"/g)) nextId = Math.max(nextId, +m[1] + 1);
+    // builds can repeat a spid: the 0:00 label is listed once by each preset's leading hide and
+    // again when that preset's countdown reaches zero. Deduped at every join site below.
     const seqs = [], builds = [];
-    if (bar && bar.arg) {
-      const ms = Math.max(1000, Math.min(3600000, parseInt(bar.arg, 10) || 180000));
-      seqs.push(sbInteractiveSeq(nextId, bar.spid, sbWipeOutEffect(nextId + 3, bar.spid, ms)));
-      builds.push(`<p:bldP spid="${bar.spid}" grpId="0" animBg="1"/>`);
-      nextId += 6;
+    // One click sequence per preset button, each stepping the shared stack of MM:SS labels.
+    // Each step shows its own label and hides the one before it, so when a run finishes only the
+    // 0:00 label is left visible; the next run's first act is to hide that, leaving the resting
+    // label showing until its own first tick. Without the hide-the-previous pass the stack ends up
+    // fully visible with 0:00 on top, and the next preset would surface 0:01 instead of its own
+    // duration. restart="always" so a second preset can interrupt a running one.
+    // Each preset needs its OWN grpId: sharing grpId="0" makes PowerPoint hand each label to
+    // whichever preset claims it first and silently truncate the rest (measured in the spike --
+    // the 2 min preset stopped at 1:01, the 3 min at 2:01, and no structural check caught it).
+    // KNOWN LIMIT: changing preset UP mid-run (1 min at 0:30, then click 5 min) leaves the old
+    // label covering the new one, because z-order puts smaller numbers on top. Changing down, or
+    // changing once a run has finished, both work.
+    const clocks = new Map(allOf(SB_CLOCK_MARK).map(c => [c.arg, c.spid]));
+    const zero = clocks.get(0);
+    let grp = 0;
+    for (const btn of allOf(SB_TIMERBTN_MARK)) {
+      const effects = [];
+      let eid = nextId + 3;
+      if (zero) {
+        effects.push(sbClockStep(eid, zero, 0, false, true, grp + 8)); eid += 2;
+        builds.push(`<p:bldP spid="${zero}" grpId="${grp + 8}"/>`);
+      }
+      for (let t = btn.arg; t >= 0; t -= TIMER_STEP_SEC) {
+        const spid = clocks.get(t);
+        if (!spid) continue;
+        const at = (btn.arg - t) * 1000;
+        effects.push(sbClockStep(eid, spid, at, true, !zero && t === btn.arg, grp)); eid += 2;
+        builds.push(`<p:bldP spid="${spid}" grpId="${grp}"/>`);
+        const prev = clocks.get(t + TIMER_STEP_SEC);
+        // Exits live in their OWN build group: a label cannot carry both an entrance and an exit in
+        // the same group, and PowerPoint silently dropped every hide when they shared one.
+        if (prev && t + TIMER_STEP_SEC <= btn.arg) {
+          effects.push(sbClockStep(eid, prev, at, false, false, grp + 8)); eid += 2;
+          builds.push(`<p:bldP spid="${prev}" grpId="${grp + 8}"/>`);
+        }
+      }
+      seqs.push(sbInteractiveSeq(nextId, btn.spid, effects.join(""), "always"));
+      nextId = eid + 1;
+      grp++;
     }
     if (trig && body) {
       seqs.push(sbInteractiveSeq(nextId, trig.spid, sbAppearEffect(nextId + 3, body.spid)));
@@ -3393,14 +3446,15 @@ async function injectThinkAnimations(blob) {
       // than adding a second <p:timing> — one per slide is all the schema allows.
       xml = xml.replace(/<\/p:childTnLst><\/p:cTn><\/p:par><\/p:tnLst>/, seqs.join("") + "</p:childTnLst></p:cTn></p:par></p:tnLst>");
       xml = xml.indexOf("<p:bldLst>") !== -1
-        ? xml.replace("</p:bldLst>", builds.join("") + "</p:bldLst>")
-        : xml.replace("</p:timing>", `<p:bldLst>${builds.join("")}</p:bldLst></p:timing>`);
+        ? xml.replace("</p:bldLst>", [...new Set(builds)].join("") + "</p:bldLst>")
+        : xml.replace("</p:timing>", `<p:bldLst>${[...new Set(builds)].join("")}</p:bldLst></p:timing>`);
     } else {
-      const timing = `<p:timing><p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst>${seqs.join("")}</p:childTnLst></p:cTn></p:par></p:tnLst><p:bldLst>${builds.join("")}</p:bldLst></p:timing>`;
+      const timing = `<p:timing><p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst>${seqs.join("")}</p:childTnLst></p:cTn></p:par></p:tnLst><p:bldLst>${[...new Set(builds)].join("")}</p:bldLst></p:timing>`;
       xml = xml.replace(/<\/p:sld>/, timing + "</p:sld>");
     }
     // The marker did its job; leave a clean shape name behind in the finished deck.
-    xml = xml.replace(new RegExp('name="' + SB_TIMER_MARK + '::\\d+"'), 'name="Lesson timer"')
+    xml = xml.replace(new RegExp('name="' + SB_CLOCK_MARK + '::\\d+"', "g"), 'name="Lesson timer"')
+             .replace(new RegExp('name="' + SB_TIMERBTN_MARK + '::\\d+"', "g"), 'name="Timer preset"')
              .replace(new RegExp('name="' + SB_REVEAL_TRIGGER + '"'), 'name="Reveal button"')
              .replace(new RegExp('name="' + SB_REVEAL_BODY + '"'), 'name="Reveal"');
     zip.file(sp, xml);
@@ -4734,22 +4788,36 @@ function App() {
         const colW = hasPanel ? (tColRight - 0.7) : (W - 1.4);
         const stepW = hasPanel ? (tColRight - 1.32) : (W - 2.1);
         s.addText(routine || "Thinking routine", { x: 0.7, y: 1.05, w: colW, h: 0.75, fontSize: 32, bold: true, color: P, valign: "top", fontFace: FONT, fit: "shrink" });
-        // The timer sits top-right of the routine column, so "how to run it" gives up that width.
-        const tMins = thinkMinutes(structure);
-        const timerW = 2.6, timerX = +(0.7 + colW - timerW).toFixed(2);
-        const runW = +(colW - timerW - 0.3).toFixed(2);
+        // "How to run it" gets the full column width back: the timer used to sit top-right of it,
+        // and now lives at the foot of the slide.
+        const tMins = (deck.think && deck.think.minutes) || thinkMinutes(structure);
         if (structure) s.addText([{ text: "How to run it:  ", options: { bold: true, color: INK } }, { text: structure, options: { color: INK } }],
-          // Sized to hold ONE line beside the timer: the timer took the width this used to have.
-          { x: 0.7, y: 1.9, w: runW, h: 0.5, fontSize: fitFontSize("How to run it:  " + structure, runW, 0.3, 14, 10), valign: "top", fontFace: FONT });
-        // Countdown: a gold bar that drains leftwards over the routine's own time when the teacher
-        // clicks it. The track underneath stays put, so "how much gold is left" reads as time left.
-        // The animation itself is spliced in by injectThinkAnimations (PptxGenJS can't write one).
-        s.addText([
-          { text: tMins + " MIN", options: { fontSize: 11, bold: true, color: GOLD_INK, charSpacing: 0.8 } },
-          { text: "   CLICK TO START", options: { fontSize: 8.5, color: MUTED, charSpacing: 0.5 } },
-        ], { x: timerX, y: 1.84, w: timerW, h: 0.26, align: "right", valign: "middle", fontFace: FONT });
-        s.addShape(pptx.ShapeType.rect, { x: timerX, y: 2.14, w: timerW, h: 0.18, fill: { color: "EDE4D2" } });
-        s.addShape(pptx.ShapeType.rect, { x: timerX, y: 2.14, w: timerW, h: 0.18, fill: { color: GOLD }, objectName: SB_TIMER_MARK + "::" + (tMins * 60000) });
+          { x: 0.7, y: 1.9, w: colW, h: 0.5, fontSize: fitFontSize("How to run it:  " + structure, colW, 0.3, 14, 10), valign: "top", fontFace: FONT });
+        // Countdown, bottom-right: a digital MM:SS clock plus preset buttons, because timing always
+        // changes and the old bar was baked to one duration at export (Nathan, 2026-07-31).
+        // PowerPoint has no countdown and a .pptx cannot carry macros, so the clock is a stack of
+        // per-second labels revealed one a second by a click-triggered timeline, spliced in by
+        // injectThinkAnimations. Each preset needs its OWN grpId or PowerPoint hands each label to
+        // whichever preset claims it first and silently truncates the rest — see the timer spike.
+        const clockX = W - 2.05, clockY = H - 1.12, clockW = 1.45, clockH = 0.46;
+        TIMER_PRESETS.forEach((mins, i) => {
+          s.addText(mins + " min", {
+            shape: pptx.ShapeType.roundRect, rectRadius: 0.1, fill: { color: "EDE4D2" },
+            x: +(clockX - 3.16 + i * 0.78).toFixed(2), y: clockY, w: 0.72, h: clockH,
+            fontSize: 10, bold: true, color: INK, align: "center", valign: "middle", fontFace: FONT,
+            objectName: SB_TIMERBTN_MARK + "::" + (mins * 60),
+          });
+        });
+        // Resting label: what the clock shows before anyone clicks. Drawn first, so every animated
+        // label sits above it.
+        s.addText(mmss(tMins * 60), { x: clockX, y: clockY, w: clockW, h: clockH, fontSize: 21, bold: true, color: GOLD_INK, align: "center", valign: "middle", fontFace: FONT });
+        for (let sec = TIMER_MAX_SEC; sec >= 0; sec -= TIMER_STEP_SEC) {
+          s.addText(mmss(sec), {
+            x: clockX, y: clockY, w: clockW, h: clockH, fill: { color: WHITE },
+            fontSize: 21, bold: true, color: GOLD_INK, align: "center", valign: "middle", fontFace: FONT,
+            objectName: SB_CLOCK_MARK + "::" + sec,
+          });
+        }
         const panelX = tImgX, panelW = W - 0.6 - tImgX, panelTop = 1.05, panelH = 5.1;
         if (hasImageStim) await drawStimulus(s, panelX, panelTop, panelW, panelH, { posterOnly: true, noLink: true });
         else if (hasArticleStim) {
@@ -4822,7 +4890,7 @@ function App() {
           + (hasReveal ? "\n\nHOLD THIS BACK: " + rvFact + (rvQ ? " Then ask: " + rvQ : "")
               + "\nIt is hidden on the slide until you click the gold \"" + pillText + "\" button — collect students' guesses first, then click."
             : "")
-          + "\n\nTIMER: click the gold bar to start a " + tMins + "-minute countdown. It drains as the time goes.");
+          + "\n\nTIMER: the clock sits bottom-right, resting on " + mmss(tMins * 60) + ". Click a preset (1, 2, 3 or 5 min) to start that countdown — you can change it mid-lesson.");
       }
 
       // ---------------- REFLECT (optional) — straight after the thinking routine ----------------
@@ -5567,6 +5635,10 @@ function App() {
               </div>
               <label className="bx-lab" htmlFor="bx-think-structure">How to run it</label>
               <textarea id="bx-think-structure" className="bx-ta" rows={1} value={spot.think.structure} placeholder="e.g. Think-pair-share, 3 min" onChange={e => patchSlide("think", { structure: e.target.value })} />
+              <label className="bx-lab" htmlFor="bx-think-mins">Timer · minutes on the slide</label>
+              <input id="bx-think-mins" className="bx-input" type="number" min="1" max="30" style={{ width: 92 }}
+                value={spot.think.minutes || 3}
+                onChange={e => patchSlide("think", { minutes: Math.max(1, Math.min(30, parseInt(e.target.value, 10) || 3)) })} />
               {mode === "article" && (
                 <React.Fragment>
                   <label className="bx-lab" htmlFor="bx-think-summary">What students read · 5 sentences beside the routine</label>

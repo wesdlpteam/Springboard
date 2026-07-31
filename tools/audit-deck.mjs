@@ -245,7 +245,21 @@ function auditDeck(cfg, data) {
     const lbl = cfg.deck.think.reveal.label;
     check(cfg.id, "reveal button names what it reveals", !lbl || joined.includes("Click to reveal: " + lbl), `expected the label "${lbl}"`);
   }
-  check(cfg.id, "timer always on THINK", /CLICK TO START/.test(joined), "missing timer");
+  check(cfg.id, "digital clock on THINK", /\d:\d\d/.test(joined), "missing MM:SS clock");
+  check(cfg.id, "timer presets on THINK", ["1 min", "2 min", "3 min", "5 min"].every(p => joined.includes(p)), "missing preset buttons");
+  {
+    // Each preset must keep its FULL countdown. Sharing one build group made PowerPoint hand each
+    // clock label to whichever preset claimed it first and silently truncate the rest, and every
+    // structural check still passed (spike, 2026-07-31). Count the effects per sequence instead.
+    const thinkXml = slideNames.map((_, i) => xmlOf(i + 1)).find(x => /Timer preset/.test(x)) || "";
+    const seqs = [...thinkXml.matchAll(/<p:seq\b[\s\S]*?<\/p:seq>/g)].map(m => m[0]);
+    const clockSeqs = seqs.filter(q => /name="Timer preset"/.test(thinkXml) && /style\.visibility/.test(q) && (q.match(/<p:set>/g) || []).length > 10);
+    const shown = clockSeqs.map(q => (q.match(/<p:strVal val="visible"\/>/g) || []).length).sort((a, b) => a - b);
+    // 5-second steps: 1/2/3/5 min => 13/25/37/61 visible steps, ending exactly on 0:00.
+    check(cfg.id, "every preset keeps its whole countdown", shown.length === 4 && shown.join(",") === "13,25,37,61", `visible-steps per preset: ${shown.join(",")}`);
+    const grps = [...new Set([...thinkXml.matchAll(/<p:bldP spid="\d+" grpId="(\d+)"\/>/g)].map(m => m[1]))];
+    check(cfg.id, "each preset has its own build group", grps.length >= 4, `build groups: ${grps.join(",")}`);
+  }
   // 7. footer numbering
   const pages = [...joined.matchAll(/(\d+) \/ (\d+)/g)].map(m => [+m[1], +m[2]]);
   check(cfg.id, "footer numbers run 1..total", pages.length > 0 && pages.every(([a, b], i) => a === i + 1 && b === pages[0][1]), JSON.stringify(pages));
