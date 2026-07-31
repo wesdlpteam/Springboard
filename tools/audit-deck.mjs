@@ -24,7 +24,7 @@ const baseDeck = (over = {}) => ({
     routine: "See, Think, Wonder",
     steps: ["Name what you can see.", "What do you think is going on?", "Commit to a year: when was this taken?"],
     structure: "Think-pair-share, 3 min", summary: "",
-    reveal: { fact: "This tree was photographed in 2019, and the woodland around it was cleared in 1957.", question: "What does that change about how old you thought it was?" },
+    reveal: { fact: "This tree was photographed in 2019, and the woodland around it was cleared in 1957.", question: "What does that change about how old you thought it was?", label: "when it was taken" },
   },
   launch: { connection: "AC9E7LE03 - explore how texts represent place.", bridge: "From one tree to how we write about place.", question: "How does a writer make a place matter?", ideas: ["Rank three descriptions.", "Quick-write from the tree's view.", "Debate: survivor or leftover?"] },
   reflect: { revisit: "Back to our first question.", prompts: ["I used to think...", "Now I think...", "Next time I will..."], metacognition: "Name the strategy you used to notice detail." },
@@ -53,7 +53,7 @@ const CONFIGS = [
       d.title = "Who Is Standing Just Outside the Frame of This Painting, and Why Were They Left Out";
       d.think.steps = [LONG.slice(0, 150), LONG.slice(0, 160), LONG.slice(0, 170), LONG.slice(0, 180)];
       d.think.structure = "Small groups of four, two timed rounds of 6 min";
-      d.think.reveal = { fact: LONG.slice(0, 190), question: "What does that change about who you thought this was made for and why?" };
+      d.think.reveal = { fact: LONG.slice(0, 190), question: "What does that change about who you thought this was made for and why?", label: "who made it" };
       d.reflect.prompts = [LONG.slice(0, 90), LONG.slice(0, 95), LONG.slice(0, 100), LONG.slice(0, 105)];
       d.ignite.question = "Is this man raising the flag or pulling it down, and what would you bet on it?";
       return d;
@@ -234,6 +234,17 @@ function auditDeck(cfg, data) {
   check(cfg.id, "no content advisory slide is ever produced", !/CONTENT ADVISORY/.test(joined), "advisory slide still rendered");
   const wantReveal = !!cfg.deck.think.reveal.fact;
   check(cfg.id, "reveal button matches the deck", /Click to reveal/.test(joined) === wantReveal, `expected ${wantReveal}`);
+  if (wantReveal) {
+    // The pill and its label used to be two objects and only the pill carried the click action, so
+    // the text on top swallowed every click that landed on the letters and just the two edges
+    // worked (Nathan, 2026-07-31). The clickable object must BE the one holding the text.
+    const thinkXml = slideNames.map((_, i) => xmlOf(i + 1)).find(x => /Click to reveal/.test(textOf(x))) || "";
+    const pillSp = thinkXml.split("<p:sp>").find(c => c.includes("Click to reveal"));
+    check(cfg.id, "reveal pill is one shape carrying its own text", !!pillSp && /prst="roundRect"/.test(pillSp), "the label is a separate object from the clickable shape");
+    check(cfg.id, "the clickable object is the one with the label on it", !!pillSp && /name="Reveal button"/.test(pillSp), "click action is on a different object from the text");
+    const lbl = cfg.deck.think.reveal.label;
+    check(cfg.id, "reveal button names what it reveals", !lbl || joined.includes("Click to reveal: " + lbl), `expected the label "${lbl}"`);
+  }
   check(cfg.id, "timer always on THINK", /CLICK TO START/.test(joined), "missing timer");
   // 7. footer numbering
   const pages = [...joined.matchAll(/(\d+) \/ (\d+)/g)].map(m => [+m[1], +m[2]]);

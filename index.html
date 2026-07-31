@@ -2517,7 +2517,9 @@ function shapeDeck(parsed, { routineName }) {
     think:   { routine: str(routineName) || str(th.routine), steps: arr(th.steps, 4), structure: str(th.structure), summary: str(th.summary),
                // The withheld surprise + the question that follows it (see the THINK slide's
                // click-to-reveal). Absent for routines that have nothing to withhold.
-               reveal: { fact: str((th.reveal || {}).fact), question: str((th.reveal || {}).question) } },
+               // label names WHAT is behind the button ("the painting's origin") so the pill reads
+               // "Click to reveal: …" instead of a bare "Click to reveal" the teacher can't plan from.
+               reveal: { fact: str((th.reveal || {}).fact), question: str((th.reveal || {}).question), label: str((th.reveal || {}).label) } },
     // ideas = the 3 ways to run the launch. It was missing here, so the model's three
     // suggestions were dropped before export and the LAUNCH notes carried only the single
     // FACILITATION line.
@@ -2670,7 +2672,7 @@ Return STRICT JSON with keys: title, intention, keywords, ignite{question}, thin
     `think.routine MUST be exactly "${routine.name}". This routine's real moves are: ${(routine.steps || []).map((s, i) => `${i + 1}) ${s}`).join(" ")}. think.steps: take THOSE actual moves and write each one FOR THIS STIMULUS — keep the routine's real moves and their order, do NOT invent different ones; <=4 short student-facing prompts. Each step must name the actual thing students are looking at, reading or doing at that moment (for a staged-reveal routine, name what that reveal shows: "the raised flag and the arms", "the trees on the left"), so a step could not be pasted onto a different lesson. Generic wording like "see one tiny section" or "look closely at the image" is a failure. Each step must also STAND ALONE as a complete instruction or question a student could act on without the teacher explaining it — a bare fragment tacked on the end ("What changes?") is a failure: name what changes and about what ("What does that change about who you thought this was made for?"). NEVER print the surprise inside a step — that is what think.reveal is for, and a step that reads "Reveal: the painter added this in 1937…" spoils the very reveal it sets up. The final step instead makes students COMMIT before the reveal (their best guess, their stance, what they'd bet on), so there is something to overturn. think.structure: "${routine.structure || "Think-pair-share, 3 min"}".`,
     // The withheld surprise. It is hidden on the slide behind a "Click to reveal" button the teacher
     // presses once students have committed, so it can be specific without spoiling itself.
-    `think.reveal: {"fact": the single most surprising TRUE thing about this stimulus, stated in one sentence students can read (<=30 words) — who made it, when, what it leaves out, who is missing, where it really came from; "question": ONE complete question (<=20 words) asking what that fact changes about the thinking they just committed to}. NEVER invent a fact to be surprising: if nothing genuinely surprising is knowable from the stimulus, return {"fact": "", "question": ""} and the reveal is left off the slide entirely. The question must stand alone — "What changes?" is a failure; name what changes and about what.`,
+    `think.reveal: {"fact": the single most surprising TRUE thing about this stimulus, stated in one sentence students can read (<=30 words) — who made it, when, what it leaves out, who is missing, where it really came from; "question": ONE complete question (<=20 words) asking what that fact changes about the thinking they just committed to; "label": <=4 words naming WHAT is behind the reveal button, so a teacher reading the slide knows what they are about to show (e.g. "the painting's origin", "when it was taken"). Do NOT give the surprise away in the label — name the topic, not the fact}. NEVER invent a fact to be surprising: if nothing genuinely surprising is knowable from the stimulus, return {"fact": "", "question": "", "label": ""} and the reveal is left off the slide entirely. The question must stand alone — "What changes?" is a failure; name what changes and about what.`,
     `think.summary: ${isArticleStim
       ? `EXACTLY 5 sentences summarising the article FOR STUDENTS, printed beside the routine so they can read it while they think. Tone: ${tone}. Make the situation CONCRETE — establish clearly WHAT happened and the specifics a ${classInfo.yearLevel} student needs to follow it. Lead with the most surprising or relatable angle, use plain vivid language, and end on a note that invites discussion. NEVER invent quotes, names, numbers, or events that are not in the supplied text; if the article is vague on something important, leave it out rather than guessing. Punchy, never a dry recap.`
       : `"" — an empty string. The stimulus is an image/video reel, not an article, so there is nothing to summarise.`}`,
@@ -4783,6 +4785,9 @@ function App() {
         const rvFact = ((deck.think && deck.think.reveal && deck.think.reveal.fact) || "").trim();
         const rvQ = ((deck.think && deck.think.reveal && deck.think.reveal.question) || "").trim();
         const hasReveal = !!rvFact;
+        // Declared out here because the teacher note below the reveal block names the button too.
+        const rvLabel = ((deck.think && deck.think.reveal && deck.think.reveal.label) || "").trim();
+        const pillText = rvLabel ? "Click to reveal: " + rvLabel : "Click to reveal the surprise";
         const bottomLimit = hasReveal ? (hasPanel ? 5.15 : 5.25) : (hasPanel ? 6.35 : 6.45);
         const rowH = steps.length ? Math.max(0.5, (bottomLimit - sy - gap * (steps.length - 1)) / steps.length) : 0;
         const stepFont = hasPanel ? 16 : 20;
@@ -4794,9 +4799,17 @@ function App() {
           sy += rowH + gap;
         });
         if (hasReveal) {
-          const pillW = 2.15, pillY = 5.32;
-          s.addShape(pptx.ShapeType.roundRect, { x: 0.7, y: pillY, w: pillW, h: 0.42, fill: { color: GOLD }, rectRadius: 0.2, objectName: SB_REVEAL_TRIGGER });
-          s.addText("Click to reveal  ▸", { x: 0.7, y: pillY, w: pillW, h: 0.42, fontSize: 12.5, bold: true, color: INK, align: "center", valign: "middle", fontFace: FONT });
+          const pillY = 5.32;
+          // ONE object, not a shape with a label floating on top. The old pair put the click action
+          // on the shape and drew the text above it, so the text box swallowed every click that
+          // landed on the letters and only the pill's two edges responded (Nathan, 2026-07-31).
+          const pillW = Math.max(2.15, Math.min(4.6, 0.105 * pillText.length + 0.6));
+          s.addText(pillText, {
+            shape: pptx.ShapeType.roundRect, rectRadius: 0.2, fill: { color: GOLD },
+            x: 0.7, y: pillY, w: pillW, h: 0.42,
+            fontSize: 12.5, bold: true, color: INK, align: "center", valign: "middle", fontFace: FONT,
+            objectName: SB_REVEAL_TRIGGER,
+          });
           const rvText = rvFact + (rvQ ? "\n" + rvQ : "");
           const rvW = colW, rvH = 0.78;
           s.addText([
@@ -4807,7 +4820,7 @@ function App() {
         s.addText(ROUTINE_SOURCE, { x: 0.7, y: H - 0.92, w: W - 2.6, h: 0.3, fontSize: 9, italic: true, color: MUTED, fontFace: FONT });
         s.addNotes(noteFor("think")
           + (hasReveal ? "\n\nHOLD THIS BACK: " + rvFact + (rvQ ? " Then ask: " + rvQ : "")
-              + "\nIt is hidden on the slide until you click the gold \"Click to reveal\" button — collect students' guesses first, then click."
+              + "\nIt is hidden on the slide until you click the gold \"" + pillText + "\" button — collect students' guesses first, then click."
             : "")
           + "\n\nTIMER: click the gold bar to start a " + tMins + "-minute countdown. It drains as the time goes.");
       }
