@@ -370,9 +370,6 @@
   .chip.band-junior { background: var(--band-junior-bg); color: var(--band-junior-ink); }
   .chip.band-middle { background: var(--band-middle-bg); color: var(--band-middle-ink); }
   .chip.band-senior { background: var(--band-senior-bg); color: var(--band-senior-ink); }
-  .advisory-ctl { margin: 10px 0; }
-  .advisory-check { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; }
-  .advisory-check input { width: 16px; height: 16px; }
   /* Springboard preview: toggle rows, collapsible teacher notes, numbered prompt lists */
   .toggle-row { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13.5px; cursor: pointer; }
   .toggle-row input { width: 16px; height: 16px; flex: 0 0 auto; }
@@ -385,18 +382,6 @@
   .routine-name-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 6px 0 2px; }
   .routine-name-row .chip { font-weight: 700; }
   .rp-num { flex: 0 0 auto; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; font-size: 12px; font-weight: 700; margin-top: 4px; }
-  .advisory-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-  .advisory-chip { border: 1px solid var(--line, #E7E1EF); background: transparent; color: inherit;
-    border-radius: 999px; padding: 5px 12px; font-size: 13px; cursor: pointer; }
-  .advisory-chip.on { background: var(--accent, #4F2759); color: #fff; border-color: var(--accent, #4F2759); }
-  .advisory-chip:focus-visible { outline: 2px solid var(--accent, #4F2759); outline-offset: 2px; }
-  @media (prefers-reduced-motion: no-preference) { .advisory-chip { transition: background .15s, color .15s; } }
-  .advisory-card { background: #2B281F; color: #FFFFFF; border-radius: 12px; overflow: hidden; }
-  .advisory-warnhead { background: #F0A54F; color: #2B281F; font-weight: 800; font-size: 18px; letter-spacing: .08em; padding: 11px 22px; display: flex; align-items: center; gap: 9px; }
-  .advisory-tri { font-size: 20px; line-height: 1; }
-  .advisory-body { padding: 16px 22px 18px; }
-  .advisory-line { font-size: 16px; margin: 0 0 10px; }
-  .advisory-reassure { font-size: 14px; font-style: italic; opacity: .92; margin: 0; }
   .band-dot { display: inline-block; width: 8px; height: 8px; border-radius: 999px; margin-right: 5px; vertical-align: middle; }
   .band-dot.band-early  { background: var(--band-early); }
   .band-dot.band-junior { background: var(--band-junior); }
@@ -522,7 +507,7 @@
 
   /* Micro-interaction: selected pills give a little pop */
   @keyframes pop { 0% { transform: scale(.9); } 60% { transform: scale(1.05); } 100% { transform: scale(1); } }
-  .advisory-chip.on, .band-tab.on, .theme-picks .pick.on, .modes button.active { animation: pop .22s ease-out; }
+  .band-tab.on, .theme-picks .pick.on, .modes button.active { animation: pop .22s ease-out; }
 
   /* ---- Dark theme (sandbox experiment; toggled from the header) ---- */
   html[data-theme="dark"] {
@@ -871,7 +856,7 @@
      Classic editor). Fields write straight into the deck the .pptx export reads. ---- */
   .bx-edit-wrap { max-width: 760px; }
   /* Wide window: one 760px column left most of the page empty (Nathan, 2026-07-30). Lay the slide
-     cards out in two columns instead, with the header block (title, intention, advisory) spanning
+     cards out in two columns instead, with the header block (title, intention) spanning
      both so it still reads as the lesson's masthead. Line length inside a column stays ~500px, so
      nothing gets harder to read — the page just stops wasting half itself.
      Newspaper columns, not a 2-up grid: a grid row is as tall as its tallest card, so a short IGNITE
@@ -915,9 +900,6 @@
   .bx-sel { font: inherit; font-size: 13.5px; color: var(--ink); background: var(--paper-2);
     border: 1px solid var(--line); border-radius: 4px; padding: 7px 9px; max-width: 100%; }
   .bx-dim { opacity: .45; }
-  .bx-advisory { border: 1px solid #e0b7a6; background: #f7ece6; border-radius: 5px; padding: 12px 14px; margin-top: 6px; }
-  .bx-advisory .w { font-size: 10.5px; letter-spacing: .12em; font-weight: 700; color: #8a4a22; }
-  .bx-advisory p { margin: 6px 0 0; font-size: 13.5px; line-height: 1.5; }
 
   .bx-working { display: inline-flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13.5px; }
   .bx-working .sp { width: 30px; height: 2px; background: var(--line-strong); overflow: hidden; position: relative; }
@@ -2522,7 +2504,7 @@ function shapeDeck(parsed, { routineName }) {
   const str = v => stripMd(v == null ? "" : String(v));
   const arr = (v, max) => (Array.isArray(v) ? v.map(str).filter(Boolean).slice(0, max) : []);
   const obj = v => (v && typeof v === "object" ? v : {});
-  const ig = obj(p.ignite), th = obj(p.think), la = obj(p.launch), re = obj(p.reflect), no = obj(p.notes), ad = obj(p.advisory);
+  const ig = obj(p.ignite), th = obj(p.think), la = obj(p.launch), re = obj(p.reflect), no = obj(p.notes);
   return {
     title: str(p.title),
     // The teacher's own words when they typed one, otherwise the model's. Whitelisted here or it
@@ -2550,7 +2532,6 @@ function shapeDeck(parsed, { routineName }) {
       .map(n => ({ title: str(obj(n).title), idea: str(obj(n).idea), thinking: str(obj(n).thinking) }))
       .filter(n => n.title || n.idea),
     notes:   { ignite: str(no.ignite), think: str(no.think), launch: str(no.launch), reflect: str(no.reflect) },
-    advisory:{ flag: !!ad.flag, reason: str(ad.reason) },
   };
 }
 
@@ -2644,8 +2625,7 @@ Each notes field is a teacher script with EXACTLY these labelled sections, IN TH
 FACILITATION: … TIMING: … ENABLING PROMPT: … EXTENDING PROMPT: … CURRICULUM LINKS: …
 ENABLING PROMPT = how to simplify the task so a student who is stuck can still take part (a sentence stem, a smaller step, a concrete support).
 EXTENDING PROMPT = how to push a student who finds it easy further into the same thinking (not extra work — deeper work).
-Set advisory.flag true only for sensitive themes (grief, violence, body image, etc.) with a one-line reason.
-Return STRICT JSON with keys: title, intention, keywords, ignite{question}, think{routine, steps, structure, summary, reveal{fact, question}}, launch{connection, bridge, question, ideas}, reflect{revisit, prompts, metacognition}, next[3]{title, idea, thinking}, notes{ignite, think, launch, reflect}, advisory{flag, reason}.`;
+Return STRICT JSON with keys: title, intention, keywords, ignite{question}, think{routine, steps, structure, summary, reveal{fact, question}}, launch{connection, bridge, question, ideas}, reflect{revisit, prompts, metacognition}, next[3]{title, idea, thinking}, notes{ignite, think, launch, reflect}.`;
 
   // Single-slide regenerate: rebuild only the scoped slide + its notes, copying the rest verbatim.
   if (scope !== "all") {
@@ -3622,7 +3602,6 @@ function App() {
   const [genProgress, setGenProgress] = useState(0); // 0-100, eased estimate while generating
   const [regenSlide, setRegenSlide] = useState(null);   // which slide is regenerating: "ignite" | "think" | "launch" | "reflect"
   const [includeReflect, setIncludeReflect] = useState(true);  // teacher toggle: keep the REFLECT slide in the deck
-  const [includeAdvisory, setIncludeAdvisory] = useState(true); // teacher toggle: keep the content-advisory slide when flagged
 
   // analyse step (runs before Generate): AI recommendation + the teacher's pick
   const [analysis, setAnalysis] = useState(null);       // { summary, routines: [{name,why}] } | null
@@ -4246,7 +4225,6 @@ function App() {
       setSpots({ [genBand]: deck });
       setActiveBand(genBand);
       setIncludeReflect(true);              // fresh deck defaults to including REFLECT
-      setIncludeAdvisory(true);             // and, if flagged, the advisory slide
       genStimKey.current = stimKey; // remember the stimulus fingerprint for the stale-deck hint
       setGenProgress(100);
       // Log the successful generate event.
@@ -4341,18 +4319,17 @@ function App() {
   );
 
   /* ------- export: one Wesley-light 4-slide deck (IGNITE / THINK / LAUNCH / REFLECT) ------- */
-  // Reads the active deck plus classInfo / media / link / includeReflect / includeAdvisory from
-  // the App closure. IGNITE is full-brand (purple, gold crest, big title, stimulus, gold question);
-  // THINK / LAUNCH / REFLECT are white with a thin purple top rule + a small gold crest. A content-
-  // advisory slide leads the deck only when the model flagged it AND the teacher kept it. Every
-  // slide's teacher note goes in its Notes pane via addNotes.
+  // Reads the active deck plus classInfo / media / link / includeReflect from the App closure.
+  // IGNITE is full-brand (purple, gold crest, big title, stimulus, gold question); THINK / LAUNCH /
+  // REFLECT are white with a thin purple top rule + a small gold crest. Every slide's teacher note
+  // goes in its Notes pane via addNotes.
   // TRAP: pptxgenjs mutates option objects handed to it (shadow especially) — so EVERY addText/
   // addImage/addShape/addMedia call below gets a FRESH object literal; nothing is shared/reused.
   async function buildDeckBlob(bandKey, deck) {
     if (!deck) return null;
     try {
       const P = WESLEY.purple, GOLD = WESLEY.gold, GOLD_INK = WESLEY.goldInk, GOLD_LT = WESLEY.goldLight,
-            INK = WESLEY.ink, MUTED = WESLEY.muted, WHITE = WESLEY.white, SUB = WESLEY.subtle, AMBER = WESLEY.amber;
+            INK = WESLEY.ink, MUTED = WESLEY.muted, WHITE = WESLEY.white, SUB = WESLEY.subtle;
       const FONT = "Arial"; // Graphik can't be embedded in a portable .pptx — Arial is the fork's safe fallback
       const W = 13.33, H = 7.5;
 
@@ -4382,7 +4359,6 @@ function App() {
       const yearShort = yearLevel.replace(/^year\s*/i, "");
       const metaLine = [bandLabelOf(bandKey) + (yearShort ? " · Year " + yearShort : ""), subject].filter(Boolean).join("   ·   ");
 
-      const showAdvisory = !!(deck.advisory && deck.advisory.flag) && includeAdvisory;
       const showReflect = !!includeReflect;
 
       // ZOOM IN reveal: bake the teacher's frames (the crop tool) into slide-sized JPEGs, then add
@@ -4404,11 +4380,10 @@ function App() {
       }
       const revealExtra = Math.max(0, revealShots.length - 1); // slides added between IGNITE and THINK
 
-      // Student-facing slides only: IGNITE + THINK, plus the Zoom In reveals, REFLECT and the
-      // advisory when kept. The teacher preface and the "Where to next" slides are excluded — a
-      // student never sees them, so counting them made the footer lie about how far through the
-      // lesson the class was.
-      const total = 2 + revealExtra + (showAdvisory ? 1 : 0) + (showReflect ? 1 : 0);
+      // Student-facing slides only: IGNITE + THINK, plus the Zoom In reveals and REFLECT. The
+      // teacher preface and the "Where to next" slides are excluded — a student never sees them,
+      // so counting them made the footer lie about how far through the lesson the class was.
+      const total = 2 + revealExtra + (showReflect ? 1 : 0);
 
       await loadScript(PPTX_SRC, PPTX_SRI);
       const pptx = new PptxGenJS();
@@ -4478,7 +4453,7 @@ function App() {
         return min;
       };
 
-      // White-slide chrome (THINK / LAUNCH / REFLECT / advisory): purple top rule, small crest,
+      // White-slide chrome (THINK / LAUNCH / REFLECT): purple top rule, small crest,
       // wordmark + page number. Returns the new slide.
       const newWhite = () => {
         sNum++;
@@ -4645,18 +4620,6 @@ function App() {
           { text: "You can delete or hide this slide before class.", options: { italic: true, color: SUB } },
         ], { x: 0.7, y: 3.25, w: W - 1.4, h: 3.4, fontSize: 16.5, valign: "top", lineSpacingMultiple: 1.2, fontFace: FONT, fit: "shrink" });
         s.addNotes("Teach from these notes. Presenter View: Slide Show ▸ Presenter View (Alt+F5). This preface slide can be deleted or hidden before you present to students.");
-      }
-
-      // ---------------- ADVISORY (optional, leads the deck) ----------------
-      if (showAdvisory) {
-        const s = newWhite();
-        const reason = ((deck.advisory && deck.advisory.reason) || "").trim() || "This stimulus touches on a sensitive theme.";
-        s.addShape(pptx.ShapeType.roundRect, { x: 0.7, y: 1.05, w: 3.9, h: 0.6, fill: { color: AMBER }, rectRadius: 0.1 });
-        s.addText("CONTENT ADVISORY", { x: 0.7, y: 1.05, w: 3.9, h: 0.6, fontSize: 15, bold: true, color: INK, align: "center", valign: "middle", charSpacing: 1, fontFace: FONT });
-        s.addText(reason, { x: 0.7, y: 2.05, w: W - 1.4, h: 1.9, fontSize: 22, bold: true, color: P, valign: "top", lineSpacingMultiple: 1.15, fontFace: FONT, fit: "shrink" });
-        s.addText("If you'd rather step out for this one, just quietly let your teacher know. That's completely okay.",
-          { x: 0.7, y: 4.7, w: W - 1.4, h: 1.0, fontSize: 15, italic: true, color: INK, valign: "top", lineSpacingMultiple: 1.2, fontFace: FONT });
-        s.addNotes("CONTENT ADVISORY — decide before class whether to show this. " + reason);
       }
 
       // ---------------- IGNITE (full-brand purple cover) ----------------
@@ -5558,7 +5521,7 @@ function App() {
           <p className="bx-note" style={{ marginTop: 0, marginBottom: 18 }}>Every field below is yours to edit, and your edits go straight into the PowerPoint you download.</p>
           <div className="bx-edit-wrap">
 
-            {/* title + advisory */}
+            {/* title + intention */}
             <div className="bx-edit">
               <label className="bx-lab" htmlFor="bx-title" style={{ marginTop: 0 }}>Lesson title</label>
               <textarea id="bx-title" className="bx-ta big" rows={1} value={spot.title} placeholder="A short, catchy title…" onChange={e => patch({ title: e.target.value })} />
@@ -5566,16 +5529,6 @@ function App() {
                   editable here whether the teacher wrote it or the app did. */}
               <label className="bx-lab" htmlFor="bx-intention-edit" style={{ marginTop: 10 }}>Learning intention</label>
               <textarea id="bx-intention-edit" className="bx-ta" rows={2} value={spot.intention || ""} placeholder="We are learning to…" onChange={e => patch({ intention: e.target.value })} />
-              {spot.advisory && spot.advisory.flag && (
-                <div className="bx-advisory">
-                  <div className="w">⚠ CONTENT ADVISORY</div>
-                  <p>{spot.advisory.reason || "This stimulus touches on a sensitive theme."}</p>
-                  <label className="bx-toggle" style={{ marginTop: 9 }}>
-                    <input type="checkbox" checked={includeAdvisory} onChange={e => setIncludeAdvisory(e.target.checked)} />
-                    Put a content-advisory slide at the start of the deck
-                  </label>
-                </div>
-              )}
             </div>
 
             {/* IGNITE */}
@@ -6291,22 +6244,6 @@ function App() {
                     {theme && <span className="chip gold">{theme}</span>}
                   </div>
                 </div></div>
-
-                {/* Content advisory — the model flags, the teacher chooses whether to include */}
-                {spot.advisory.flag && (
-                  <div className="slide advisory-slide"><div className="bar" style={barStyle}></div><div className="body">
-                    <div className="advisory-card">
-                      <div className="advisory-warnhead"><span className="advisory-tri" aria-hidden="true">⚠</span> CONTENT ADVISORY</div>
-                      <div className="advisory-body">
-                        <p className="advisory-line">{spot.advisory.reason || "This stimulus touches on a sensitive theme."}</p>
-                        <label className="toggle-row" style={{ marginTop: 10 }}>
-                          <input type="checkbox" checked={includeAdvisory} onChange={e => setIncludeAdvisory(e.target.checked)} />
-                          Include a content-advisory slide at the start of the deck
-                        </label>
-                      </div>
-                    </div>
-                  </div></div>
-                )}
 
                 {/* IGNITE */}
                 <div className="slide s-ignite"><div className="bar"></div><div className="body">

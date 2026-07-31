@@ -34,14 +34,16 @@ const baseDeck = (over = {}) => ({
     { title: "Argue for one tree", idea: "Students take a side on whether the last paddock tree should be protected, backed with two pieces of evidence.", thinking: "Reasoning with evidence - building a case." },
   ],
   notes: { ignite: "FACILITATION: Show it cold. TIMING: 3 min.", think: "FACILITATION: Pairs first.", launch: "FACILITATION: Use one idea.", reflect: "FACILITATION: Exit ticket." },
-  advisory: { flag: false, reason: "" },
   ...over,
 });
 
 const LONG = "A single old paddock tree stands alone in a cleared field, and the woodland that once surrounded it was pulled out for grazing decades ago, leaving nothing to replace it when it finally falls. ";
 const CONFIGS = [
   { id: "article-full", mode: "article", deck: baseDeck(), reflect: true },
-  { id: "media-advisory", mode: "media", reflect: true,
+  // Still sends advisory{flag:true}: a deck saved before the advisory was removed, or a model that
+  // keeps emitting the old field, must NOT resurrect the slide. Dropping the field from the fixture
+  // would make the "no content advisory" assertion below pass without proving anything.
+  { id: "media-reflect", mode: "media", reflect: true,
     deck: baseDeck({ advisory: { flag: true, reason: "This lesson touches on land clearing and loss." } }) },
   { id: "article-noreveal-noreflect", mode: "article", reflect: false,
     deck: (() => { const d = baseDeck(); d.think.reveal = { fact: "", question: "" }; d.think.summary = LONG.repeat(2); return d; })() },
@@ -229,7 +231,7 @@ function auditDeck(cfg, data) {
   check(cfg.id, "where-to-next divider present", /Where this thinking goes next/i.test(joined), "missing");
   check(cfg.id, "three follow-up slides", (joined.match(/IDEA \d OF 3/gi) || []).length === 3, "wrong count");
   check(cfg.id, "REFLECT matches the teacher's choice", /REFLECT/.test(joined) === !!cfg.reflect, `expected ${cfg.reflect}`);
-  check(cfg.id, "advisory matches the deck", /CONTENT ADVISORY/.test(joined) === !!cfg.deck.advisory.flag, `expected ${cfg.deck.advisory.flag}`);
+  check(cfg.id, "no content advisory slide is ever produced", !/CONTENT ADVISORY/.test(joined), "advisory slide still rendered");
   const wantReveal = !!cfg.deck.think.reveal.fact;
   check(cfg.id, "reveal button matches the deck", /Click to reveal/.test(joined) === wantReveal, `expected ${wantReveal}`);
   check(cfg.id, "timer always on THINK", /CLICK TO START/.test(joined), "missing timer");
