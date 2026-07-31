@@ -3354,9 +3354,10 @@ const SB_REVEAL_TRIGGER = "SB-REVEAL-TRIGGER";
 const SB_REVEAL_BODY = "SB-REVEAL-BODY";
 const TIMER_PRESETS = [1, 2, 3, 5];         // minutes offered on the slide
 const TIMER_MAX_SEC = Math.max(...TIMER_PRESETS) * 60;
-// The clock ticks in 5-second steps. One label per SECOND (301 of them) opened a deck in 10.8s;
-// this keeps it to 61 labels. Measured in the timer spike, 2026-07-31.
-const TIMER_STEP_SEC = 5;
+// The clock ticks once a SECOND. 301 labels, ~700KB on the THINK slide, and a warm PowerPoint
+// opens it in ~80ms (measured 2026-07-31; an earlier "10.8s" reading was PowerPoint's own cold
+// start sitting inside the stopwatch, not the file).
+const TIMER_STEP_SEC = 1;
 const mmss = sec => Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
 // One interactive sequence: clicking TRIGGER runs EFFECT (already id-substituted) on its target.
 const sbInteractiveSeq = (id, triggerSpid, effectXml, restart = "whenNotActive") =>

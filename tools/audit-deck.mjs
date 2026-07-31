@@ -255,8 +255,8 @@ function auditDeck(cfg, data) {
     const seqs = [...thinkXml.matchAll(/<p:seq\b[\s\S]*?<\/p:seq>/g)].map(m => m[0]);
     const clockSeqs = seqs.filter(q => /name="Timer preset"/.test(thinkXml) && /style\.visibility/.test(q) && (q.match(/<p:set>/g) || []).length > 10);
     const shown = clockSeqs.map(q => (q.match(/<p:strVal val="visible"\/>/g) || []).length).sort((a, b) => a - b);
-    // 5-second steps: 1/2/3/5 min => 13/25/37/61 visible steps, ending exactly on 0:00.
-    check(cfg.id, "every preset keeps its whole countdown", shown.length === 4 && shown.join(",") === "13,25,37,61", `visible-steps per preset: ${shown.join(",")}`);
+    // Per-second steps: 1/2/3/5 min => 61/121/181/301 visible steps, ending exactly on 0:00.
+    check(cfg.id, "every preset keeps its whole countdown", shown.length === 4 && shown.join(",") === "61,121,181,301", `visible-steps per preset: ${shown.join(",")}`);
     const grps = [...new Set([...thinkXml.matchAll(/<p:bldP spid="\d+" grpId="(\d+)"\/>/g)].map(m => m[1]))];
     check(cfg.id, "each preset has its own build group", grps.length >= 4, `build groups: ${grps.join(",")}`);
   }
