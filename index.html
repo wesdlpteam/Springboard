@@ -1372,7 +1372,7 @@ const BAND_ORDER = ["Early","Junior","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.11.0 · 2026-07-31";
+const APP_VERSION = "v0.12.0 · 2026-08-03";
 
 // Maps a class's year level to a teaching band (Prep-Y2 / Y3-6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2322,6 +2322,38 @@ function readFileAsDataURL(file) {
   });
 }
 
+/* Shrink a photo before it is uploaded and sent to the model. Video frames were already capped at
+   1024px, but photos went up at whatever the camera produced — a phone shot is several MB, which
+   is slow to upload and buys nothing: the model tiles a large image and reads no more detail from
+   it. 1568px is OpenAI's own long-edge ceiling for a single vision tile pass, so anything above
+   that is pure upload cost. Falls back to the original data URL if anything goes wrong, because a
+   deck built from a big photo beats no deck at all. */
+const IMG_MAX_EDGE = 1568;
+function downscaleDataUrl(dataUrl) {
+  return new Promise((res) => {
+    try {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const long = Math.max(img.naturalWidth, img.naturalHeight);
+          if (!long || long <= IMG_MAX_EDGE) return res(dataUrl);
+          const k = IMG_MAX_EDGE / long;
+          const c = document.createElement("canvas");
+          c.width = Math.round(img.naturalWidth * k);
+          c.height = Math.round(img.naturalHeight * k);
+          const ctx = c.getContext("2d");
+          ctx.imageSmoothingQuality = "high";
+          ctx.drawImage(img, 0, 0, c.width, c.height);
+          const out = c.toDataURL("image/jpeg", 0.85);
+          res(out && out.length < dataUrl.length ? out : dataUrl);
+        } catch (_) { res(dataUrl); }
+      };
+      img.onerror = () => res(dataUrl);
+      img.src = dataUrl;
+    } catch (_) { res(dataUrl); }
+  });
+}
+
 // Build a QR code data URL synchronously. Never throws — returns "" if the
 // library is missing or generation fails, so a QR problem can't blank the app.
 function makeQrDataUrl(text) {
@@ -2769,7 +2801,9 @@ Return STRICT JSON with keys: title, intention, keywords, ignite{question}, thin
     if (clipText.length) mt += `\nClip notes:\n${clipText.join("\n")}`;
     userContent.push({ type: "text", text: instruction + "\n\n" + mt });
     mediaItems.forEach(m => {
-      if (m.kind === "image") userContent.push({ type: "image_url", image_url: { url: m.dataUrl } });
+      // smallUrl, not dataUrl: the model gets the shrunk copy, the deck keeps the full-resolution
+      // original so Zoom In crops stay sharp. Older saved media has no smallUrl, hence the fallback.
+      if (m.kind === "image") userContent.push({ type: "image_url", image_url: { url: m.smallUrl || m.dataUrl } });
       else if (m.kind === "youtube") { const y = m.thumb || m.poster; if (y) userContent.push({ type: "image_url", image_url: { url: y } }); }
       else (m.frames || []).forEach(fr => userContent.push({ type: "image_url", image_url: { url: fr } }));
     });
@@ -2883,7 +2917,9 @@ Routine names MUST be copied exactly from this menu:\n${routineMenu}`;
   if (mode === "media" && mediaItems.length) {
     userContent.push({ type: "text", text: "Analyse this stimulus and recommend routines per the system instructions." });
     mediaItems.forEach(m => {
-      if (m.kind === "image") userContent.push({ type: "image_url", image_url: { url: m.dataUrl } });
+      // smallUrl, not dataUrl: the model gets the shrunk copy, the deck keeps the full-resolution
+      // original so Zoom In crops stay sharp. Older saved media has no smallUrl, hence the fallback.
+      if (m.kind === "image") userContent.push({ type: "image_url", image_url: { url: m.smallUrl || m.dataUrl } });
       else if (m.kind === "youtube") { const y = m.thumb || m.poster; if (y) userContent.push({ type: "image_url", image_url: { url: y } }); }
       else (m.frames || []).forEach(fr => userContent.push({ type: "image_url", image_url: { url: fr } }));
     });
@@ -2948,7 +2984,9 @@ ${guide ? "A curriculum extract is appended below. Ground every suggestion in TH
   if (mode === "media" && mediaItems.length) {
     userContent.push({ type: "text", text: "Suggest curriculum connections for this stimulus per the system instructions." });
     mediaItems.forEach(m => {
-      if (m.kind === "image") userContent.push({ type: "image_url", image_url: { url: m.dataUrl } });
+      // smallUrl, not dataUrl: the model gets the shrunk copy, the deck keeps the full-resolution
+      // original so Zoom In crops stay sharp. Older saved media has no smallUrl, hence the fallback.
+      if (m.kind === "image") userContent.push({ type: "image_url", image_url: { url: m.smallUrl || m.dataUrl } });
       else if (m.kind === "youtube") { const y = m.thumb || m.poster; if (y) userContent.push({ type: "image_url", image_url: { url: y } }); }
       else (m.frames || []).forEach(fr => userContent.push({ type: "image_url", image_url: { url: fr } }));
     });
@@ -3016,7 +3054,9 @@ The intention must: be student-facing and start "We are learning to"; be <=18 wo
   if (mode === "media" && mediaItems.length) {
     userContent.push({ type: "text", text: "Write the learning intention for this stimulus per the system instructions." });
     mediaItems.forEach(m => {
-      if (m.kind === "image") userContent.push({ type: "image_url", image_url: { url: m.dataUrl } });
+      // smallUrl, not dataUrl: the model gets the shrunk copy, the deck keeps the full-resolution
+      // original so Zoom In crops stay sharp. Older saved media has no smallUrl, hence the fallback.
+      if (m.kind === "image") userContent.push({ type: "image_url", image_url: { url: m.smallUrl || m.dataUrl } });
       else if (m.kind === "youtube") { const y = m.thumb || m.poster; if (y) userContent.push({ type: "image_url", image_url: { url: y } }); }
       else (m.frames || []).forEach(fr => userContent.push({ type: "image_url", image_url: { url: fr } }));
     });
@@ -4042,7 +4082,16 @@ function App() {
 
     for (const f of take) {
       if (f.type.startsWith("image/")) {
-        try { const dataUrl = await readFileAsDataURL(f); const aspect = await imageAspect(dataUrl); setMedia(m => m.length >= MAX_MEDIA ? m : [...m, { id: newId(), kind: "image", dataUrl, name: f.name, aspect }]); }
+        // TWO copies, deliberately. dataUrl stays at full camera resolution because the deck draws
+        // from it and Zoom In crops a small region of it onto a whole slide — downscaling that
+        // source makes the zoom slides soft (Nathan, 2026-08-03). smallUrl is the shrunk copy sent
+        // to the model, which reads no more detail from a big image but is much slower to upload.
+        try {
+          const dataUrl = await readFileAsDataURL(f);
+          const smallUrl = await downscaleDataUrl(dataUrl);
+          const aspect = await imageAspect(dataUrl);
+          setMedia(m => m.length >= MAX_MEDIA ? m : [...m, { id: newId(), kind: "image", dataUrl, smallUrl, name: f.name, aspect }]);
+        }
         catch (_) { setError("Could not read image: " + f.name); }
       } else if (f.type.startsWith("video/")) {
         setExtractCount(c => c + 1);
