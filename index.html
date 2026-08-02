@@ -923,6 +923,14 @@
   .bx-prog { max-width: 320px; }
   .bx-prog-bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
   .bx-prog-bar i { display: block; height: 100%; width: 0; background: var(--mv, var(--ink)); border-radius: 2px; transition: width .3s linear; }
+  /* Planning phase: the model has not written a word yet, so there is no honest percentage to
+     show. A travelling bar says "working, nothing measurable yet" without inventing a number. */
+  .bx-prog-bar.indet i { width: 34%; transition: none; animation: bxindet 1.4s ease-in-out infinite; }
+  @keyframes bxindet { 0% { margin-left: -34%; } 100% { margin-left: 100%; } }
+  @media (prefers-reduced-motion: reduce) {
+    /* Same message without the travel: a steady partial fill, still clearly not a percentage. */
+    .bx-prog-bar.indet i { animation: none; width: 34%; margin-left: 0; opacity: .55; }
+  }
   .bx-prog-txt { margin-top: 9px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .bx-prog-txt b { font-weight: 600; color: var(--ink); }
   /* The lesson arriving, live. Sits outside .bx-prog because that is capped at 320px and this
@@ -1372,7 +1380,7 @@ const BAND_ORDER = ["Early","Junior","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.12.0 · 2026-08-03";
+const APP_VERSION = "v0.12.1 · 2026-08-03";
 
 // Maps a class's year level to a teaching band (Prep-Y2 / Y3-6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -3832,6 +3840,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [genProgress, setGenProgress] = useState(0); // 0-100, driven by what has actually arrived
   const [genLive, setGenLive] = useState(null);      // the lesson so far, while it streams in
+  const [genPhase, setGenPhase] = useState("");      // "thinking" (no words yet) | "writing"
   const [regenSlide, setRegenSlide] = useState(null);   // which slide is regenerating: "ignite" | "think" | "launch" | "reflect"
   const [includeReflect, setIncludeReflect] = useState(true);  // teacher toggle: keep the REFLECT slide in the deck
 
@@ -3904,11 +3913,16 @@ function App() {
 
   // Plain-English stage label beside the build percentage (the call isn't streamed, so
   // these track the estimate, not literal server steps).
-  const genStage = genProgress < 25 ? "Reading your stimulus…"
-    : genProgress < 55 ? "Shaping the four slides…"
-    : genProgress < 85 ? "Writing your teacher notes…"
-    : genProgress < 96 ? "Nearly there — the last slide…"
-    : genProgress < 100 ? "Still going. Big stimuli take a bit longer…"
+  // Two phases, because they genuinely differ. The model writes NOTHING for the first several
+  // seconds while it plans (measured: 3,024 reasoning tokens before the first character), so a
+  // percentage there would either freeze at 2% — which reads as a hang, and did (Nathan,
+  // 2026-08-03) — or have to lie. So the planning phase gets a moving indeterminate bar and no
+  // number, and the number only appears once real words are actually landing.
+  const genStage = genPhase === "thinking" ? "Reading your stimulus and planning the lesson…"
+    : genProgress < 40 ? "Writing the opening…"
+    : genProgress < 62 ? "Writing the thinking routine…"
+    : genProgress < 86 ? "Writing the task and the reflection…"
+    : genProgress < 100 ? "Finishing your teacher notes…"
     : "Done — scrolling to your lesson…";
 
   // Active band drives the (single) preview/edit/export view; before generation
@@ -4459,6 +4473,7 @@ function App() {
     // end up with a bar that parks at 90% and reads as a hang.
     setGenProgress(2);
     setGenLive(null);
+    setGenPhase("thinking");
     try {
       const sourceText = mode === "article" ? articleText : "";
       // Single-class-per-run: one generate() call produces one deck, pitched to the
@@ -4469,6 +4484,7 @@ function App() {
         classInfo, routineName: selectedRoutine, reflectRoutine, intention, scope: "all",
         onPartial: (p) => {
           setGenLive(p);
+          setGenPhase("writing");   // words are landing now, so a number becomes meaningful
           // Weight the parts by how much writing each one actually is, or the bar lurches: the
           // notes{} block alone is roughly a third of the reply.
           const done = (p.ignite && p.ignite.question ? 18 : 0)
@@ -4500,6 +4516,7 @@ function App() {
       if (err._raw) setRawDump(err._raw);
     } finally {
       setLoading(false);
+      setGenPhase("");
       setTimeout(() => { setGenProgress(0); setGenLive(null); }, 500);
     }
   }
@@ -5788,8 +5805,13 @@ function App() {
                 {loading ? (
                   <React.Fragment>
                     <div className="bx-prog" role="status" aria-live="polite">
-                      <div className="bx-prog-bar"><i style={{ width: Math.round(genProgress) + "%" }} /></div>
-                      <div className="bx-prog-txt">Building your lesson… <b>{Math.round(genProgress)}%</b><br />{genStage}</div>
+                      <div className={"bx-prog-bar" + (genPhase === "thinking" ? " indet" : "")}>
+                        <i style={genPhase === "thinking" ? undefined : { width: Math.round(genProgress) + "%" }} />
+                      </div>
+                      <div className="bx-prog-txt">
+                        Building your lesson…{genPhase === "thinking" ? "" : <React.Fragment> <b>{Math.round(genProgress)}%</b></React.Fragment>}
+                        <br />{genStage}
+                      </div>
                     </div>
                     <LiveBuild live={genLive} />
                   </React.Fragment>
