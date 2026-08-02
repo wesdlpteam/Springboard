@@ -71,13 +71,18 @@ export function injectStickiness(messages, on) {
   return out;
 }
 
+// Allowlist, not a passthrough: reasoning_effort is client-controlled and this endpoint runs in
+// open mode, so an arbitrary string must never reach OpenAI.
+const REASONING_EFFORTS = ["none", "minimal", "low", "medium", "high"];
+
 export default async function handler(req, res) {
   if (applyCors(req, res)) return;
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   if (!requireTeacher(req, res)) return;
   if (!rateLimit(req, res, { max: 20, windowMs: 60000, name: "generate" })) return;
 
-  const { messages, response_format, max_completion_tokens, temperature, studyGuide, stickiness } = req.body || {};
+  const { messages, response_format, max_completion_tokens, temperature, studyGuide, stickiness,
+          stream, reasoning_effort } = req.body || {};
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: "No messages provided" });
   }
@@ -103,6 +108,13 @@ export default async function handler(req, res) {
     const t = Number(temperature);
     if (Number.isFinite(t)) payload.temperature = Math.min(Math.max(t, 0), 2);
   }
+  // How hard the model thinks before it writes. Measured on a real Year 4 lesson: 3,024 of the
+  // 4,340 output tokens were reasoning, so this is the only knob that shortens the actual wait
+  // rather than just making it feel shorter. Allowlisted, never passed through raw.
+  if (REASONING_EFFORTS.includes(reasoning_effort)) payload.reasoning_effort = reasoning_effort;
+
+  const wantStream = stream === true;
+  if (wantStream) payload.stream = true;
 
   try {
     const r = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -110,11 +122,40 @@ export default async function handler(req, res) {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
       body: JSON.stringify(payload),
     });
-    const data = await r.json();
-    if (data.error) return res.status(502).json({ error: data.error.message });
-    return res.status(200).json(data);
+
+    if (!wantStream) {
+      const data = await r.json();
+      if (data.error) return res.status(502).json({ error: data.error.message });
+      return res.status(200).json(data);
+    }
+
+    // Streaming: relay OpenAI's server-sent events straight through, so the browser can paint each
+    // slide as it is written instead of waiting ~69s for the whole lesson. An upstream failure
+    // arrives as JSON rather than a stream, so surface it as a normal error.
+    if (!r.ok) {
+      let msg = "Upstream error";
+      try { const e = await r.json(); msg = (e && e.error && e.error.message) || msg; } catch (_) {}
+      return res.status(502).json({ error: msg });
+    }
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      // Vercel and any proxy in front of it must not sit on the chunks.
+      "X-Accel-Buffering": "no",
+    });
+    const reader = r.body.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      res.write(value);
+    }
+    return res.end();
   } catch (err) {
     console.error(err);
+    // Headers are already out once streaming has started, so a mid-stream failure can only be
+    // ended, not turned into a 500. The client treats a truncated stream as a failed generate.
+    if (res.headersSent) return res.end();
     return res.status(500).json({ error: "Server error" });
   }
 }

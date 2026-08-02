@@ -24,6 +24,97 @@ test("rejects missing messages", async () => {
   assert.equal(res.statusCode, 400);
 });
 
+test("reasoning_effort is allowlisted, never passed through raw", async () => {
+  const origFetch = globalThis.fetch;
+  const sentFor = async (effort) => {
+    let sent = null;
+    globalThis.fetch = async (url, opts) => { sent = JSON.parse(opts.body); return { json: async () => ({ ok: true }) }; };
+    const { req, res } = mockReqRes({
+      headers: { "x-sb-passcode": "test-pass" },
+      body: { messages: [{ role: "user", content: "hi" }], reasoning_effort: effort },
+    });
+    await handler(req, res);
+    return sent;
+  };
+  try {
+    assert.equal((await sentFor("low")).reasoning_effort, "low");
+    assert.equal((await sentFor("high")).reasoning_effort, "high");
+    // Anything off the list is dropped rather than forwarded — the endpoint runs in open mode.
+    assert.equal("reasoning_effort" in (await sentFor("wildly-expensive")), false);
+    assert.equal("reasoning_effort" in (await sentFor({ evil: true })), false);
+    assert.equal("reasoning_effort" in (await sentFor(undefined)), false);
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
+test("stream:true is only forwarded when the client asks for it", async () => {
+  const origFetch = globalThis.fetch;
+  try {
+    let sent = null;
+    globalThis.fetch = async (url, opts) => { sent = JSON.parse(opts.body); return { json: async () => ({ ok: true }) }; };
+    const { req, res } = mockReqRes({
+      headers: { "x-sb-passcode": "test-pass" },
+      body: { messages: [{ role: "user", content: "hi" }] },
+    });
+    await handler(req, res);
+    assert.equal("stream" in sent, false);      // default stays the plain JSON path
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.body, { ok: true });
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
+test("a streaming request relays the upstream chunks verbatim", async () => {
+  const origFetch = globalThis.fetch;
+  try {
+    const chunks = ['data: {"choices":[{"delta":{"content":"{\\"ti"}}]}\n\n',
+                    'data: {"choices":[{"delta":{"content":"tle\\":\\"x\\"}"}}]}\n\n',
+                    "data: [DONE]\n\n"];
+    let sent = null;
+    globalThis.fetch = async (url, opts) => {
+      sent = JSON.parse(opts.body);
+      let i = 0;
+      return {
+        ok: true,
+        body: { getReader: () => ({ read: async () => (i < chunks.length ? { done: false, value: chunks[i++] } : { done: true }) }) },
+      };
+    };
+    const written = [];
+    const { req, res } = mockReqRes({
+      headers: { "x-sb-passcode": "test-pass" },
+      body: { messages: [{ role: "user", content: "hi" }], stream: true },
+    });
+    res.writeHead = function (code, hdrs) { this.statusCode = code; Object.assign(this.headers, hdrs); return this; };
+    res.write = (v) => { written.push(v); return true; };
+    await handler(req, res);
+    assert.equal(sent.stream, true);
+    assert.equal(res.statusCode, 200);
+    assert.match(res.headers["Content-Type"], /text\/event-stream/);
+    assert.equal(res.headers["X-Accel-Buffering"], "no"); // or a proxy sits on the chunks
+    assert.deepEqual(written, chunks);
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
+test("a streaming request that fails upstream still answers with JSON", async () => {
+  const origFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => ({ ok: false, json: async () => ({ error: { message: "model is overloaded" } }) });
+    const { req, res } = mockReqRes({
+      headers: { "x-sb-passcode": "test-pass" },
+      body: { messages: [{ role: "user", content: "hi" }], stream: true },
+    });
+    await handler(req, res);
+    assert.equal(res.statusCode, 502);
+    assert.deepEqual(res.body, { error: "model is overloaded" });
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
 test("clamps client-controlled cost params (max_completion_tokens, temperature)", async () => {
   const origFetch = globalThis.fetch;
   let sent = null;

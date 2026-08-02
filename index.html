@@ -925,6 +925,14 @@
   .bx-prog-bar i { display: block; height: 100%; width: 0; background: var(--mv, var(--ink)); border-radius: 2px; transition: width .3s linear; }
   .bx-prog-txt { margin-top: 9px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .bx-prog-txt b { font-weight: 600; color: var(--ink); }
+  /* The lesson arriving, live. Sits outside .bx-prog because that is capped at 320px and this
+     needs room for real sentences. */
+  .bx-live { max-width: 620px; margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+  .bx-live-title { font-family: var(--bx-display); font-size: 17px; margin-bottom: 10px; }
+  .bx-live-row { display: grid; grid-template-columns: 62px 1fr; gap: 10px; align-items: baseline; padding: 5px 0; }
+  .bx-live-row .k { font-size: 9.5px; letter-spacing: .12em; font-weight: 700; color: var(--cc, var(--muted)); }
+  .bx-live-row .t { font-size: 13px; line-height: 1.45; color: var(--ink); }
+  .bx-live-row .t.waiting { color: var(--muted); font-style: italic; }
   .bx-alert { font-size: 13px; color: #8f1d2e; background: #fdeaee; border: 1px solid #f0b8c4; border-radius: 4px; padding: 8px 11px; margin-top: 10px; }
   /* same box, good news: "we got it" must not look like a failure */
   .bx-alert.ok { color: var(--good-ink); background: var(--good-bg); border-color: var(--good); }
@@ -2476,6 +2484,36 @@ async function extractPdfText(file) {
 }
 
 // Pull the first valid JSON object out of a string, defensively.
+/* Parse the JSON the model has written SO FAR. A streamed reply is a half-finished object, so
+   close whatever is still open — an unterminated string, then any dangling key, then every open
+   brace and bracket — and parse that. Returns null while the text is not yet parseable (e.g. the
+   very first characters), which is normal and not an error. This is what lets the build screen
+   show IGNITE while THINK is still being written. */
+function parsePartialJson(raw) {
+  const start = raw.indexOf("{");
+  if (start === -1) return null;
+  const body = raw.slice(start);
+  const stack = [];
+  let inStr = false, esc = false;
+  for (let i = 0; i < body.length; i++) {
+    const c = body[i];
+    if (esc) { esc = false; continue; }
+    if (c === "\\") { if (inStr) esc = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (c === "{" || c === "[") stack.push(c);
+    else if (c === "}" || c === "]") stack.pop();
+  }
+  let out = body;
+  if (inStr) out += '"';                                   // close the value being written
+  out = out.replace(/,\s*$/, "");                          // drop a trailing comma
+  out = out.replace(/,\s*"[^"]*"\s*:\s*$/, "")             // drop a key with no value yet
+           .replace(/([{[])\s*"[^"]*"\s*:\s*$/, "$1");
+  out = out.replace(/,\s*$/, "");
+  for (let i = stack.length - 1; i >= 0; i--) out += stack[i] === "{" ? "}" : "]";
+  try { return JSON.parse(out); } catch (_) { return null; }
+}
+
 function parseJsonLoose(raw) {
   try { return JSON.parse(raw); } catch (_) {}
   const start = raw.indexOf("{");
@@ -2623,7 +2661,7 @@ const REFLECT_ROUTINES = [
 
 /* --------------------------- Backend call --------------------------- */
 
-async function generateSpringboard({ passcode, mode, media = [], sourceText = "", classInfo, routineName, reflectRoutine = "", intention = "", scope = "all", current = null }) {
+async function generateSpringboard({ passcode, mode, media = [], sourceText = "", classInfo, routineName, reflectRoutine = "", intention = "", scope = "all", current = null, onPartial = null }) {
   const routine = ROUTINES.find(r => r.name === routineName) || ROUTINES[0];
   // Article stimulus (PDF / pasted text / fetched link) rather than a reel of images+video.
   // Only an article gets think.summary — the 5 sentences students read on the THINK slide.
@@ -2765,6 +2803,12 @@ Return STRICT JSON with keys: title, intention, keywords, ignite{question}, thin
         // model's JSON" after a 60s wait. Unused headroom is free — you only pay for what's emitted.
         max_completion_tokens: 6000,
         stickiness: true,
+        reasoning_effort: GEN_REASONING,
+        // Stream when the caller wants to watch it arrive. Measured 2026-08-03: a real Year 4
+        // lesson takes ~69s end to end, so without this the teacher stares at an estimated bar
+        // for over a minute. Streaming does not make it finish sooner, it makes IGNITE readable
+        // seconds in while the rest is still being written.
+        ...(onPartial ? { stream: true } : {}),
         ...(studyGuide ? { studyGuide } : {}),
       }),
     });
@@ -2777,8 +2821,37 @@ Return STRICT JSON with keys: title, intention, keywords, ignite{question}, thin
 
   if (!resp.ok) throw new Error(await backendErrorMessage(resp));
 
-  const data = await resp.json();
-  const raw = data?.choices?.[0]?.message?.content || "";
+  let raw = "";
+  if (onPartial && /event-stream/.test(resp.headers.get("content-type") || "")) {
+    // Reassemble the model's text from the SSE frames, handing the caller the deck-so-far as it
+    // grows. Throttled: re-shaping on every token would re-render the page hundreds of times.
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "", lastPaint = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      // Frames arrive split across chunks, so only consume up to the last complete one.
+      const cut = buf.lastIndexOf("\n");
+      if (cut === -1) continue;
+      const lines = buf.slice(0, cut).split("\n");
+      buf = buf.slice(cut + 1);
+      for (const line of lines) {
+        if (!line.startsWith("data: ") || line.includes("[DONE]")) continue;
+        try { raw += JSON.parse(line.slice(6)).choices?.[0]?.delta?.content || ""; } catch (_) {}
+      }
+      const now = Date.now();
+      if (now - lastPaint > 180) {
+        lastPaint = now;
+        const partial = parsePartialJson(raw);
+        if (partial) { try { onPartial(partial); } catch (_) {} }
+      }
+    }
+  } else {
+    const data = await resp.json();
+    raw = data?.choices?.[0]?.message?.content || "";
+  }
   if (!raw.trim()) throw new Error("The model returned an empty response.");
   try {
     return { parsed: parseJsonLoose(raw), raw };
@@ -3028,6 +3101,46 @@ const I = {
   // theme toggle glyphs (stroke-rendered)
   moon: "M20 13.5A8 8 0 1 1 10.5 4 6.5 6.5 0 0 0 20 13.5z",
   sun: "M12 4V2M12 22v-2M4 12H2M22 12h-2M5.6 5.6L4.2 4.2M19.8 19.8l-1.4-1.4M5.6 18.4l-1.4 1.4M19.8 4.2l-1.4 1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z",
+};
+
+/* How hard the model thinks before it writes a word. Measured on a real Year 4 lesson
+   (2026-08-03): the default burned 3,024 reasoning tokens and emitted NOTHING for the first ~60s
+   of a 66s call, so the first slide only reached the screen at 67s. Streaming cannot shorten
+   silence — this is the only knob that does. */
+const GEN_REASONING = "low";
+
+// Slide accent colours. Module scope, not inside App: LiveBuild below is a top-level component,
+// and referencing a component-scoped const from here throws at runtime, not at compile time.
+const SLIDE_CC = { ignite: "#823a9e", think: "#34508f", launch: "#c0592a", reflect: "#3f7a34" };
+
+/* The lesson arriving, live. Each part shows its real words the moment the model writes them, so
+   a teacher can read IGNITE while REFLECT is still being written instead of watching a bar for
+   over a minute (measured build: ~69s). Purely a view of the streamed partial — nothing here is
+   editable, and it is replaced by the real editor the moment the reply completes. */
+const LiveBuild = ({ live }) => {
+  if (!live) return null;
+  const th = live.think || {};
+  const parts = [
+    { k: "IGNITE", cc: SLIDE_CC.ignite, text: (live.ignite || {}).question || "" },
+    { k: "THINK", cc: SLIDE_CC.think, text: (Array.isArray(th.steps) ? th.steps : []).filter(Boolean).join("  ·  ") },
+    { k: "LAUNCH", cc: SLIDE_CC.launch, text: (live.launch || {}).question || "" },
+    { k: "REFLECT", cc: SLIDE_CC.reflect, text: (Array.isArray((live.reflect || {}).prompts) ? live.reflect.prompts : []).filter(Boolean).join("  ·  ") },
+  ];
+  // The part being written is the first one with nothing in it yet.
+  const writingAt = parts.findIndex(p => !p.text);
+  return (
+    <div className="bx-live">
+      {live.title && <div className="bx-live-title">{live.title}</div>}
+      {parts.map((p, i) => (
+        <div className="bx-live-row" key={p.k} style={{ "--cc": p.cc }}>
+          <span className="k">{p.k}</span>
+          <span className={"t" + (p.text ? "" : " waiting")}>
+            {p.text || (i === writingAt ? "writing…" : "waiting")}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
 };
 
 // Determinate circular progress ring (white, for use on the primary button).
@@ -3677,7 +3790,8 @@ function App() {
 
   // generation
   const [loading, setLoading] = useState(false);
-  const [genProgress, setGenProgress] = useState(0); // 0-100, eased estimate while generating
+  const [genProgress, setGenProgress] = useState(0); // 0-100, driven by what has actually arrived
+  const [genLive, setGenLive] = useState(null);      // the lesson so far, while it streams in
   const [regenSlide, setRegenSlide] = useState(null);   // which slide is regenerating: "ignite" | "think" | "launch" | "reflect"
   const [includeReflect, setIncludeReflect] = useState(true);  // teacher toggle: keep the REFLECT slide in the deck
 
@@ -4290,17 +4404,12 @@ function App() {
     if (!inputReady()) { setError("Please add a stimulus first (images/video, or article text/PDF), and fill in the subject and year level."); return; }
 
     setLoading(true);
-    // Estimated progress, then a snap to 100% when the reply lands. The call isn't
-    // streamed, so this is a reassurance estimate, not a measurement — but it's driven by
-    // ELAPSED TIME against a ~28s typical generate, so it never parks on one number: at 30s
-    // ~66%, 60s ~88%, 120s ~97%. (The old version raced to 92% in ten seconds and froze
-    // there, which read as a hang.)
+    // The lesson streams, so the bar reports what has actually ARRIVED (which of the four parts
+    // the model has finished writing) rather than an elapsed-time guess. The old estimate eased
+    // against a supposed ~28s build; the real measured build is ~69s, which is exactly how you
+    // end up with a bar that parks at 90% and reads as a hang.
     setGenProgress(2);
-    const startedAt = Date.now();
-    const progTick = setInterval(() => {
-      const secs = (Date.now() - startedAt) / 1000;
-      setGenProgress(Math.min(98, 99 * (1 - Math.exp(-secs / 28))));
-    }, 250);
+    setGenLive(null);
     try {
       const sourceText = mode === "article" ? articleText : "";
       // Single-class-per-run: one generate() call produces one deck, pitched to the
@@ -4309,6 +4418,19 @@ function App() {
       const { parsed, raw } = await generateSpringboard({
         passcode: passcode.trim(), mode, media, sourceText,
         classInfo, routineName: selectedRoutine, reflectRoutine, intention, scope: "all",
+        onPartial: (p) => {
+          setGenLive(p);
+          // Weight the parts by how much writing each one actually is, or the bar lurches: the
+          // notes{} block alone is roughly a third of the reply.
+          const done = (p.ignite && p.ignite.question ? 18 : 0)
+            + (p.think && Array.isArray(p.think.steps) && p.think.steps.length ? 22 : 0)
+            + (p.think && p.think.reveal && p.think.reveal.fact ? 8 : 0)
+            + (p.launch && p.launch.question ? 14 : 0)
+            + (p.reflect && Array.isArray(p.reflect.prompts) && p.reflect.prompts.length ? 14 : 0)
+            + (Array.isArray(p.next) && p.next.length ? 10 : 0)
+            + (p.notes && p.notes.reflect ? 12 : 0);
+          setGenProgress(Math.max(4, Math.min(97, done)));
+        },
       });
       const deck = shapeDeck(parsed, { routineName: selectedRoutine });
       deck.curriculumFocus = Array.isArray(classInfo.focus) ? classInfo.focus.slice() : [];
@@ -4328,9 +4450,8 @@ function App() {
       setError(err.message || String(err));
       if (err._raw) setRawDump(err._raw);
     } finally {
-      clearInterval(progTick);
       setLoading(false);
-      setTimeout(() => setGenProgress(0), 500);
+      setTimeout(() => { setGenProgress(0); setGenLive(null); }, 500);
     }
   }
 
@@ -5366,7 +5487,6 @@ function App() {
     setSubjectFreeform(false); saveClassInfo({ ...classInfo, subject: v, focus: [] });
   };
 
-  const SLIDE_CC = { ignite: "#823a9e", think: "#34508f", launch: "#c0592a", reflect: "#3f7a34" };
   // (The old read-only slide-preview overlay was replaced by the inline editor in
   // renderBrainTool — teachers can now read AND edit every field in place.)
 
@@ -5617,10 +5737,13 @@ function App() {
               )}
               <div style={{ marginTop: 16 }}>
                 {loading ? (
-                  <div className="bx-prog" role="status" aria-live="polite">
-                    <div className="bx-prog-bar"><i style={{ width: Math.round(genProgress) + "%" }} /></div>
-                    <div className="bx-prog-txt">Building your lesson… <b>{Math.round(genProgress)}%</b><br />{genStage}</div>
-                  </div>
+                  <React.Fragment>
+                    <div className="bx-prog" role="status" aria-live="polite">
+                      <div className="bx-prog-bar"><i style={{ width: Math.round(genProgress) + "%" }} /></div>
+                      <div className="bx-prog-txt">Building your lesson… <b>{Math.round(genProgress)}%</b><br />{genStage}</div>
+                    </div>
+                    <LiveBuild live={genLive} />
+                  </React.Fragment>
                 ) : <button className="bx-btn" disabled={!selectedRoutine} onClick={generate}>Make the lesson</button>}
                 {error && <div className="bx-alert" role="alert">{error}</div>}
               </div>
