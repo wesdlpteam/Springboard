@@ -33,7 +33,16 @@ const baseDeck = (over = {}) => ({
     { title: "Interview the paddock", idea: "Students write and record a short interview with the tree, using evidence from the photo for every answer.", thinking: "Perspective taking - another point of view." },
     { title: "Argue for one tree", idea: "Students take a side on whether the last paddock tree should be protected, backed with two pieces of evidence.", thinking: "Reasoning with evidence - building a case." },
   ],
-  notes: { ignite: "FACILITATION: Show it cold. TIMING: 3 min.", think: "FACILITATION: Pairs first.", launch: "FACILITATION: Use one idea.", reflect: "FACILITATION: Exit ticket." },
+  // Deliberately messy, the way the model really writes them: TIMING present (must be stripped),
+  // CURRICULUM LINKS ahead of the prompts (must be moved after them), and the pre-v0.9.36 label
+  // names DIFFERENTIATION/EXTENSIONS (must be renamed). Cleaning this fixture up would make the
+  // notes assertions below pass without proving anything.
+  notes: {
+    ignite: "FACILITATION: Show it cold. TIMING: 3 min. ENABLING PROMPT: Give a sentence stem. EXTENDING PROMPT: Ask for a second look. CURRICULUM LINKS: AC9E7LE03.",
+    think: "CURRICULUM LINKS: AC9E7LE03. FACILITATION: Pairs first. TIMING: 8-10 min. DIFFERENTIATION: Offer three starter words. EXTENSIONS: Ask what would change their mind.",
+    launch: "FACILITATION: Use one idea. TIMING: 5 min.",
+    reflect: "FACILITATION: Exit ticket. TIMING: 4 min. ENABLING PROMPT: Read the stems aloud. EXTENDING PROMPT: Ask for a second strategy. CURRICULUM LINKS: AC9E7LE03.",
+  },
   ...over,
 });
 
@@ -216,8 +225,28 @@ function auditDeck(cfg, data) {
         animated.every(s => x.includes(`<p:bldP spid="${s}"`)), "missing bldP for " + animated.filter(s => !x.includes(`<p:bldP spid="${s}"`)).join(","));
     }
     // 5. notes
+    // pptxgenjs writes the whole note into ONE <a:t>, so textOf keeps its line breaks — which is
+    // what lets the layout assertions below work at all.
     const notes = files[`ppt/notesSlides/notesSlide${i}.xml`];
-    if (!hidden(x)) check(cfg.id, `${label}: visible slide carries teacher notes`, !!notes && textOf(notes).trim().length > 20, "thin notes");
+    if (!hidden(x)) {
+      // pptxgenjs rewrites every \n to CRLF on the way into the notes part, so normalise before
+      // asserting on line shape — otherwise the char before each label is \r and every section
+      // reads as run-on.
+      const nt = textOf(notes || "").replace(/\r\n/g, "\n");
+      check(cfg.id, `${label}: visible slide carries teacher notes`, !!notes && nt.trim().length > 20, "thin notes");
+      // Nathan, 2026-08-03: no TIMING section — how long a part runs is the class discussion's call.
+      // "TIMER:" (the on-slide countdown, THINK only) is a different thing and stays.
+      check(cfg.id, `${label}: notes carry no TIMING section`, !/\bTIMING:/i.test(nt), nt.slice(0, 120));
+      // Same day: every labelled section gets a blank line above it, or Presenter View runs them
+      // together and the teacher can't find the prompt they want mid-lesson.
+      // [\s\S] not . — `.` never matches \n, so a `.?` here would report every section as run-on.
+      const runOn = [...nt.matchAll(/([\s\S]?)\n(FACILITATION|ENABLING PROMPT|EXTENDING PROMPT|CURRICULUM LINKS):/g)].filter(m => m[1] !== "\n");
+      check(cfg.id, `${label}: labelled note sections are blank-line separated`, runOn.length === 0, runOn.map(m => m[2]).join(","));
+      // Old labels must have been renamed, and curriculum must sit after the two prompts.
+      check(cfg.id, `${label}: no pre-v0.9.36 note labels survive`, !/\b(DIFFERENTIATION|EXTENSIONS?):/i.test(nt), nt.slice(0, 120));
+      const iExt = nt.search(/EXTENDING PROMPT:/), iCur = nt.search(/CURRICULUM LINKS:/);
+      check(cfg.id, `${label}: curriculum link sits after the prompts`, iCur < 0 || iExt < 0 || iCur > iExt, `${iExt} / ${iCur}`);
+    }
   }
   check(cfg.id, "student-facing slides are visible", visible >= 2, `${visible}`);
   // The "Where to next" divider + its three follow-up slides are teacher planning, but they are
@@ -242,6 +271,13 @@ function auditDeck(cfg, data) {
   check(cfg.id, "three follow-up slides", (joined.match(/IDEA \d OF 3/gi) || []).length === 3, "wrong count");
   check(cfg.id, "REFLECT matches the teacher's choice", /REFLECT/.test(joined) === !!cfg.reflect, `expected ${cfg.reflect}`);
   check(cfg.id, "no content advisory slide is ever produced", !/CONTENT ADVISORY/.test(joined), "advisory slide still rendered");
+  // The old LAUNCH payload (destination question + three ways to run it) rode in the THINK notes
+  // until 2026-08-03. Nathan: the thinking routine IS the lesson, so a second task alongside it
+  // competed with the routine. The fixture still supplies launch.question/ideas, so this only
+  // passes if the export really drops them.
+  const allNotes = slideNames.map((_, i) => textOf(files[`ppt/notesSlides/notesSlide${i + 1}.xml`] || "")).join(" || ");
+  check(cfg.id, "no destination question in the notes", !/destination question/i.test(allNotes), "still exported");
+  check(cfg.id, "no ways-to-run-it list in the notes", !/Ways to run today's task/i.test(allNotes), "still exported");
   const wantReveal = !!cfg.deck.think.reveal.fact;
   check(cfg.id, "reveal button matches the deck", /Click to reveal/.test(joined) === wantReveal, `expected ${wantReveal}`);
   if (wantReveal) {
