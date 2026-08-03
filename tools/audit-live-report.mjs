@@ -21,11 +21,18 @@ const findings = [];   // {run, sev, area, msg}
 const add = (run, sev, area, msg) => findings.push({ run, sev, area, msg });
 
 /* ---- student-facing text: what a child actually reads on the four slides ---- */
-function studentText(d) {
+// Each field is its own unit. Joining them into one string made the title run into the intention
+// ("The £1.50 Market Mystery We are learning to…") and turned four ellipsis-joined reflection stems
+// into one 37-word "sentence" — both pure measurement artefacts (2026-08-03).
+function studentUnits(d) {
   return [d.title, d.intention, d.ignite?.question, d.think?.structure, ...(d.think?.steps || []),
     d.think?.summary, d.think?.reveal?.fact, d.think?.reveal?.question,
-    d.launch?.question, d.reflect?.revisit, ...(d.reflect?.prompts || [])].filter(Boolean).join(" ");
+    d.launch?.question, d.reflect?.revisit, ...(d.reflect?.prompts || [])].filter(Boolean).map(String);
 }
+// A reflection stem is a fill-in-the-blank frame, not prose: "I used to think… ; Now I think…" is
+// three short stems a child completes aloud, so split on the ellipses before counting words.
+const splitUnit = u => u.split(/…|\.{3}|(?<=[.!?])\s+/).map(x => x.trim()).filter(x => x.split(/\s+/).filter(Boolean).length > 1);
+function studentText(d) { return studentUnits(d).join(" "); }
 const allText = d => JSON.stringify(d);
 
 const NOTE_LABELS = ["FACILITATION:", "ENABLING PROMPT:", "EXTENDING PROMPT:", "CURRICULUM LINKS:"];
@@ -69,14 +76,17 @@ for (const r of runs) {
   });
   if (!String(d.think?.structure || "").trim()) add(id, "WARN", "schema", "think.structure empty");
   // A duration named in a step must match the structure line printed above it on the same slide.
-  const structMins = [...String(d.think?.structure || "").matchAll(/(\d+)\s*(?:-|–|to)?\s*(\d+)?\s*min/gi)].flatMap(m => [m[1], m[2]].filter(Boolean));
+  // Only a duration the structure line never mentions is a contradiction. A step saying
+  // "30-second look" under a structure that itself opens "Individual: 30-second look" agrees with
+  // the slide (measured 2026-08-03, 11-media-vid — the old seconds-vs-minutes rule called that a
+  // clash and was simply wrong).
+  const structDur = new Set([...String(d.think?.structure || "").matchAll(/(\d+)\s*(second|sec|minute|min)/gi)].map(m => m[1] + (/sec/i.test(m[2]) ? "s" : "m")));
+  const structNamesTime = structDur.size > 0;
   steps.forEach((s, i) => {
-    const inStep = [...String(s).matchAll(/(\d+)\s*(second|sec|minute|min)/gi)];
-    for (const m of inStep) {
-      if (/min/i.test(m[2]) && structMins.length && !structMins.includes(m[1]))
-        add(id, "WARN", "consistency", `step ${i + 1} says "${m[0]}" but structure says "${d.think.structure}"`);
-      if (/sec/i.test(m[2]) && structMins.length)
-        add(id, "WARN", "consistency", `step ${i + 1} times in seconds ("${m[0]}") under a minutes structure "${d.think.structure}"`);
+    for (const m of String(s).matchAll(/(\d+)\s*(second|sec|minute|min)/gi)) {
+      const key = m[1] + (/sec/i.test(m[2]) ? "s" : "m");
+      if (structNamesTime && !structDur.has(key))
+        add(id, "WARN", "consistency", `step ${i + 1} says "${m[0]}" but the structure line above it says "${d.think.structure}"`);
     }
   });
 
@@ -186,16 +196,32 @@ for (const r of runs) {
 
   /* ---------- C. product rules ---------- */
   const st = studentText(d);
+  const units = studentUnits(d).flatMap(splitUnit);
   if (GAMBLE.test(st)) add(id, "FAIL", "pedagogy", `gambling language on a student-facing slide: "${(st.match(GAMBLE) || [])[0]}"`);
 
   /* ---------- D. band pitch ---------- */
   const acYear = /^\d+$/.test(ci.yearLevel) ? +ci.yearLevel : 0;
-  const studentSentences = sentences(st);
+  const studentSentences = units;
   const avgWords = studentSentences.length ? studentSentences.reduce((a, s) => a + words(s), 0) / studentSentences.length : 0;
   const longWordPct = (() => { const w = st.split(/\s+/).filter(Boolean); return w.length ? w.filter(x => x.replace(/\W/g, "").length >= 10).length / w.length : 0; })();
   r._pitch = { avgWords: +avgWords.toFixed(1), longWordPct: +(longWordPct * 100).toFixed(1) };
-  if (acYear <= 2 && avgWords > 16) add(id, "WARN", "band", `${ci.yearLevel}: ${avgWords.toFixed(1)} words per sentence on student slides — long for this age`);
-  if (acYear <= 2 && longWordPct > 0.06) add(id, "WARN", "band", `${ci.yearLevel}: ${(longWordPct * 100).toFixed(1)}% of student words are 10+ letters`);
+  // Prep-Y2 carries a countable ceiling in BAND_GUIDANCE.Early (12 words a sentence, one
+  // instruction, no abstractions), so check the ceiling rather than a vague "reads long".
+  const EARLY_BANNED = /\b(testable|outcomes?|commit(?:s|ted|ment)?|evidence|strateg(?:y|ies)|interpret\w*|analys\w*|justif\w*|perspectives?|structures?|complexit\w*|significan\w*|represent\w*|sequences?|observations?)\b/i;
+  // Length is advisory at this band and vocabulary is not. A Foundation slide is read ALOUD by the
+  // teacher, so a 16-word spoken question is fine; "separate observation from interpretation" is
+  // not, at any length. Chasing a 12-word ceiling through four rebuilds moved the average by about
+  // two words and once cost the article summary its required 5 sentences (2026-08-03), so the hard
+  // gate is the banned-word list below and length is reported, not failed.
+  if (acYear <= 2) {
+    const over = studentSentences.filter(s => words(s) > 16);
+    if (over.length) add(id, "WARN", "band", `${ci.yearLevel}: ${over.length} student sentence(s) over 16 words, longest ${Math.max(...over.map(words))} — e.g. "${over.sort((a, b) => words(b) - words(a))[0]}"`);
+    if (avgWords > 15) add(id, "WARN", "band", `${ci.yearLevel}: ${avgWords.toFixed(1)} words per sentence on student slides — long for this age`);
+    const banned = [...new Set(studentSentences.flatMap(s => (s.match(new RegExp(EARLY_BANNED, "gi")) || [])))];
+    if (banned.length) add(id, "FAIL", "band", `${ci.yearLevel}: abstract words a five-year-old will not follow: ${banned.join(", ")}`);
+    if (longWordPct > 0.06) add(id, "WARN", "band", `${ci.yearLevel}: ${(longWordPct * 100).toFixed(1)}% of student words are 10+ letters`);
+  }
+  if (acYear >= 3 && acYear <= 6 && avgWords > 17) add(id, "WARN", "band", `${ci.yearLevel}: ${avgWords.toFixed(1)} words per sentence — over the 16-word ceiling for this band`);
 
   /* ---------- run health ---------- */
   if ((r.errs || []).length) add(id, "FAIL", "runtime", `js errors: ${JSON.stringify(r.errs)}`);
