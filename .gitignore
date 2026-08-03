@@ -12,3 +12,6 @@ node_modules/
 
 # generated inspiration images stay local, never in public repo
 docs/superpowers/inspiration/
+
+# npm run audit:live working dir — downloaded stimulus media, generated decks, the report page
+.audit-live/

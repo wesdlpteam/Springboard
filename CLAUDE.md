@@ -16,6 +16,8 @@ npm run audit                     # full system audit: ~1000 assertions across t
 npm run audit:static              # data, recipes, security, privacy, prompt rules (no browser, fast)
 npm run audit:deck                # exports four real decks headless, asserts on the .pptx XML
 npm run audit:ui                  # accessibility + contrast sweep, 4 scenes x 4 window shapes
+npm run audit:live                # SPENDS MONEY: 29 real lessons, F-12, against the deployed backend
+npm run audit:live:rerun          # same, reusing the already-downloaded stimulus pack
 npx vercel dev                    # serve index.html + api/* locally (reads .env)
 node tools/stats-stub.mjs         # fake /api/stats for stats.html work (STUB_EMPTY=1 for empty state)
 node tools/build-ac-guides.mjs    # regenerate api/guides/ac-*.md from ACARA data
@@ -72,6 +74,14 @@ The OpenAI model is **hard-pinned** in `api/generate.js` with no env override �
 ### Tests
 
 `test/` uses the built-in Node test runner with `_helpers.js` mock req/res. `api/_lib.js` exposes test seams (`__setNowForTests`, `__resetRateLimit`) — use them rather than real timers.
+
+### `npm run audit:live` (costs real OpenAI spend — run deliberately)
+
+The other audits stub the model. This one doesn't: it serves `index.html` on `http://localhost:3000` (an allowed CORS origin — a `file://` page sends `Origin: null` and every call fails), points the app's `API_BASE` at the deployed backend with a fetch shim, and calls the app's **own** `analyseStimulus` → `generateSpringboard` from CDP. Babel-standalone injects a classic script, so every module-scope function resolves by bare name; nothing is reimplemented, so the prompts are exactly production's.
+
+It builds one lesson per config in `tools/audit-live-configs.mjs` — every year level F–12 across AC, VCE, IB MYP and IB DP, with real photos and videos from Wikimedia Commons and real articles from The Conversation. `audit-live-report.mjs` then asserts on the decks (word limits, notes sections, band pitch) and verifies **every AC9 code against the real guide file for that exact year level**, so an invented or wrong-level code fails. `audit-live-viewer.mjs` writes `.audit-live/lessons.html` for reading the output as a teacher would.
+
+Everything lands in the gitignored `.audit-live/`, one JSON per lesson, so a killed run resumes (set `FORCE=1` to regenerate, `ONLY=id,id` for a subset). Roughly 50s per lesson, 4 headless browsers in parallel.
 
 ## Product rules (non-negotiable)
 

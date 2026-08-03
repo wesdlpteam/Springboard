@@ -1380,7 +1380,7 @@ const BAND_ORDER = ["Early","Junior","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.12.3 · 2026-08-03";
+const APP_VERSION = "v0.12.4 · 2026-08-03";
 
 // Maps a class's year level to a teaching band (Prep-Y2 / Y3-6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2652,6 +2652,8 @@ function sanitizeFilename(s) {
 }
 
 const TRANSCRIBE_LIMIT = 4 * 1024 * 1024; // Vercel serverless function request-body limit is ~4.5 MB; stay under it
+// Below this, a "transcript" is a hallucination on a speechless soundtrack, not speech -- see transcribeMedia.
+const TRANSCRIBE_MIN_CHARS = 40;
 
 // Turn a failed backend response into a plain, teacher-facing message. 401 means
 // the passcode is wrong; anything else surfaces the server's own error text.
@@ -2680,6 +2682,15 @@ async function transcribeMedia({ passcode, file }) {
   if (!resp.ok) throw new Error(await backendErrorMessage(resp));
   const data = await resp.json();
   const text = (data.text || "").trim();
+  // A clip whose audio is machine noise or room tone has no speech in it, but the transcriber
+  // does not return "" -- it invents a short sentence, often in another language. Measured
+  // 2026-08-03 across 29 live lessons: a silent 3D-printing clip came back as
+  // "そのチャンスを逃した。" and a lava clip as "მთავრობა.", and because the client passed any
+  // non-empty transcript into the lesson prompt as real "clip notes", one deck put
+  // "The Japanese caption ... means 'I missed that chance'" on a slide as the lesson's
+  // surprising fact. Nothing in the video said that. Anything this short is noise, not speech,
+  // so drop it and let the video frames carry the stimulus.
+  if (text.length < TRANSCRIBE_MIN_CHARS) return { text: "", truncated: false, discarded: text };
   return { text, truncated };
 }
 
@@ -2772,7 +2783,12 @@ Return STRICT JSON with keys: title, intention, keywords, ignite{question}, thin
     // "the painting is dated 1937", while the slides carried a soft "imagine a child…" question. The
     // lesson was sticky to run and looked generic. Hence: commit out loud, and one true concrete
     // anchor on the slide.
-    `ignite.question: ONE provocative question, <=18 words. It MUST be answerable from what students can actually SEE OR READ at that moment — if the routine reveals the stimulus in stages, the question must work from the first fragment alone. It MUST ask for a commitment students could turn out to be wrong about (a guess, a stance, a prediction), not a safe invitation to imagine. Where the stimulus gives you one, anchor it with a true concrete detail from the stimulus itself (a number, a date, a name, a visible object). NEVER ask students to imagine what someone outside the frame thinks or feels before they have seen the whole stimulus — that is an end-of-lesson reflection question, not an opening one. It MUST also say what students DO with their answer, including the sharing move: name the choice and then how it goes public ("choose one visible clue and be ready to defend it to the class"). Measured failure (Year 4, 2026-07-31): "Does this raised British flag mark a beginning or a takeover? Choose one visible clue." — students pick a clue and are never told to share it, leaving the teacher to invent the lesson's most important move.`,
+    // 20, not 18: this field has to carry a commitment, a concrete detail from the stimulus AND the
+    // sharing move. Measured across 29 live lessons (2026-08-03), 4 of them overshot 18 words and
+    // every one of those was a good question doing all three jobs, e.g. "Should feeding the family
+    // pet earn money? Choose yes or no, then defend one article clue to the class." (19). The slide
+    // renders it with fit:"shrink" at 26-40pt, so 20 words still reads from the back of a room.
+    `ignite.question: ONE provocative question, <=20 words. It MUST be answerable from what students can actually SEE OR READ at that moment — if the routine reveals the stimulus in stages, the question must work from the first fragment alone. It MUST ask for a commitment students could turn out to be wrong about (a guess, a stance, a prediction), not a safe invitation to imagine. Where the stimulus gives you one, anchor it with a true concrete detail from the stimulus itself (a number, a date, a name, a visible object). NEVER ask students to imagine what someone outside the frame thinks or feels before they have seen the whole stimulus — that is an end-of-lesson reflection question, not an opening one. It MUST also say what students DO with their answer, including the sharing move: name the choice and then how it goes public ("choose one visible clue and be ready to defend it to the class"). Measured failure (Year 4, 2026-07-31): "Does this raised British flag mark a beginning or a takeover? Choose one visible clue." — students pick a clue and are never told to share it, leaving the teacher to invent the lesson's most important move.`,
     `think.routine MUST be exactly "${routine.name}". This routine's real moves are: ${(routine.steps || []).map((s, i) => `${i + 1}) ${s}`).join(" ")}. think.steps: take THOSE actual moves and write each one FOR THIS STIMULUS — keep the routine's real moves and their order, do NOT invent different ones; <=4 short student-facing prompts. Each step must name the actual thing students are looking at, reading or doing at that moment (for a staged-reveal routine, name what that reveal shows: "the raised flag and the arms", "the trees on the left"), so a step could not be pasted onto a different lesson. Generic wording like "see one tiny section" or "look closely at the image" is a failure. Each step must also STAND ALONE as a complete instruction or question a student could act on without the teacher explaining it — a bare fragment tacked on the end ("What changes?") is a failure: name what changes and about what ("What does that change about who you thought this was made for?"). NEVER print the surprise inside a step — that is what think.reveal is for, and a step that reads "Reveal: the painter added this in 1937…" spoils the very reveal it sets up. The final step instead makes students COMMIT before the reveal (their best guess, their stance, the call they are willing to defend), so there is something to overturn. Write that commitment in plain classroom language — decide, choose, predict, commit to, make a call. NEVER use gambling words ("bet", "wager", "odds", "what would you put money on"); measured failure (Year 4, 2026-07-31): "Using your 20 observations, bet: was this painted during the event or long afterwards?". Any duration named inside a step MUST match think.structure, which is printed directly above the steps on the same slide — measured failure (2026-07-31): a step said "look quietly for 30 seconds" under a structure line reading "Round 1—2 minutes", so the slide contradicted itself. If the structure names rounds, the steps use those rounds' times; if you are unsure, name no time in the step at all. think.structure: "${routine.structure || "Think-pair-share, 3 min"}".`,
     // The withheld surprise. It is hidden on the slide behind a "Click to reveal" button the teacher
     // presses once students have committed, so it can be specific without spoiling itself.
@@ -4201,8 +4217,11 @@ function App() {
           prep.finally(() => videoPrepRef.current.delete(vidId));
           (async () => {
             try {
-              const { text, truncated } = await transcribeMedia({ passcode: passcode.trim(), file: f });
-              setMedia(m => m.map(x => x.id === vidId ? { ...x, text, transcribeState: "done", transcribeNote: truncated ? "(transcript truncated)" : "" } : x));
+              const { text, truncated, discarded } = await transcribeMedia({ passcode: passcode.trim(), file: f });
+              const note = truncated ? "(transcript truncated)"
+                : discarded ? "no speech in this clip — frames will be used"
+                : "";
+              setMedia(m => m.map(x => x.id === vidId ? { ...x, text, transcribeState: "done", transcribeNote: note } : x));
             } catch (_) {
               setMedia(m => m.map(x => x.id === vidId ? { ...x, transcribeState: "failed", transcribeNote: "couldn't get transcript — frames will be used" } : x));
             }
