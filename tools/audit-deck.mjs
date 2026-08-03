@@ -184,11 +184,11 @@ function auditDeck(cfg, data) {
   const textOf = (x) => [...x.matchAll(/<a:t>([^<]*)<\/a:t>/g)].map(m => m[1]).join(" ");
   const hidden = (x) => /show="0"/.test(x);
 
-  let visible = 0, hiddenCount = 0;
+  let visible = 0;
   for (let i = 1; i <= n; i++) {
     const x = xmlOf(i);
     const label = `slide ${i}`;
-    hidden(x) ? hiddenCount++ : visible++;
+    if (!hidden(x)) visible++;
     // 1. no placeholder junk on any slide
     check(cfg.id, `${label}: no undefined/NaN text`, !/\b(undefined|NaN|\[object Object\])\b/.test(textOf(x)), textOf(x).slice(0, 80));
     check(cfg.id, `${label}: no empty text run`, !/<a:t><\/a:t>/.test(x.replace(/<a:t> <\/a:t>/g, "")), "empty run");
@@ -219,8 +219,18 @@ function auditDeck(cfg, data) {
     const notes = files[`ppt/notesSlides/notesSlide${i}.xml`];
     if (!hidden(x)) check(cfg.id, `${label}: visible slide carries teacher notes`, !!notes && textOf(notes).trim().length > 20, "thin notes");
   }
-  check(cfg.id, "hidden teacher slides exist", hiddenCount >= 3, `${hiddenCount}`);
   check(cfg.id, "student-facing slides are visible", visible >= 2, `${visible}`);
+  // The "Where to next" divider + its three follow-up slides are teacher planning, but they are
+  // VISIBLE on purpose (Nathan, 2026-08-03): hidden slides grey out in the rail and get skipped, so
+  // the ideas were never read. Only the click-to-enlarge targets stay hidden (checked further down).
+  const nextSlides = [];
+  for (let i = 1; i <= n; i++) {
+    const t = textOf(xmlOf(i));
+    if (/Where this thinking goes next/i.test(t) || /Idea \d of 3/i.test(t)) nextSlides.push(i);
+  }
+  const nextHidden = nextSlides.filter(i => hidden(xmlOf(i)));
+  check(cfg.id, "where-to-next divider + 3 ideas all present", nextSlides.length === 4, `${nextSlides.length}`);
+  check(cfg.id, "where-to-next slides are visible, not hidden", nextHidden.length === 0, JSON.stringify(nextHidden));
 
   // 6. deck shape per config
   const allText = slideNames.map((_, i) => textOf(xmlOf(i + 1)));
