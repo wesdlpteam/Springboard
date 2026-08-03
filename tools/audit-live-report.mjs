@@ -38,7 +38,9 @@ const allText = d => JSON.stringify(d);
 const NOTE_LABELS = ["FACILITATION:", "ENABLING PROMPT:", "EXTENDING PROMPT:", "CURRICULUM LINKS:"];
 const GAMBLE = /\b(bet|bets|betting|wager|wagers|odds|put money on)\b/i;
 const GENERIC_STEP = /\b(look closely at the (image|picture|photo)|see one tiny section|study the (image|picture) carefully|observe the image)\b/i;
-const COMMIT = /\b(choose|chooses|decide|decides|predict|predicts|commit|commits|vote|votes|rank|ranks|guess|guesses|pick|picks|call it|make a call|stance|argue|defend)\b/i;
+// "point to it" and "show me" are the Prep–Year 2 wording of a commitment (BAND_GUIDANCE/
+// EARLY_WORDS_RULE tells the model to use them instead of "commit"), so they belong in this list.
+const COMMIT = /\b(choose|chooses|decide|decides|predict|predicts|commit|commits|vote|votes|rank|ranks|guess|guesses|pick|picks|point to|point at|show me|call it|make a call|stance|argue|defend)\b/i;
 const SHARE = /\b(class|partner|pair|group|share|tell|defend|explain to|ready to|say it out|out loud|board|post|hold up)\b/i;
 
 for (const r of runs) {

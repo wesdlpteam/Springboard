@@ -1003,12 +1003,29 @@
 
   /* ---------- cover ---------- */
   .ww-cover { position: relative; min-height: 100vh; min-height: 100svh; display: flex; flex-direction: column;
-    justify-content: center; padding: 104px clamp(22px, 5vw, 72px) 48px; overflow: hidden; }
+    justify-content: center; padding: 104px clamp(22px, 5vw, 72px) 48px; overflow: hidden;
+    /* right edge of the text column plus a breathing gap — the art and the veil both key off it */
+    --copy-edge: calc(clamp(22px, 5vw, 72px) + min(620px, 54vw) + 24px); }
   .ww-cover-art { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
-  /* the painting (video while it paints in, then freezes): contain-fit, biased right; multiply
-     melts the artwork's paper into the page paper; the mask feathers the rectangle edge away */
-  .ww-cover-art img, .ww-cover-art video { position: absolute; right: -4vw; top: 50%;
-    transform: translateY(-50%); height: min(86vh, 60vw); width: auto; max-width: 92vw;
+  /* The painting is placed by its BRAIN, not by its rectangle. The ink body sits between 30% and
+     90% of the frame (measured), so we pin the 30% mark just past the copy column and let the
+     empty left third of the frame fall where it likes. Two guards keep that honest:
+       - the frame only ever shrinks (min) when the lane left of the right edge is too narrow for
+         the body — on wide windows the old 86vh/60vw size is untouched;
+       - the frame only ever moves right (max) from its old right-biased spot, so wide screens,
+         where the brain already cleared the copy, look exactly as they did. */
+  .ww-cover-art img, .ww-cover-art video {
+    --art-nat: calc(min(86vh, 60vw) * 1.7778);                    /* frame width the old height cap gave */
+    --art-lane: calc((100vw + 40px - var(--copy-edge)) / 0.6);    /* frame width whose body fits the lane
+                                                                     (40px = how far the body may bleed off
+                                                                     the right edge, as it always has) */
+    --art-w: min(var(--art-nat), var(--art-lane));
+    --art-left: max(calc(104vw - var(--art-w)), calc(var(--copy-edge) - var(--art-w) * 0.3));
+    /* the two fade stops, expressed in the artwork's OWN coordinates (0 = its left edge) */
+    --fade-a: max(0px, calc(var(--copy-edge) - 110px - var(--art-left)));
+    --fade-b: max(0px, calc(var(--copy-edge) + 30px - var(--art-left)));
+    position: absolute; top: 50%; right: auto; left: var(--art-left);
+    transform: translateY(-50%); width: var(--art-w); height: auto; max-width: none;
     mix-blend-mode: multiply;
     /* feather ALL FOUR edges to transparent by the rectangle boundary (radii = 50% so the fade
        always completes AT the edge, whatever the window shape) — kills the hard top/bottom line
@@ -1024,10 +1041,14 @@
   @media (prefers-reduced-motion: reduce) { .ww-cover-still { opacity: 1; transition: none; } }
   /* readability veil: a SMOOTH paper-colour gradient (no texture image, so no seam or edge
      line), softly covering the text column and fading to clear before the brain. Sits above
-     the art, below the copy. */
+     the art, below the copy. Its stops key off the same --copy-edge the art does, so it holds
+     flat paper across every line of copy and only lets go where the ink body begins — that is
+     what clears the faint outer halo off the paragraph. */
   .ww-cover::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
-    background: linear-gradient(90deg, var(--paper) 0%, var(--paper) 34%, rgba(244,239,230,0) 64%); }
-  .ww-cover-copy { position: relative; z-index: 2; max-width: 620px; }
+    background: linear-gradient(90deg, var(--paper) 0%, var(--paper) calc(var(--copy-edge) - 40px),
+      rgba(244,239,230,0) calc(var(--copy-edge) + 70px)); }
+  /* yields to the brain on narrower wide windows so the two never have to fight for the same pixels */
+  .ww-cover-copy { position: relative; z-index: 2; max-width: min(620px, 54vw); }
   .ww-kicker { font-size: clamp(11px, 1.2vw, 12.5px); font-weight: 600; letter-spacing: .18em; text-transform: uppercase;
     color: var(--purple); margin-bottom: 20px; }
   /* Fraunces display voice (matches the map title + labels); "thinking" italic-purple accent */
@@ -1088,7 +1109,7 @@
     .ww-cover-copy { order: 1; max-width: 640px; }
     .ww-cover-art { position: static; order: 2; width: 100%; margin: auto 0 0; }
     .ww-cover-art .ww-cover-still:not(.on) { display: none; }  /* off-still: no flow space, no ghost brain */
-    .ww-cover-art img, .ww-cover-art video { position: static; right: auto; top: auto; transform: none;
+    .ww-cover-art img, .ww-cover-art video { position: static; left: auto; right: auto; top: auto; transform: none;
       display: block; margin: 0 auto; width: auto; max-width: 100%; height: auto; max-height: 52vh; }
     .ww-cover-still.on, .ww-cover-art video { opacity: 1; }     /* full colour, single brain */
     .ww-foot { position: static; order: 3; margin-top: auto; padding-top: 18px; }
@@ -1380,7 +1401,7 @@ const BAND_ORDER = ["Early","Junior","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.12.5 · 2026-08-03";
+const APP_VERSION = "v0.12.6 · 2026-08-03";
 
 // Maps a class's year level to a teaching band (Prep-Y2 / Y3-6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -1388,7 +1409,15 @@ const APP_VERSION = "v0.12.5 · 2026-08-03";
 function bandOf(yearLevel) {
   const s = String(yearLevel);
   const n = parseInt(s.replace(/\D/g, ""), 10);
-  if (/prep|foundation|^k$/i.test(s.trim())) return "early";                                   // Prep
+  // "F" is what the year dropdown actually stores for Foundation (see the year <select>), and it
+  // was missing from this test while acYearNum() had it right — so bandOf("F") fell all the way
+  // through to the "senior" default and every Prep class was written to the Senior School brief:
+  // "critical and ethical reasoning, nuance, stakeholder perspectives... push for justified
+  // positions and trade-offs". That is why Foundation decks kept saying "justify", "evidence",
+  // "perspective" and "interpretation" (measured 2026-08-03 across seven prompt rewrites that all
+  // targeted the early band and all did nothing, because Foundation was never in it). It also fed
+  // Foundation teachers the senior-only thinking routines in the Suggest step.
+  if (/prep|foundation|^[fk]$/i.test(s.trim())) return "early";                                 // Prep/Foundation
   if (!Number.isNaN(n) && n <= 2) return "early";                                              // Y1–2
   if (!Number.isNaN(n) && n <= 6) return "junior";                                             // Y3–6
   if (!Number.isNaN(n) && n <= 9) return "middle";                                             // Y7–9
@@ -2940,13 +2969,108 @@ Return STRICT JSON with keys: title, intention, keywords, ignite{question}, thin
     raw = data?.choices?.[0]?.message?.content || "";
   }
   if (!raw.trim()) throw new Error("The model returned an empty response.");
+  let parsed;
   try {
-    return { parsed: parseJsonLoose(raw), raw };
+    parsed = parseJsonLoose(raw);
   } catch (perr) {
     const e = new Error("Could not parse the model's JSON: " + perr.message);
     e._raw = raw;
     throw e;
   }
+  // Prep-Year 2 only: a second, narrow pass over the words students actually read.
+  parsed = await simplifyForEarlyYears({ passcode, deck: parsed, classInfo, onPartial });
+  return { parsed, raw };
+}
+
+/* ------------------- Read it back as a five-year-old (Prep-Year 2 only) -------------------
+   Writing the whole lesson and keeping its language at a five-year-old's level are two different
+   jobs, and asking for both in one prompt loses the second. Measured over seven prompt variants
+   (2026-08-03) Foundation decks kept "observation", "interpretation", "evidence", "commit" and
+   "justify" on slides for children who cannot read them, because the thinking routine at that age
+   IS "tell what you see apart from what you think it means" — so the model treats those words as
+   the lesson's content, not as jargon. Repeating the ban made it worse (naming a word primes it).
+
+   So this is a separate call with exactly one job, and it sees ONLY the lines students read.
+   Deliberately out of scope: notes{} and reflect.metacognition (a teacher's script, which SHOULD
+   say "strategy"), launch.connection (real curriculum wording and codes — simplifying it would
+   fabricate them) and next[] (teacher-facing follow-up lessons).
+
+   Every field is merged back under a shape guard: same array lengths, same sentence count on the
+   article summary, no empty strings. Anything that fails the guard keeps the original, so the
+   worst case for this pass is that it changes nothing. */
+const EARLY_SIMPLIFY_FIELDS = ["intention", "ignite.question", "think.steps", "think.reveal.fact",
+  "think.reveal.question", "think.summary", "launch.question", "reflect.revisit", "reflect.prompts"];
+
+async function simplifyForEarlyYears({ passcode, deck, classInfo, onPartial = null }) {
+  if (!deck || bandOf(classInfo && classInfo.yearLevel) !== "early") return deck;
+  const src = {
+    intention: typeof deck.intention === "string" ? deck.intention : undefined,
+    igniteQuestion: deck.ignite && deck.ignite.question,
+    thinkSteps: deck.think && Array.isArray(deck.think.steps) ? deck.think.steps : undefined,
+    revealFact: deck.think && deck.think.reveal && deck.think.reveal.fact,
+    revealQuestion: deck.think && deck.think.reveal && deck.think.reveal.question,
+    summary: deck.think && deck.think.summary,
+    launchQuestion: deck.launch && deck.launch.question,
+    reflectRevisit: deck.reflect && deck.reflect.revisit,
+    reflectPrompts: deck.reflect && Array.isArray(deck.reflect.prompts) ? deck.reflect.prompts : undefined,
+  };
+  // Nothing worth sending (e.g. a scoped regenerate of a teacher-only part).
+  const payload = Object.fromEntries(Object.entries(src).filter(([, v]) => v !== undefined && v !== null && (Array.isArray(v) ? v.length : String(v).trim())));
+  if (!Object.keys(payload).length) return deck;
+
+  const summarySentences = String(src.summary || "").split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 1).length;
+  const sys = `You rewrite lesson text so a ${classInfo.yearLevel === "F" ? "Prep" : "Year " + classInfo.yearLevel} class (age 5-8) can follow it when their teacher reads it aloud. You are NOT writing a new lesson — keep every idea, every instruction and every order exactly as it is, and change only the words.
+${EARLY_WORDS_RULE}
+Also: at most 12 words per sentence, one instruction per sentence — split a long sentence into two short ones rather than dropping anything. Keep questions as questions. Keep any name, number, colour or object that is named. Never add a new fact.
+Return STRICT JSON with EXACTLY the same keys and the same shape you were given. Arrays must come back with the SAME NUMBER of items, in the same order.${summarySentences ? ` "summary" must come back as EXACTLY ${summarySentences} sentences.` : ""}`;
+
+  let out;
+  try {
+    const resp = await fetch(API_BASE + "/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-sb-passcode": passcode },
+      body: JSON.stringify({
+        messages: [
+          { role: "system", content: sys },
+          { role: "user", content: "Rewrite these for the class, per the system instructions:\n\n" + JSON.stringify(payload, null, 1) },
+        ],
+        response_format: { type: "json_object" },
+        // Narrow rewrite, no research: measured ~900 completion tokens, so 2500 is headroom.
+        max_completion_tokens: 2500,
+        reasoning_effort: "low",
+      }),
+    });
+    if (!resp.ok) return deck;
+    const data = await resp.json();
+    out = parseJsonLoose(data?.choices?.[0]?.message?.content || "");
+  } catch (_) {
+    return deck; // a failed rewrite must never cost the teacher their lesson
+  }
+  if (!out || typeof out !== "object") return deck;
+
+  const str = (v) => (typeof v === "string" && v.trim() ? stripMd(v).trim() : null);
+  const sameLenArray = (v, original) => Array.isArray(v) && v.length === original.length && v.every(x => str(x)) ? v.map(x => str(x)) : null;
+
+  const next = { ...deck, think: { ...deck.think }, ignite: { ...deck.ignite }, launch: { ...deck.launch }, reflect: { ...deck.reflect } };
+  if (deck.think && deck.think.reveal) next.think.reveal = { ...deck.think.reveal };
+
+  const put = (ok, apply) => { if (ok) apply(ok); };
+  put(str(out.intention), v => { next.intention = v; });
+  put(str(out.igniteQuestion), v => { next.ignite.question = v; });
+  put(src.thinkSteps && sameLenArray(out.thinkSteps, src.thinkSteps), v => { next.think.steps = v; });
+  put(str(out.revealFact) && str(src.revealFact) ? str(out.revealFact) : null, v => { next.think.reveal.fact = v; });
+  put(str(out.revealQuestion) && str(src.revealQuestion) ? str(out.revealQuestion) : null, v => { next.think.reveal.question = v; });
+  // The summary is the one field with a required count, so it only lands if the count survived.
+  const newSummary = str(out.summary);
+  if (newSummary && summarySentences && newSummary.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 1).length === summarySentences) next.think.summary = newSummary;
+  put(str(out.launchQuestion), v => { next.launch.question = v; });
+  put(str(out.reflectRevisit), v => { next.reflect.revisit = v; });
+  put(src.reflectPrompts && sameLenArray(out.reflectPrompts, src.reflectPrompts), v => { next.reflect.prompts = v; });
+
+  // The streamed preview showed the pre-rewrite words; repaint so what the teacher ends on is what
+  // they keep.
+  if (onPartial) { try { onPartial(next); } catch (_) {} }
+  return next;
 }
 
 /* ----------------------- Analyse stimulus (the new step before Generate) -----------------------
