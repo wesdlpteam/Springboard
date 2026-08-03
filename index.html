@@ -1027,26 +1027,26 @@
     position: absolute; top: 50%; right: auto; left: var(--art-left);
     transform: translateY(-50%); width: var(--art-w); height: auto; max-width: none;
     mix-blend-mode: multiply;
-    /* feather ALL FOUR edges to transparent by the rectangle boundary (radii = 50% so the fade
-       always completes AT the edge, whatever the window shape) — kills the hard top/bottom line
-       the video's paper grain used to reveal, while a big 72% solid core keeps the cloud bleed. */
-    -webkit-mask-image: radial-gradient(50% 50% at 50% 50%, #000 72%, transparent 100%);
-            mask-image: radial-gradient(50% 50% at 50% 50%, #000 72%, transparent 100%);
+    /* Two masks, intersected. 1) feather ALL FOUR edges to transparent by the rectangle boundary
+       (radii = 50% so the fade always completes AT the edge, whatever the window shape) — kills
+       the hard top/bottom line the video's paper grain used to reveal, while a big 72% solid core
+       keeps the cloud bleed. 2) a vertical fade that dissolves the artwork's faint left halo before
+       it reaches the copy. This replaced a flat paper overlay, which could never match the page's
+       tiled paper texture and so drew a visible vertical band edge wherever it stopped. */
+    -webkit-mask-image: radial-gradient(50% 50% at 50% 50%, #000 72%, transparent 100%),
+                        linear-gradient(90deg, transparent var(--fade-a), #000 var(--fade-b));
+            mask-image: radial-gradient(50% 50% at 50% 50%, #000 72%, transparent 100%),
+                        linear-gradient(90deg, transparent var(--fade-a), #000 var(--fade-b));
     -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
-    -webkit-mask-position: 50% 50%; mask-position: 50% 50%; }
+    -webkit-mask-position: 50% 50%; mask-position: 50% 50%;
+    -webkit-mask-composite: source-in; mask-composite: intersect; }
   /* the clip paints itself in and freezes on its last frame; the still is that same frame,
      revealed only on reduced-motion, clip error, or a return to the cover (no crossfade). */
   .ww-cover-still { opacity: 0; transition: opacity 1.3s ease; }
   .ww-cover-still.on { opacity: 1; }
   @media (prefers-reduced-motion: reduce) { .ww-cover-still { opacity: 1; transition: none; } }
-  /* readability veil: a SMOOTH paper-colour gradient (no texture image, so no seam or edge
-     line), softly covering the text column and fading to clear before the brain. Sits above
-     the art, below the copy. Its stops key off the same --copy-edge the art does, so it holds
-     flat paper across every line of copy and only lets go where the ink body begins — that is
-     what clears the faint outer halo off the paragraph. */
-  .ww-cover::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
-    background: linear-gradient(90deg, var(--paper) 0%, var(--paper) calc(var(--copy-edge) - 40px),
-      rgba(244,239,230,0) calc(var(--copy-edge) + 70px)); }
+  /* No readability veil any more: the art masks its own halo away before the copy (see --fade-a
+     above), so nothing has to be painted over the page — and nothing can leave a band edge. */
   /* yields to the brain on narrower wide windows so the two never have to fight for the same pixels */
   .ww-cover-copy { position: relative; z-index: 2; max-width: min(620px, 54vw); }
   .ww-kicker { font-size: clamp(11px, 1.2vw, 12.5px); font-weight: 600; letter-spacing: .18em; text-transform: uppercase;
@@ -1105,12 +1105,14 @@
        space under the copy while the footer stays pinned at the bottom. The hidden OFF-state still
        is pulled out of flow (display:none), so it neither leaves a gap nor stacks a second brain. */
     .ww-cover { justify-content: flex-start; }
-    .ww-cover::before { display: none; }                       /* no veil — nothing sits behind the text now */
     .ww-cover-copy { order: 1; max-width: 640px; }
     .ww-cover-art { position: static; order: 2; width: 100%; margin: auto 0 0; }
     .ww-cover-art .ww-cover-still:not(.on) { display: none; }  /* off-still: no flow space, no ghost brain */
     .ww-cover-art img, .ww-cover-art video { position: static; left: auto; right: auto; top: auto; transform: none;
-      display: block; margin: 0 auto; width: auto; max-width: 100%; height: auto; max-height: 52vh; }
+      display: block; margin: 0 auto; width: auto; max-width: 100%; height: auto; max-height: 52vh;
+      /* nothing sits beside the brain here, so switch the halo fade off — its stops are measured
+         against the side-by-side box and would otherwise eat the stacked brain's left third */
+      --fade-a: 0px; --fade-b: 0px; }
     .ww-cover-still.on, .ww-cover-art video { opacity: 1; }     /* full colour, single brain */
     .ww-foot { position: static; order: 3; margin-top: auto; padding-top: 18px; }
   }
@@ -1401,7 +1403,7 @@ const BAND_ORDER = ["Early","Junior","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.12.6 · 2026-08-03";
+const APP_VERSION = "v0.12.7 · 2026-08-03";
 
 // Maps a class's year level to a teaching band (Prep-Y2 / Y3-6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
