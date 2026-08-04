@@ -1423,7 +1423,7 @@ const BAND_ORDER = ["Early","Junior","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.12.9 · 2026-08-04";
+const APP_VERSION = "v0.12.10 · 2026-08-04";
 
 // Maps a class's year level to a teaching band (Prep-Y2 / Y3-6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -3345,8 +3345,10 @@ const I = {
 /* How hard the model thinks before it writes a word. Measured on a real Year 4 lesson
    (2026-08-03): the default burned 3,024 reasoning tokens and emitted NOTHING for the first ~60s
    of a 66s call, so the first slide only reached the screen at 67s. Streaming cannot shorten
-   silence — this is the only knob that does. */
-const GEN_REASONING = "low";
+   silence — this is the only knob that does. Held at "medium" rather than "low" (2026-08-04):
+   the speed win from "low" was real but rested on a single sampled lesson, and lesson quality
+   is worth more here than the ~15-25s it costs back. */
+const GEN_REASONING = "medium";
 
 // Slide accent colours. Module scope, not inside App: LiveBuild below is a top-level component,
 // and referencing a component-scoped const from here throws at runtime, not at compile time.
