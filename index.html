@@ -793,11 +793,31 @@
   .bx-input:focus, .bx-tool textarea:focus, .bx-tool select:focus { outline: 2px solid var(--ink); outline-offset: 1px; }
   .bx-two { display: grid; grid-template-columns: 1fr 120px; gap: 10px; }
 
+  /* Curriculum focus. Closed by default: a year's worth of content descriptions (24 items
+     under 12 headings for Y7 English) buried the learning intention below the fold. The
+     summary carries the state (count / loading / error) so nothing important hides inside
+     a shut box. */
   .bx-focus { border-top: 1px solid rgba(43,40,31,.18); margin-top: 6px; padding-top: 10px; }
   .bx-focus > summary { cursor: pointer; font-size: 14px; color: var(--ink); }
+  .bx-focus > summary .cnt { color: var(--muted); }
+  /* .bx-panel > .bx-note only styles direct children, so notes nested in here fall back to full
+     body size and full-strength ink. Restore the small muted note voice. */
+  .bx-focus .bx-note { font-size: 13px; line-height: 1.5; color: var(--muted); margin: 6px 0 0; }
+  .bx-focus-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .bx-focus-top .bx-note { flex: 1 1 200px; min-width: 0; }
+  /* Padding (with matching negative side margin, so it stays put) carries the hit target past the
+     24px WCAG 2.2 target-size floor; the bare text button was 15px tall. */
+  .bx-focus-clear { border: 0; background: none; padding: 5px 6px; margin: 0 -6px; font: inherit; font-size: 12.5px; color: var(--ink);
+    text-decoration: underline; text-underline-offset: 2px; cursor: pointer; flex: 0 0 auto; }
+  .bx-focus-clear:hover { opacity: .7; }
+  .bx-focus-filter { margin: 8px 0 2px; }
+  .bx-focus-filter .bx-input { padding: 7px 10px; font-size: 13px; }
   .bx-focus-heading { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin: 10px 0 4px; }
   .bx-focus-item { display: flex; gap: 8px; align-items: flex-start; padding: 4px 0; font-size: 13.5px; line-height: 1.4; cursor: pointer; }
   .bx-focus-item input { margin-top: 3px; flex: 0 0 auto; }
+  /* The code led every row and is the least useful thing on it. Demoted to a tag on the end. */
+  .bx-focus-code { display: inline-block; margin-left: 6px; padding: 1px 5px; border-radius: 3px; background: var(--paper-2);
+    border: 1px solid var(--line); color: var(--muted); font-size: 11px; font-style: normal; letter-spacing: .02em; white-space: nowrap; }
 
   .bx-btn { display: inline-flex; align-items: center; gap: 8px; border: 0; cursor: pointer; font: inherit; font-weight: 500; font-size: 14px;
     background: var(--ink); color: var(--paper); padding: 11px 20px; border-radius: 3px; transition: opacity .2s, transform .1s; }
@@ -1403,7 +1423,7 @@ const BAND_ORDER = ["Early","Junior","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.12.7 · 2026-08-03";
+const APP_VERSION = "v0.12.8 · 2026-08-04";
 
 // Maps a class's year level to a teaching band (Prep-Y2 / Y3-6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -4011,6 +4031,16 @@ const bxColorRGBA = (name, a) => {
   return "rgba(" + (c >> 16) + "," + ((c >> 8) & 255) + "," + (c & 255) + "," + a + ")";
 };
 
+/* A curriculum item arrives as "AC9E7LA03 — identify and describe how texts are structured…".
+   Leading with the code makes every row start on its least useful word, so the row is split
+   and the code rendered as a tag on the end. VCE items carry no code — they come back whole
+   and are rendered as-is. The tick value stays `it.text` either way, so nothing downstream
+   (classInfo.focus, studyGuide.focus) sees this split. */
+const splitFocusCode = (text) => {
+  const m = /^([A-Z0-9.\-]{4,20})\s+[—–-]\s+([\s\S]+)$/.exec(String(text || "").trim());
+  return m ? { code: m[1], desc: m[2] } : { code: "", desc: String(text || "").trim() };
+};
+
 function App() {
   // config — passcode persists in this browser's localStorage (per user request)
   const [passcode, setPasscode] = useState(() => { try { return localStorage.getItem(KEY_STORE) || ""; } catch (_) { return ""; } });
@@ -4043,6 +4073,7 @@ function App() {
   const [focusGroups, setFocusGroups] = useState([]);            // fetched curriculum items
   const [focusLoading, setFocusLoading] = useState(false);
   const [focusError, setFocusError] = useState("");
+  const [focusFilter, setFocusFilter] = useState("");            // client-side narrowing of the tick list
   // Dark mode — sandbox experiment; persisted so the choice survives refreshes.
   const [dark, setDark] = useState(() => localStorage.getItem("sb_theme") === "dark");
   useEffect(() => {
@@ -5803,6 +5834,7 @@ function App() {
   // Brain Subject <select>: "__other__" reverts to a free-text box; any real pick clears focus.
   const onPickBrainSubject = (e) => {
     const v = e.target.value;
+    setFocusFilter("");
     if (v === "__other__") { setSubjectFreeform(true); saveClassInfo({ ...classInfo, subject: "", focus: [] }); setFocusGroups([]); setFocusError(""); return; }
     setSubjectFreeform(false); saveClassInfo({ ...classInfo, subject: v, focus: [] });
   };
@@ -5919,7 +5951,7 @@ function App() {
                 const m = acYearNum(y);
                 const curriculum = (m === 11 || m === 12) ? "VCE"
                   : (!Number.isNaN(m) && m <= 10) ? "Australian Curriculum" : "IB MYP";
-                setSubjectFreeform(false); setFocusGroups([]); setFocusError("");
+                setSubjectFreeform(false); setFocusGroups([]); setFocusError(""); setFocusFilter("");
                 saveClassInfo({ ...classInfo, yearLevel: y, curriculum, subject: "", focus: [] });
               }}>
                 <option value="">—</option>{["F","1","2","3","4","5","6","7","8","9","10","11","12"].map(y => <option key={y} value={y}>{y === "F" ? "Foundation" : "Year " + y}</option>)}
@@ -5957,39 +5989,10 @@ function App() {
                          onChange={e => saveClassInfo({ ...classInfo, subject: e.target.value })} />}
             </div>
           </div>
-          {(focusLoading || focusError || focusGroups.length > 0) && (
-            <details className="bx-focus" open>
-              <summary>Curriculum focus (optional)</summary>
-              {focusLoading && <p className="bx-note">Loading the curriculum list…</p>}
-              {focusError && <p className="bx-note">{focusError}</p>}
-              {!focusLoading && !focusError && focusGroups.length > 0 && (
-                <React.Fragment>
-                  <p className="bx-note">Tick the ones this lesson targets, or leave blank to cover the whole subject.</p>
-                  {focusGroups.map(g => (
-                    <div className="bx-focus-group" key={g.heading || "grp"}>
-                      {g.heading && <div className="bx-focus-heading">{g.heading}</div>}
-                      {g.items.map(it => {
-                        const on = (classInfo.focus || []).includes(it.text);
-                        return (
-                          <label className="bx-focus-item" key={it.id}>
-                            <input type="checkbox" checked={on} onChange={() => {
-                              const cur = classInfo.focus || [];
-                              const next = on ? cur.filter(x => x !== it.text) : [...cur, it.text];
-                              saveClassInfo({ ...classInfo, focus: next });
-                            }} />
-                            <span>{it.text}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </React.Fragment>
-              )}
-            </details>
-          )}
-          <div className="bx-field"><label htmlFor="bx-outcome">Learning focus (optional)</label><input id="bx-outcome" className="bx-input" value={classInfo.outcome} onChange={e => saveClassInfo({ ...classInfo, outcome: e.target.value })} placeholder="e.g. how structure shapes meaning" /></div>
-          {/* Learning intention: the teacher's own "we are learning to…", or the app writes one.
-              Typed text always wins — the whole deck is then built to serve it. */}
+          {/* Learning intention sits directly under year/subject, ABOVE the curriculum list: it is
+              the one field the whole deck is built to serve, and it used to sit below a year's
+              worth of tick boxes where teachers never scrolled to it. The teacher's own "we are
+              learning to…", or the app writes one. Typed text always wins. */}
           <div className="bx-field">
             <label htmlFor="bx-intention">Learning intention</label>
             <textarea id="bx-intention" className="bx-input" rows={2} value={intention}
@@ -5999,8 +6002,11 @@ function App() {
               {intentionBusy
                 ? <div className="bx-working"><span className="sp" /> Writing an intention…</div>
                 : <React.Fragment>
+                    {/* The label changes once anything is ticked. Not cosmetic: suggestIntention
+                        already folds classInfo.focus into studyGuide.focus, so the ticks were
+                        always steering this call — the button just never said so. */}
                     <button type="button" className="bx-btn ghost" disabled={!(classInfo.subject || "").trim()}
-                            onClick={runSuggestIntention}>{intentionAi ? "Try another" : "Let AI decide"}</button>
+                            onClick={runSuggestIntention}>{intentionAi ? "Try another" : (classInfo.focus || []).length ? "Write one from my ticks" : "Let AI decide"}</button>
                     {intention.trim() && (
                       <button type="button" className="bx-btn ghost"
                               onClick={() => { setIntention(""); setIntentionAi(false); setIntentionAuto(true); setIntentionError(""); }}>Clear</button>
@@ -6010,11 +6016,73 @@ function App() {
                 {intentionAi ? "Springboard wrote this. Edit it, or try another — the lesson is built around whatever the box says."
                   : intention.trim() ? "Your wording is used word-for-word, and the lesson is built around it."
                   : !(classInfo.subject || "").trim() ? "Choose your subject first, or leave this blank and Springboard writes one while it builds."
+                  : (classInfo.focus || []).length ? "Springboard will use the " + (classInfo.focus || []).length + " curriculum item" + ((classInfo.focus || []).length === 1 ? "" : "s") + " you ticked. Left blank, it writes one as it builds."
                   : "Left blank, Springboard writes one to match the lesson. You can edit it afterwards."}
               </small>
             </div>
             {intentionError && <div className="bx-alert" role="alert">{intentionError}</div>}
           </div>
+          {/* Curriculum focus. Closed by default and state-labelled in the summary, because the
+              open list (24 items under 12 headings for Y7 English) was the panel. */}
+          {(focusLoading || focusError || focusGroups.length > 0) && (
+            <details className="bx-focus">
+              <summary>Curriculum focus <span className="cnt">· {
+                focusLoading ? "loading the list…"
+                  : focusError ? "couldn't load the list"
+                  : (classInfo.focus || []).length ? (classInfo.focus || []).length + " ticked"
+                  : "none ticked (whole subject)"
+              }</span></summary>
+              {focusLoading && <p className="bx-note">Loading the curriculum list…</p>}
+              {focusError && <p className="bx-note">{focusError}</p>}
+              {!focusLoading && !focusError && focusGroups.length > 0 && (
+                <React.Fragment>
+                  <div className="bx-focus-top">
+                    <p className="bx-note">Tick the ones this lesson targets, or leave blank to cover the whole subject.</p>
+                    {/* Outside <summary> on purpose: a button inside a summary swallows the toggle. */}
+                    {(classInfo.focus || []).length > 0 && (
+                      <button type="button" className="bx-focus-clear"
+                              onClick={() => saveClassInfo({ ...classInfo, focus: [] })}>Clear all</button>
+                    )}
+                  </div>
+                  <div className="bx-field bx-focus-filter">
+                    <label htmlFor="bx-focus-filter">Find a curriculum item</label>
+                    <input id="bx-focus-filter" className="bx-input" type="text" value={focusFilter}
+                           placeholder="e.g. structure, evidence, fractions"
+                           onChange={e => setFocusFilter(e.target.value)} />
+                  </div>
+                  {(() => {
+                    const q = focusFilter.trim().toLowerCase();
+                    const picked = classInfo.focus || [];
+                    // A ticked item always survives the filter, so narrowing can never hide a
+                    // choice the teacher has already made.
+                    const groups = focusGroups
+                      .map(g => ({ ...g, items: g.items.filter(it => !q || picked.includes(it.text) || it.text.toLowerCase().includes(q)) }))
+                      .filter(g => g.items.length);
+                    if (!groups.length) return <p className="bx-note">Nothing matches that word.</p>;
+                    return groups.map(g => (
+                      <div className="bx-focus-group" key={g.heading || "grp"}>
+                        {g.heading && <div className="bx-focus-heading">{g.heading}</div>}
+                        {g.items.map(it => {
+                          const on = picked.includes(it.text);
+                          const parts = splitFocusCode(it.text);
+                          return (
+                            <label className="bx-focus-item" key={it.id}>
+                              <input type="checkbox" checked={on} onChange={() => {
+                                const cur = classInfo.focus || [];
+                                const next = on ? cur.filter(x => x !== it.text) : [...cur, it.text];
+                                saveClassInfo({ ...classInfo, focus: next });
+                              }} />
+                              <span>{parts.desc}{parts.code && <em className="bx-focus-code">{parts.code}</em>}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    ));
+                  })()}
+                </React.Fragment>
+              )}
+            </details>
+          )}
         </div>
         {/* thinking */}
         <div className="bx-panel">
