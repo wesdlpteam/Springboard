@@ -158,6 +158,12 @@ const promptChecks = [
   ["intention echoed word-for-word when supplied", /EXACTLY as written, unchanged/],
   ["no invented curriculum codes", /never invent codes|Do not invent curriculum codes|never invent official curriculum/i],
   ["band brief injected", /BAND_GUIDANCE\[/],
+  // A Year 7 deck called a standing Aboriginal man "the seated Aboriginal woman" and then had
+  // students speak as her. Both halves must stay: the rule itself, and the concreteness guidance
+  // that pushed towards it admitting what concrete does NOT license.
+  ["no asserted identity for people in the stimulus", /NEVER state a person's gender, name, age, race, cultural identity/],
+  ["people described by what is visible", /the person seated with their back to us/],
+  ["concreteness never licenses an invented specific", /not yours to assert/, "api/generate.js"],
 ];
 // Some rules live server-side in api/generate.js (the SUCCESs guidance is owned there, never sent
 // by the client), so each check names the file it belongs in.
