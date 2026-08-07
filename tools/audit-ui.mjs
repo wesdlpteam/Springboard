@@ -120,7 +120,14 @@ async function withBrowser(vp, fn) {
     ws.onmessage = ev => {
       const m = JSON.parse(ev.data);
       if (m.method === "Runtime.exceptionThrown") consoleErrs.push(String(m.params?.exceptionDetails?.exception?.description || "").slice(0, 120));
-      if (m.method === "Runtime.consoleAPICalled" && m.params.type === "error") consoleErrs.push(String(m.params.args?.[0]?.value || "").slice(0, 120));
+      // Babel-standalone shouts "[BABEL] Note: ... exceeds the max of 500KB" down console.error
+      // once index.html passes half a megabyte. It is an informational note about ITS OWN output
+      // formatting, not a fault in the page, and it fired on every scene at once — six identical
+      // failures that say nothing about the UI. Anything else on console.error still counts.
+      if (m.method === "Runtime.consoleAPICalled" && m.params.type === "error") {
+        const text = String(m.params.args?.[0]?.value || "").slice(0, 120);
+        if (!/^\[BABEL\] Note:/.test(text)) consoleErrs.push(text);
+      }
       if (m.id && pending.has(m.id)) { const p = pending.get(m.id); pending.delete(m.id); m.error ? p.rej(new Error(m.error.message)) : p.res(m.result); }
     };
     await new Promise(r => { ws.onopen = r; });

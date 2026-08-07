@@ -1423,7 +1423,7 @@ const BAND_ORDER = ["Early","Junior","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.12.12 · 2026-08-07";
+const APP_VERSION = "v0.13.0 · 2026-08-07";
 
 // Maps a class's year level to a teaching band (Prep-Y2 / Y3-6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2711,6 +2711,49 @@ function stripMd(s) {
     .trim();
 }
 
+/* ---- IB PYP vocabulary for the "Today's learning" slide ----
+   Both lists are closed and official: the seven PYP key concepts, and the ten IB learner profile
+   attributes. They are handed to the model AND enforced here, because a closed list in a prompt
+   is a request — the routine-name canonicaliser exists for exactly the same reason. Anything off
+   the list is dropped rather than printed: a shorter column is a smaller problem than invented IB
+   language on a Wesley slide. */
+const PYP_CONCEPTS = ["form", "function", "causation", "change", "connection", "perspective", "responsibility"];
+const PYP_PROFILE = ["Inquirer", "Knowledgeable", "Thinker", "Communicator", "Principled",
+  "Open-minded", "Caring", "Risk-taker", "Balanced", "Reflective"];
+
+// Prep-Year 6. Keyed on the year level, never the curriculum dropdown — see the prompt block in
+// generateSpringboard for why.
+function isPypBand(yearLevel) {
+  const b = bandOf(yearLevel);
+  return b === "early" || b === "junior";
+}
+
+// Letters only, so "Risk taker", "risk-taker" and "Risk-Taker" all land on "Risk-taker".
+function canonFromList(list, value) {
+  const flat = (s) => String(s == null ? "" : s).toLowerCase().replace(/[^a-z]/g, "");
+  const wanted = flat(value);
+  return wanted ? (list.find(x => flat(x) === wanted) || "") : "";
+}
+
+// Shape the model's "learning" block: 1-3 intention questions with a real key concept each,
+// 2-4 success criteria, 2-4 distinct learner profile attributes. Everything off-list or empty is
+// dropped, so the worst case is a column with fewer entries, never a wrong one.
+function shapeLearning(v) {
+  const o = v && typeof v === "object" ? v : {};
+  const str = (s) => stripMd(s == null ? "" : String(s)).trim();
+  const about = (Array.isArray(o.about) ? o.about : [])
+    .map(a => ({ question: str(a && (a.question || a.q)), concept: canonFromList(PYP_CONCEPTS, a && a.concept) }))
+    .filter(a => a.question)
+    .slice(0, 3);
+  const criteria = (Array.isArray(o.do) ? o.do : []).map(str).filter(Boolean).slice(0, 4);
+  const be = [];
+  for (const raw of (Array.isArray(o.be) ? o.be : [])) {
+    const hit = canonFromList(PYP_PROFILE, raw);
+    if (hit && !be.includes(hit)) be.push(hit);
+  }
+  return { about, do: criteria, be: be.slice(0, 4) };
+}
+
 // Normalise guiding questions to { q, responses } objects. Accepts the model's
 // new object shape ({ question, responses }) or a plain string (legacy / fallback),
 // so older saved content and either prompt shape still load cleanly.
@@ -2738,6 +2781,9 @@ function shapeDeck(parsed, { routineName }) {
     // would be dropped before the slide and the editor ever saw it.
     intention: str(p.intention),
     keywords: arr(p.keywords, 6),
+    // Prep-Year 6 only: the "Today's learning" slide. Empty on every other band and on decks
+    // generated before this field existed, and the export simply draws no slide for an empty one.
+    learning: shapeLearning(p.learning),
     ignite:  { question: str(ig.question) },
     // summary = the 5 sentences students read beside the routine on THINK (article stimulus only;
     // empty for an image/video reel, and empty on decks generated before this field existed).
@@ -2871,6 +2917,21 @@ FACILITATION: … ENABLING PROMPT: … EXTENDING PROMPT: … CURRICULUM LINKS: �
 ENABLING PROMPT = how to simplify the task so a student who is stuck can still take part (a sentence stem, a smaller step, a concrete support).
 EXTENDING PROMPT = how to push a student who finds it easy further into the same thinking (not extra work — deeper work).
 Return STRICT JSON with keys: title, intention, keywords, ignite{question}, think{routine, steps, structure, summary, reveal{fact, question}}, launch{connection, bridge, question, ideas}, reflect{revisit, prompts, metacognition}, next[3]{title, idea, thinking}, notes{ignite, think, launch, reflect}.`;
+
+  /* The PYP learning slide, on the year level and NOT on the curriculum dropdown. Wesley is an IB
+     school that teaches from the Australian Curriculum, so its Prep-Year 6 teachers pick
+     "Australian Curriculum" to get the ACARA grounding and would never have seen this slide if it
+     keyed off that field (Nathan, 2026-08-07). Both IB vocabularies are given as CLOSED lists and
+     canonicalised again in shapeDeck — a list in a prompt is a request, not a guarantee. */
+  if (isPypBand(classInfo.yearLevel) && scope === "all") {
+    sys += `\nALSO return "learning" — the slide students see FIRST, before the opening question:
+learning{about[1-3]{question, concept}, do[2-4], be[2-4]}.
+- about[].question = a learning intention written AS A QUESTION, in words this class would use (max 16 words). Return only as many as this lesson genuinely has: ONE is right for a single-focus lesson, and padding to three with rewordings is worse than returning one.
+- about[].concept = the ONE PYP key concept that question drives at, lower case, from EXACTLY this list: ${PYP_CONCEPTS.join(", ")}.
+- do[] = success criteria for THIS lesson. Each starts "I can " and names the observable thing a student does, not a feeling (max 18 words). 2-4 of them.
+- be[] = IB learner profile attributes this lesson genuinely calls on, spelled EXACTLY as in this list: ${PYP_PROFILE.join(", ")}. 2-4 of them. Choose only ones the lesson really asks students to be; a lesson that never asks anyone to take a risk must not claim Risk-taker.
+Never invent a key concept or a learner profile attribute outside those lists.`;
+  }
 
   // Single-slide regenerate: rebuild only the scoped slide + its notes, copying the rest verbatim.
   if (scope !== "all") {
@@ -4978,6 +5039,16 @@ function App() {
   const patchArr = (slide, key, i, val) => setSpot(s => { const a = (s[slide][key] || []).slice(); a[i] = val; return { ...s, [slide]: { ...s[slide], [key]: a } }; });
   // deck.next is an array of {title, idea, thinking} — one per "Where to next" slide.
   const patchNext = (i, key, val) => setSpot(s => { const a = (s.next || []).slice(); a[i] = { ...(a[i] || {}), [key]: val }; return { ...s, next: a }; });
+  // learning.about is a list of {question, concept} pairs, so it needs its own patcher; the other
+  // two columns are plain string arrays and patchArr/addArr/delArr already handle them.
+  const withLearning = (s, about) => ({ ...s, learning: { about: [], do: [], be: [], ...(s.learning || {}), about } });
+  const patchAbout = (i, key, val) => setSpot(s => {
+    const a = ((s.learning && s.learning.about) || []).slice();
+    a[i] = { ...(a[i] || {}), [key]: val };
+    return withLearning(s, a);
+  });
+  const addAbout = () => setSpot(s => withLearning(s, [...((s.learning && s.learning.about) || []), { question: "", concept: "" }].slice(0, 3)));
+  const delAbout = (i) => setSpot(s => withLearning(s, ((s.learning && s.learning.about) || []).filter((_, j) => j !== i)));
   const addNext = () => setSpot(s => ({ ...s, next: [...(s.next || []), { title: "", idea: "", thinking: "" }].slice(0, 3) }));
   const delNext = (i) => setSpot(s => ({ ...s, next: (s.next || []).filter((_, j) => j !== i) }));
   const addArr = (slide, key) => setSpot(s => ({ ...s, [slide]: { ...s[slide], [key]: [...(s[slide][key] || []), ""] } }));
@@ -5074,7 +5145,17 @@ function App() {
       // and the "Where to next" slides are excluded — they are planning, not the lesson, so counting
       // them made the footer lie about how far through the lesson the class was. (They are visible in
       // the slideshow since 2026-08-03, but they still sit outside this count.)
-      const total = 2 + revealExtra + (showReflect ? 1 : 0);
+      // Prep-Year 6 open on "Today's learning". Drawn only when the model actually filled it in, so
+      // a band change or an older saved deck silently falls back to the four-part lesson.
+      const learning = (deck.learning && typeof deck.learning === "object") ? deck.learning : {};
+      const learnAbout = (Array.isArray(learning.about) ? learning.about : []).filter(a => a && a.question).slice(0, 3);
+      const learnDo = (Array.isArray(learning.do) ? learning.do : []).map(s => String(s).trim()).filter(Boolean).slice(0, 4);
+      const learnBe = (Array.isArray(learning.be) ? learning.be : []).map(s => String(s).trim()).filter(Boolean).slice(0, 4);
+      const showLearning = (bandKey === "Early" || bandKey === "Junior")
+        && (learnAbout.length || learnDo.length || learnBe.length);
+
+      // Students see the learning slide, so it counts. The teacher preface still does not.
+      const total = 2 + revealExtra + (showReflect ? 1 : 0) + (showLearning ? 1 : 0);
 
       await loadScript(PPTX_SRC, PPTX_SRI);
       const pptx = new PptxGenJS();
@@ -5316,6 +5397,62 @@ function App() {
           { text: "You can delete or hide this slide before class.", options: { italic: true, color: SUB } },
         ], { x: 0.7, y: 3.25, w: W - 1.4, h: 3.4, fontSize: 16.5, valign: "top", lineSpacingMultiple: 1.2, fontFace: FONT, fit: "shrink" });
         s.addNotes("Teach from these notes. Presenter View: Slide Show ▸ Presenter View (Alt+F5). This preface slide can be deleted or hidden before you present to students.");
+      }
+
+      /* ---------------- TODAY'S LEARNING (PYP: Prep - Year 6) ----------------
+         Three columns, in the order a PYP classroom reads them: what we're learning about (the
+         intention as a question, with its key concept), what we'll be able to do (success
+         criteria), and who we're being while we do it (learner profile). Sits BEFORE the opening
+         question because it frames it — and being drawn before IGNITE also means zoomBase, which
+         counts pptx.slides.length at IGNITE time, picks this slide up with no arithmetic here. */
+      if (showLearning) {
+        const s = newWhite();
+        eyebrow(s, "Today's learning", 0.7, 0.55, GOLD_INK);
+        const colW = 3.64, gap = 0.5, headY = 1.28, bodyY = 2.15, bodyH = 4.3;
+        const colX = [0.7, 0.7 + colW + gap, 0.7 + 2 * (colW + gap)];
+        const heads = ["Learning about…", "Learning to do…", "Learning to be…"];
+        heads.forEach((h, i) => {
+          s.addShape(pptx.ShapeType.roundRect, { x: colX[i], y: headY, w: colW, h: 0.6, rectRadius: 0.08, fill: { color: SUB } });
+          s.addText(h, { x: colX[i], y: headY, w: colW, h: 0.6, fontSize: 15, bold: true, color: P, align: "center", valign: "middle", fontFace: FONT });
+        });
+        // Hairline rules between the columns, sitting in the gaps rather than on the text.
+        for (let i = 1; i < 3; i++) {
+          s.addShape(pptx.ShapeType.rect, { x: colX[i] - gap / 2, y: headY, w: 0.015, h: bodyY + bodyH - headY, fill: { color: GOLD_LT } });
+        }
+
+        // Column 1 — each intention in its own outlined box, key concept beneath it.
+        const boxH = learnAbout.length ? Math.min(1.75, (bodyH - 0.25 * (learnAbout.length - 1)) / learnAbout.length) : 0;
+        learnAbout.forEach((a, i) => {
+          const y = bodyY + i * (boxH + 0.25);
+          s.addShape(pptx.ShapeType.rect, { x: colX[0], y, w: colW, h: boxH, fill: { color: WHITE }, line: { color: P, width: 1 } });
+          const hasConcept = !!a.concept;
+          const qH = boxH - (hasConcept ? 0.42 : 0.12);
+          s.addText(String(a.question), { x: colX[0] + 0.16, y: y + 0.1, w: colW - 0.32, h: qH,
+            fontSize: fitFontSize(a.question, colW - 0.32, qH, 15, 10.5), color: INK, align: "center", valign: "middle", lineSpacingMultiple: 1.12, fontFace: FONT });
+          if (hasConcept) s.addText("(" + a.concept + ")", { x: colX[0] + 0.16, y: y + boxH - 0.42, w: colW - 0.32, h: 0.3,
+            fontSize: 10.5, italic: true, color: MUTED, align: "center", fontFace: FONT });
+        });
+
+        // Column 2 — success criteria, one bullet each.
+        if (learnDo.length) {
+          s.addText(learnDo.map(t => ({ text: t, options: { bullet: { code: "2022" }, breakLine: true } })),
+            { x: colX[1], y: bodyY, w: colW, h: bodyH,
+              fontSize: fitFontSize(learnDo.join("\n\n"), colW, bodyH, 15, 10.5),
+              color: INK, valign: "top", lineSpacingMultiple: 1.25, paraSpaceAfter: 10, fontFace: FONT });
+        }
+
+        // Column 3 — learner profile attributes, spaced down the column so each reads as its own.
+        learnBe.forEach((b, i) => {
+          s.addText(b, { x: colX[2], y: bodyY + i * 0.72, w: colW, h: 0.6, fontSize: 18, color: P, valign: "middle", fontFace: FONT });
+        });
+
+        s.addNotes([
+          "TODAY'S LEARNING — read this with the class before the opening question, then leave it up.",
+          learnAbout.length ? "Learning about: " + learnAbout.map(a => a.question + (a.concept ? " (" + a.concept + ")" : "")).join("  |  ") : "",
+          learnDo.length ? "Learning to do: " + learnDo.join("  |  ") : "",
+          learnBe.length ? "Learning to be: " + learnBe.join(", ") : "",
+          "Come back to the success criteria at the end — REFLECT is where students judge themselves against them.",
+        ].filter(Boolean).join("\n"));
       }
 
       // ---------------- IGNITE (full-brand purple cover) ----------------
@@ -6296,6 +6433,55 @@ function App() {
               <label className="bx-lab" htmlFor="bx-intention-edit" style={{ marginTop: 10 }}>Learning intention</label>
               <textarea id="bx-intention-edit" className="bx-ta" rows={2} value={spot.intention || ""} placeholder="We are learning to…" onChange={e => patch({ intention: e.target.value })} />
             </div>
+
+            {/* TODAY'S LEARNING (PYP: Prep - Year 6). The key concept and learner profile fields are
+                dropdowns, not free text: the model is held to the official lists, and editing here
+                must not be the way invented IB language gets onto a Wesley slide. */}
+            {spot.learning && isPypBand(classInfo.yearLevel) && (
+              <div className="bx-edit">
+                <div className="bx-edit-head">
+                  <span className="k">PYP</span><h4>Today's learning</h4><span className="sub">the slide before the hook</span>
+                </div>
+
+                <label className="bx-lab" style={{ marginTop: 0 }}>Learning about… <span className="sub">an intention, written as a question</span></label>
+                {(spot.learning.about || []).map((a, i) => (
+                  <div className="bx-row" key={i}>
+                    <textarea className="bx-ta" rows={1} aria-label={"Learning about, question " + (i + 1)} value={a.question || ""}
+                      placeholder="How does…?" onChange={e => patchAbout(i, "question", e.target.value)} />
+                    <select className="bx-input" aria-label={"Key concept for question " + (i + 1)} value={a.concept || ""}
+                      onChange={e => patchAbout(i, "concept", e.target.value)} style={{ maxWidth: 150 }}>
+                      <option value="">(no key concept)</option>
+                      {PYP_CONCEPTS.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <button type="button" className="bx-x" title="Remove" aria-label={"Remove question " + (i + 1)} onClick={() => delAbout(i)}>×</button>
+                  </div>
+                ))}
+                {(spot.learning.about || []).length < 3 && <button type="button" className="bx-add" onClick={addAbout}>+ Add a question</button>}
+
+                <label className="bx-lab" style={{ marginTop: 10 }}>Learning to do… <span className="sub">success criteria</span></label>
+                {(spot.learning.do || []).map((d, i) => (
+                  <div className="bx-row" key={i}>
+                    <textarea className="bx-ta" rows={1} aria-label={"Success criterion " + (i + 1)} value={d}
+                      placeholder="I can…" onChange={e => patchArr("learning", "do", i, e.target.value)} />
+                    <button type="button" className="bx-x" title="Remove" aria-label={"Remove success criterion " + (i + 1)} onClick={() => delArr("learning", "do", i)}>×</button>
+                  </div>
+                ))}
+                {(spot.learning.do || []).length < 4 && <button type="button" className="bx-add" onClick={() => addArr("learning", "do")}>+ Add a success criterion</button>}
+
+                <label className="bx-lab" style={{ marginTop: 10 }}>Learning to be… <span className="sub">learner profile</span></label>
+                {(spot.learning.be || []).map((b, i) => (
+                  <div className="bx-row" key={i}>
+                    <select className="bx-input" aria-label={"Learner profile attribute " + (i + 1)} value={b}
+                      onChange={e => patchArr("learning", "be", i, e.target.value)}>
+                      <option value="">(choose one)</option>
+                      {PYP_PROFILE.map(x => <option key={x} value={x}>{x}</option>)}
+                    </select>
+                    <button type="button" className="bx-x" title="Remove" aria-label={"Remove learner profile attribute " + (i + 1)} onClick={() => delArr("learning", "be", i)}>×</button>
+                  </div>
+                ))}
+                {(spot.learning.be || []).length < 4 && <button type="button" className="bx-add" onClick={() => addArr("learning", "be")}>+ Add an attribute</button>}
+              </div>
+            )}
 
             {/* IGNITE */}
             <div className="bx-edit" style={{ "--cc": SLIDE_CC.ignite }}>

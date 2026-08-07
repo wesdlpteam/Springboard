@@ -67,6 +67,24 @@ const CONFIGS = [
       d.ignite.question = "Is this man raising the flag or pulling it down, and what would you bet on it?";
       return d;
     })() },
+  /* Prep-Year 6 opens on "Today's learning". Year 4 (Junior band) with the curriculum left as it
+     comes, because the slide is keyed on the YEAR LEVEL and must appear for a teacher who never
+     touches the IB PYP option. The fixture deliberately carries a bad key concept and a bad
+     learner profile attribute — shapeDeck has to drop both before they reach a slide. */
+  { id: "pyp-learning", mode: "article", reflect: true, year: "Year 4", bandRe: "/PYP Junior/", pyp: true,
+    deck: baseDeck({
+      learning: {
+        about: [
+          { question: "How does adaptation help living things survive in their habitat?", concept: "function" },
+          { question: "How can I deepen my understanding of what I read?", concept: "causation" },
+          { question: "What should we do about it?", concept: "sustainability" },
+        ],
+        do: ["I can annotate a text to help me understand it.",
+             "I can take organised notes on the important information.",
+             "I can write a paragraph that explains how adaptation helps a living thing survive."],
+        be: ["Thinker", "Knowledgeable", "Communicator", "Wizard"],
+      },
+    }) },
 ];
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -126,8 +144,21 @@ URL.createObjectURL = (blob) => {
     await waitFor(`document.querySelectorAll(".ww-label,.ww-maplist-row").length > 0`, "the understanding map");
     await evaluate(`(()=>{const b=[...document.querySelectorAll(".ww-label,.ww-maplist-row")].find(x=>/Describe What/.test(x.textContent||"")); if(b) b.click();})()`);
     await waitFor(`!!document.querySelector("#bx-tool .bx-modes")`, "the move chamber");
-    await evaluate(`(()=>{const setSel=(el,v)=>{const p=Object.getOwnPropertyDescriptor(el.constructor.prototype,"value").set;p.call(el,v);el.dispatchEvent(new Event("change",{bubbles:true}));};
-      for(const s of document.querySelectorAll("#bx-tool select")){const o=[...s.options].find(o=>/^Year 7$/.test(o.text)); if(o){setSel(s,o.value);}}})()`);
+    /* The year list is filtered by the teaching band, so a Junior year is not an option at all
+       until the band is switched — which is how the pyp-learning config silently exported a Middle
+       school deck the first time it ran. Try the year, set the owning band if nothing offered it,
+       then try again, and throw rather than carry on with the wrong band. */
+    const SETSEL = `const setSel=(el,v)=>{const p=Object.getOwnPropertyDescriptor(el.constructor.prototype,"value").set;p.call(el,v);el.dispatchEvent(new Event("change",{bubbles:true}));};`;
+    const pickOption = (re) => `(()=>{${SETSEL}let hit=false;
+      for(const s of document.querySelectorAll("#bx-tool select")){const o=[...s.options].find(o=>${re}.test((o.text||"").trim())); if(o){setSel(s,o.value); hit=true;}} return hit;})()`;
+    const year = cfg.year || "Year 7";
+    let gotYear = await evaluate(pickOption(`/^${year}$/`));
+    if (!gotYear && cfg.bandRe) {
+      await evaluate(pickOption(cfg.bandRe));
+      await sleep(1200);
+      gotYear = await evaluate(pickOption(`/^${year}$/`));
+    }
+    if (!gotYear) throw new Error("could not select " + year + " (band picker may need setting first)");
     await sleep(1200);
     await evaluate(`(()=>{const setSel=(el,v)=>{const p=Object.getOwnPropertyDescriptor(el.constructor.prototype,"value").set;p.call(el,v);el.dispatchEvent(new Event("change",{bubbles:true}));};
       for(const s of document.querySelectorAll("#bx-tool select")){const o=[...s.options].find(o=>/english/i.test(o.text)); if(o){setSel(s,o.value); break;}}})()`);
@@ -271,6 +302,27 @@ function auditDeck(cfg, data) {
   check(cfg.id, "three follow-up slides", (joined.match(/IDEA \d OF 3/gi) || []).length === 3, "wrong count");
   check(cfg.id, "REFLECT matches the teacher's choice", /REFLECT/.test(joined) === !!cfg.reflect, `expected ${cfg.reflect}`);
   check(cfg.id, "no content advisory slide is ever produced", !/CONTENT ADVISORY/.test(joined), "advisory slide still rendered");
+
+  /* Today's learning (Prep-Year 6). The whole point of the slide is IB vocabulary, so the two
+     off-list values planted in the fixture ("sustainability" is not a PYP key concept, "Wizard"
+     is not a learner profile attribute) must not survive the trip to a slide. */
+  const learnIdx = allText.findIndex(t => /TODAY.{0,6}S LEARNING/i.test(t));
+  check(cfg.id, "today's learning slide matches the year level", (learnIdx !== -1) === !!cfg.pyp, `found at ${learnIdx}, expected pyp=${!!cfg.pyp}`);
+  if (cfg.pyp) {
+    const lt = learnIdx === -1 ? "" : allText[learnIdx];
+    check(cfg.id, "learning slide comes before IGNITE", learnIdx !== -1 && learnIdx < allText.findIndex(t => /IGNITE/.test(t)), `${learnIdx}`);
+    check(cfg.id, "all three columns are headed", /Learning about/.test(lt) && /Learning to do/.test(lt) && /Learning to be/.test(lt), lt.slice(0, 120));
+    check(cfg.id, "key concepts print in brackets", /\(function\)/.test(lt) && /\(causation\)/.test(lt), lt.slice(0, 200));
+    check(cfg.id, "success criteria print", (lt.match(/I can /g) || []).length === 3, `${(lt.match(/I can /g) || []).length}`);
+    check(cfg.id, "learner profile attributes print", /Thinker/.test(lt) && /Knowledgeable/.test(lt) && /Communicator/.test(lt), lt.slice(0, 200));
+    check(cfg.id, "an invented key concept is dropped", !/sustainability/i.test(joined), "off-list concept reached a slide");
+    check(cfg.id, "an invented learner profile attribute is dropped", !/Wizard/i.test(joined), "off-list attribute reached a slide");
+    check(cfg.id, "the learning slide is counted in the footer", /\b1 \/ 4\b/.test(lt), "not numbered 1 / 4");
+    // Scanned across every notes part rather than by index: only slides that HAVE notes get a
+    // notesSlide file, so notesSlideN does not reliably line up with slideN.
+    check(cfg.id, "the learning slide carries teacher notes",
+      slideNames.some((_, i) => /TODAY.{0,6}S LEARNING/i.test(textOf(files[`ppt/notesSlides/notesSlide${i + 1}.xml`] || ""))), "no notes");
+  }
   // The old LAUNCH payload (destination question + three ways to run it) rode in the THINK notes
   // until 2026-08-03. Nathan: the thinking routine IS the lesson, so a second task alongside it
   // competed with the routine. The fixture still supplies launch.question/ideas, so this only
