@@ -170,6 +170,15 @@ const promptChecks = [
   // The same slide asked nine-year-olds to weigh shared learning against control. The sticky
   // framing outweighed the band brief, so the band brief now says out loud that it wins.
   ["band pitch outranks the sticky framing", /THE BAND WINS/, "api/generate.js"],
+  // "Who directs this scene?" is made of easy words and asks about authorship. Policing vocabulary
+  // never caught it; the pointing test does, because it tests the idea and not the wording.
+  ["primary questions must pass the pointing test", /POINTING TEST/, "api/generate.js"],
+  ["easy words are not an easy idea", /Easy words are not the same as an easy idea/, "api/generate.js"],
+  // "the pole-holder... the panel-worker" — invented job titles nobody can find in the painting.
+  ["no coined compound labels for people", /NEVER coin a compound label/],
+  ["a multi-person step asks the class to find them", /DO NOT DO THE FINDING FOR THEM/],
+  // "Ask X. Compare Y. Decide Z." — three tasks in one Year 4 step.
+  ["one step carries one action", /ONE STEP, ONE ACTION/],
 ];
 // Some rules live server-side in api/generate.js (the SUCCESs guidance is owned there, never sent
 // by the client), so each check names the file it belongs in.
@@ -210,7 +219,7 @@ const grabFn = (name) => {
   const j = idx.indexOf("\n}", i);
   return j === -1 ? "" : idx.slice(i + 1, j + 2);
 };
-const FN_NAMES = ["scanJsonOpen", "parsePartialJson", "parseJsonLoose", "keywordsFromLink", "isSearchResultsPage", "looksLikeImageUrl", "imageUrlFromSearchLink"];
+const FN_NAMES = ["scanJsonOpen", "parsePartialJson", "parseJsonLoose", "keywordsFromLink", "isSearchResultsPage", "looksLikeImageUrl", "imageUrlFromSearchLink", "stripMd"];
 let fns = null, fnErr = "";
 try {
   const src = FN_NAMES.map(grabFn).join("\n");
@@ -264,6 +273,20 @@ if (fns) {
     fns.looksLikeImageUrl("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSxyz") === true, "not detected");
   check("link", "an article link is not mistaken for a picture",
     fns.looksLikeImageUrl("https://theconversation.com/how-adaptation-works-12345") === false, "false positive");
+
+  /* stripMd cleans the model's stray markdown, and a sentence stem's blanks are written with the
+     same character as markdown bold. The stem must survive; real bold must still go. */
+  const stem = 'Say: "I think this gathering is ___ because ___. From here, I cannot see ___."';
+  check("parse", "sentence-stem blanks survive markdown stripping", fns.stripMd(stem) === stem, fns.stripMd(stem));
+  check("parse", "a two-underscore blank survives too",
+    fns.stripMd("I used to think __ and now I think __.") === "I used to think __ and now I think __.",
+    fns.stripMd("I used to think __ and now I think __."));
+  check("parse", "real underscore bold is still stripped",
+    fns.stripMd("I can __annotate__ a text.") === "I can annotate a text.", fns.stripMd("I can __annotate__ a text."));
+  check("parse", "asterisk bold is still stripped",
+    fns.stripMd("I can **explain** how it works.") === "I can explain how it works.", fns.stripMd("I can **explain** how it works."));
+  check("parse", "stripping never leaves a doubled space",
+    !/ {2}/.test(fns.stripMd(stem)), "collapsed text left a gap");
 }
 
 // Source-level: the budget that caused the cut-off, and the guards on both paste boxes.
