@@ -182,7 +182,73 @@ check("ui", "every id'd textarea/input has a label or aria-label", (() => {
   return missing.length === 0 ? true : (VERBOSE && console.log("  unlabelled:", missing.join(", ")), false);
 })(), "unlabelled fields");
 
-/* ---------------- 8. docs and consistency ---------------- */
+/* ---------------- 8. link reading + reply parsing (behavioural) ----------------
+   These pull the real functions out of index.html and RUN them. Both faults they cover shipped
+   as "the code looks right": a cut-off model reply was reported to the teacher as a JSON syntax
+   error at a position in the middle of a document that never existed, and a Google search link
+   was turned into an unrelated Wikimedia photo announced as the teacher's own picture. */
+const grabFn = (name) => {
+  const i = idx.indexOf("\nfunction " + name + "(");
+  if (i === -1) return "";
+  const j = idx.indexOf("\n}", i);
+  return j === -1 ? "" : idx.slice(i + 1, j + 2);
+};
+const FN_NAMES = ["scanJsonOpen", "parsePartialJson", "parseJsonLoose", "keywordsFromLink", "isSearchResultsPage", "imageUrlFromSearchLink"];
+let fns = null, fnErr = "";
+try {
+  const src = FN_NAMES.map(grabFn).join("\n");
+  fns = new Function(src + "\nreturn { " + FN_NAMES.join(", ") + " };")();
+  for (const n of FN_NAMES) if (typeof fns[n] !== "function") throw new Error("missing " + n);
+} catch (err) { fnErr = String(err.message || err); }
+check("parse", "frontend helpers extracted from index.html", !!fns, fnErr);
+
+if (fns) {
+  const deck = { title: "Adaptation", keywords: ["habitat", "survive"], think: { steps: ["look", "say", "wonder"] },
+                 reflect: { prompts: ["I used to think...", "Now I think..."] }, next: [{ title: "A", idea: "b" }] };
+  const good = JSON.stringify(deck, null, 2);
+  const tryParse = (raw) => { try { return { ok: true, out: fns.parseJsonLoose(raw) }; } catch (e) { return { ok: false, err: e }; } };
+
+  check("parse", "clean JSON parses", tryParse(good).out?.title === "Adaptation", "did not round-trip");
+  check("parse", "JSON wrapped in prose still parses", tryParse("Here you go:\n```json\n" + good + "\n```").out?.title === "Adaptation", "fence defeated it");
+  // The real 2026-08-07 failure: the reply ran out of room at ~60% and the teacher was shown
+  // "Expected ',' or ']' after array element in JSON at position 3602 (line 65 column 6)".
+  let truncatedOk = true, leakedPosition = "";
+  for (const frac of [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.97]) {
+    const r = tryParse(good.slice(0, Math.floor(good.length * frac)));
+    if (r.ok) { truncatedOk = false; leakedPosition = `parsed a cut-off reply at ${frac} as if whole`; break; }
+    if (!r.err.truncated) { truncatedOk = false; leakedPosition = `at ${frac}: ${r.err.message}`; break; }
+    if (/position \d+/.test(r.err.message)) { truncatedOk = false; leakedPosition = `at ${frac} still quotes a position: ${r.err.message}`; break; }
+  }
+  check("parse", "a cut-off reply is reported as cut off, not as a syntax position", truncatedOk, leakedPosition);
+  check("parse", "genuine rubbish is still rejected", !tryParse("the model refused").ok, "accepted non-JSON");
+
+  // Nathan's pasted Google Images link, verbatim in shape: no picture is recoverable from it.
+  const gimg = "https://www.google.com/search?sca_esv=50022b59c67e94af&udm=2&q=Australian+Early+Settlement+art&sa=X#sv=CAMSURoy";
+  check("link", "google image search is recognised as a search page", fns.isSearchResultsPage(gimg) === true, "not detected");
+  check("link", "bing/duckduckgo searches are recognised too",
+    fns.isSearchResultsPage("https://www.bing.com/images/search?q=koala") && fns.isSearchResultsPage("https://duckduckgo.com/?q=koala&iax=images&ia=images"), "not detected");
+  check("link", "a real article link is NOT treated as a search page",
+    fns.isSearchResultsPage("https://theconversation.com/how-adaptation-works-12345") === false, "false positive");
+  check("link", "a museum object page is NOT treated as a search page",
+    fns.isSearchResultsPage("https://www.nma.gov.au/explore/collection/highlights/founding-of-australia") === false, "false positive");
+  check("link", "no Commons substitute is offered for a search page", fns.keywordsFromLink(gimg) === "",
+    `searched Commons for "${fns.keywordsFromLink(gimg)}"`);
+  check("link", "a descriptive slug still yields search words",
+    fns.keywordsFromLink("https://www.nma.gov.au/explore/founding-australia-capt-arthur-phillip-1937").split(" ").length >= 4, "lost the good case");
+  check("link", "google's imgres link hands back the real picture address",
+    fns.imageUrlFromSearchLink("https://www.google.com/imgres?imgurl=https%3A%2F%2Fexample.org%2Fkoala.jpg&imgrefurl=x")
+      === "https://example.org/koala.jpg", "imgurl not honoured");
+  check("link", "a plain link is passed through untouched",
+    fns.imageUrlFromSearchLink("https://theconversation.com/story-123") === "", "rewrote a normal link");
+}
+
+// Source-level: the budget that caused the cut-off, and the guards on both paste boxes.
+check("parse", "generate budget uses the server's full ceiling", /max_completion_tokens: 8000/.test(idx), "still below the 8000 cap");
+check("parse", "the reply's finish_reason is read", /finish_reason/.test(idx), "truncation signal ignored");
+check("link", "photo box guards search pages", /isSearchResultsPage\(/.test(idx), "no guard");
+check("link", "article box guards search pages too", (idx.match(/isSearchResultsPage\(/g) || []).length >= 3, "guarded in only one place");
+
+/* ---------------- 9. docs and consistency ---------------- */
 check("docs", "about.html has no stale 'four slides'", !/four editable slides|The four <em>slides/.test(about), "stale");
 check("docs", "about.html flow starts with the thinking move", /Choose a thinking move/.test(about), "stale flow");
 check("docs", "about.html explains EEF-free metacognition", !/EEF/.test(about), "jargon");

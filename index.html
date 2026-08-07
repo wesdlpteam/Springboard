@@ -1423,7 +1423,7 @@ const BAND_ORDER = ["Early","Junior","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.12.10 · 2026-08-04";
+const APP_VERSION = "v0.12.11 · 2026-08-07";
 
 // Maps a class's year level to a teaching band (Prep-Y2 / Y3-6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2562,11 +2562,39 @@ async function findFreeImage(query) {
 function keywordsFromLink(url) {
   let path = "";
   try { path = decodeURIComponent(new URL(url).pathname); } catch (_) { return ""; }
-  const junk = /^(images?|media|photos?|pictures?|news|story|stories|articles?|wiki|index|home|en|au|www|assets|files|default|sites|content|collections?|objects?|items?|view|page|p|s)$/i;
+  const junk = /^(images?|media|photos?|pictures?|news|story|stories|articles?|wiki|index|home|en|au|www|assets|files|default|sites|content|collections?|objects?|items?|view|page|p|s|search|results?|result|query|q|find|browse|tags?|categor(y|ies))$/i;
   const words = path.replace(/\.(html?|php|aspx?|jpe?g|png|webp|gif)$/i, "")
     .split(/[\/\-_+.]+/)
     .filter(w => w && !junk.test(w) && !/^\d{1,2}(st|nd|rd|th)?$/i.test(w));
-  return words.slice(0, 12).join(" ");
+  // One word is not a subject, it is a coincidence, and this function's output is handed straight
+  // to a Commons search whose picture is then presented to the teacher as theirs. "/search" came
+  // through as the single word "search" and Commons answered with an unrelated photograph
+  // (reported 2026-08-07). Two words or more, or say nothing and let the caller admit defeat.
+  return words.length >= 2 ? words.slice(0, 12).join(" ") : "";
+}
+
+/* A results page is not a stimulus. Google Images identifies the picture you clicked with an
+   internal id in the fragment (#sv=CAMSURoy...), never its address, so NOTHING on that link says
+   which image the teacher was looking at. Worth naming explicitly because every reader downstream
+   half-succeeds on one: the page fetch finds no lead image, and the Wikimedia fallback then
+   searched the only word in the path and dropped a stranger's photo into the reel, announced as a
+   "free version" of the teacher's picture (reported 2026-08-07). Better to say what to do instead. */
+function isSearchResultsPage(url) {
+  let u;
+  try { u = new URL(url); } catch (_) { return false; }
+  const host = u.hostname.replace(/^www\./i, "");
+  const engine = /^(images\.)?(google\.[a-z.]+|bing\.com|duckduckgo\.com|search\.yahoo\.com|search\.brave\.com|yandex\.[a-z.]+|ecosia\.org|lens\.google\.com)$/i.test(host);
+  if (!engine) return false;
+  return /^\/(search|images|imghp|imgres|url|maps)\b/i.test(u.pathname) || u.searchParams.has("q");
+}
+
+// The one search link that DOES carry the picture: Google's older "imgres" viewer puts the real
+// image address in ?imgurl=. Returns it so the ordinary import path can take over, "" otherwise.
+function imageUrlFromSearchLink(url) {
+  try {
+    const raw = new URL(url).searchParams.get("imgurl") || "";
+    return /^https?:\/\//i.test(raw) ? raw : "";
+  } catch (_) { return ""; }
 }
 
 async function extractPdfText(file) {
@@ -2590,10 +2618,10 @@ async function extractPdfText(file) {
    brace and bracket — and parse that. Returns null while the text is not yet parseable (e.g. the
    very first characters), which is normal and not an error. This is what lets the build screen
    show IGNITE while THINK is still being written. */
-function parsePartialJson(raw) {
-  const start = raw.indexOf("{");
-  if (start === -1) return null;
-  const body = raw.slice(start);
+// Walk JSON text, ignoring anything inside a string, and report what is STILL open at the end:
+// the unclosed braces/brackets in order, and whether a string was left hanging. Two callers need
+// this: the streamed "deck so far" parser below, and the cut-off check in parseJsonLoose.
+function scanJsonOpen(body) {
   const stack = [];
   let inStr = false, esc = false;
   for (let i = 0; i < body.length; i++) {
@@ -2605,6 +2633,14 @@ function parsePartialJson(raw) {
     if (c === "{" || c === "[") stack.push(c);
     else if (c === "}" || c === "]") stack.pop();
   }
+  return { stack, inStr };
+}
+
+function parsePartialJson(raw) {
+  const start = raw.indexOf("{");
+  if (start === -1) return null;
+  const body = raw.slice(start);
+  const { stack, inStr } = scanJsonOpen(body);
   let out = body;
   if (inStr) out += '"';                                   // close the value being written
   out = out.replace(/,\s*$/, "");                          // drop a trailing comma
@@ -2615,13 +2651,31 @@ function parsePartialJson(raw) {
   try { return JSON.parse(out); } catch (_) { return null; }
 }
 
+/* The finished reply, parsed as forgivingly as is honest.
+   1. Strict parse — the normal path.
+   2. A fence or a line of prose around it — take the first "{" to the last "}".
+   3. Braces that never close — the reply was CUT OFF mid-write. Thrown with .truncated so the
+      caller can say that in plain English instead of quoting a syntax position.
+   Step 3 is why the old fallback had to go, and it is the whole of the 2026-08-07 bug. That
+   fallback sliced to the last "}" ANYWHERE in the text; in a cut-off reply that brace is an inner
+   one, so it spliced the document's head onto a random inner tail and JSON.parse then blamed a
+   position inside the splice. The teacher was told "Expected ',' or ']' after array element in
+   JSON at position 3602 (line 65 column 6)" — a fault at a place that never existed, describing
+   the repair rather than the failure, and hiding the real one: the lesson ran out of room. */
 function parseJsonLoose(raw) {
   try { return JSON.parse(raw); } catch (_) {}
   const start = raw.indexOf("{");
-  const end = raw.lastIndexOf("}");
-  if (start !== -1 && end > start) {
-    return JSON.parse(raw.slice(start, end + 1)); // may throw -> caller catches
+  if (start === -1) throw new Error("No JSON object found in model output.");
+  // Checked BEFORE the salvage slice, not after it, so the diagnosis comes from the reply the
+  // model actually sent rather than from whatever the repair made of it.
+  const open = scanJsonOpen(raw.slice(start));
+  if (open.stack.length || open.inStr) {
+    const e = new Error("The reply stopped before the lesson was finished.");
+    e.truncated = true;
+    throw e;
   }
+  const end = raw.lastIndexOf("}");
+  if (end > start) return JSON.parse(raw.slice(start, end + 1)); // may throw -> caller catches
   throw new Error("No JSON object found in model output.");
 }
 
@@ -2935,11 +2989,14 @@ Return STRICT JSON with keys: title, intention, keywords, ignite{question}, thin
           { role: "user", content: userContent },
         ],
         response_format: { type: "json_object" },
-        // 6000, not 4000: measured on the live model, a plain article generate burns 1,766-2,254
-        // REASONING tokens before it writes a character, leaving only ~800 of the old budget for the
-        // JSON itself. A richer stimulus tipped that over and the teacher got "Could not parse the
-        // model's JSON" after a 60s wait. Unused headroom is free — you only pay for what's emitted.
-        max_completion_tokens: 6000,
+        // 8000 = the server's ceiling, and the reasoning budget is why. Measured on the live model,
+        // a plain article generate burns 1,766-2,254 REASONING tokens before it writes a character;
+        // 6000 was set to clear that at reasoning_effort "low". GEN_REASONING went back to "medium"
+        // on 2026-08-04 (0809bad), which buys quality by thinking longer — and thinking is drawn
+        // from this same budget, so the headroom for the JSON shrank and a rich stimulus started
+        // running out mid-lesson again (reported 2026-08-07). Unused headroom is free: OpenAI bills
+        // the tokens emitted, not the ceiling. Raise reasoning_effort again and this must be re-measured.
+        max_completion_tokens: 8000,
         stickiness: true,
         reasoning_effort: GEN_REASONING,
         // Stream when the caller wants to watch it arrive. Measured 2026-08-03: a real Year 4
@@ -2960,6 +3017,9 @@ Return STRICT JSON with keys: title, intention, keywords, ignite{question}, thin
   if (!resp.ok) throw new Error(await backendErrorMessage(resp));
 
   let raw = "";
+  // OpenAI's own word for why it stopped. "length" means it hit the token ceiling mid-sentence,
+  // which is the difference between "the model wrote nonsense" and "the lesson didn't fit".
+  let finishReason = "";
   if (onPartial && /event-stream/.test(resp.headers.get("content-type") || "")) {
     // Reassemble the model's text from the SSE frames, handing the caller the deck-so-far as it
     // grows. Throttled: re-shaping on every token would re-render the page hundreds of times.
@@ -2977,7 +3037,11 @@ Return STRICT JSON with keys: title, intention, keywords, ignite{question}, thin
       buf = buf.slice(cut + 1);
       for (const line of lines) {
         if (!line.startsWith("data: ") || line.includes("[DONE]")) continue;
-        try { raw += JSON.parse(line.slice(6)).choices?.[0]?.delta?.content || ""; } catch (_) {}
+        try {
+          const frame = JSON.parse(line.slice(6));
+          raw += frame.choices?.[0]?.delta?.content || "";
+          if (frame.choices?.[0]?.finish_reason) finishReason = frame.choices[0].finish_reason;
+        } catch (_) {}
       }
       const now = Date.now();
       if (now - lastPaint > 180) {
@@ -2989,13 +3053,19 @@ Return STRICT JSON with keys: title, intention, keywords, ignite{question}, thin
   } else {
     const data = await resp.json();
     raw = data?.choices?.[0]?.message?.content || "";
+    finishReason = data?.choices?.[0]?.finish_reason || "";
   }
   if (!raw.trim()) throw new Error("The model returned an empty response.");
   let parsed;
   try {
     parsed = parseJsonLoose(raw);
   } catch (perr) {
-    const e = new Error("Could not parse the model's JSON: " + perr.message);
+    // Running out of room is a different problem from bad output and needs a different sentence:
+    // nothing is wrong with the stimulus, the lesson simply didn't fit, and building again usually
+    // works. The old message quoted a JSON position, which told a teacher nothing they could act on.
+    const e = new Error(perr.truncated || finishReason === "length"
+      ? "The lesson was still being written when it ran out of room, so it arrived unfinished. Press Build again — it normally fits second time. A shorter article, or fewer pictures, makes it more certain."
+      : "Could not parse the model's JSON: " + perr.message);
     e._raw = raw;
     throw e;
   }
@@ -4506,11 +4576,20 @@ function App() {
   // Every failure goes to mediaNote, NOT setError: the chamber only draws {error} inside step
   // three, so a setError here just snapped the button back to "Add from link" and said nothing.
   async function importFromPostLink(overrideUrl) {
-    const url = (typeof overrideUrl === "string" ? overrideUrl : postLink).trim();
+    const pasted = (typeof overrideUrl === "string" ? overrideUrl : postLink).trim();
     setError(""); setMediaNote("");
-    if (!/^https?:\/\//i.test(url)) { setMediaNote("Paste a full link starting with http(s):// first."); return; }
+    if (!/^https?:\/\//i.test(pasted)) { setMediaNote("Paste a full link starting with http(s):// first."); return; }
     if (MAX_MEDIA - media.length <= 0) { setMediaNote(`That's the limit of ${MAX_MEDIA} items — remove one to add more.`); return; }
+    // Google's image viewer hides the real picture's address in ?imgurl= — unwrap it and carry on
+    // as if the teacher had pasted that address, which is what they meant.
+    const url = imageUrlFromSearchLink(pasted) || pasted;
     if (youtubeIdFromLink(url)) return importYouTubeLink(url);
+    // Say what went wrong BEFORE the readers get to half-succeed on it. Nothing on a results-page
+    // link names the picture, so guessing one and calling it "found" is worse than saying no.
+    if (isSearchResultsPage(url)) {
+      setMediaNote("That's a search results page, not a picture — the link doesn't say which image you were looking at. Click the picture itself, then right-click it and choose Copy image, and press Ctrl+V here. (Or right-click ▸ Save image as… and use Add pictures.)");
+      return;
+    }
 
     // Last resort for a link the grabber couldn't use: try it as a plain web page with a picture,
     // and if even that is walled, hunt for a free version of the same subject on Wikimedia Commons
@@ -4660,6 +4739,7 @@ function App() {
     const fail = (msg) => { setArticleNote({ text: msg, ok: false }); return { text: "", image: "" }; };
     setError(""); setArticleNote(null);
     if (!/^https?:\/\//i.test(url)) return fail("Enter a full article link starting with http(s):// first.");
+    if (isSearchResultsPage(url)) return fail("That's a search results page, not an article. Open the story itself and paste that link, or paste the article's text into the box below.");
     setLink(url);
     setFetchingArticle(true);
     try {
