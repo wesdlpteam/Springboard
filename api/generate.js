@@ -60,6 +60,7 @@ const STICKINESS_GUIDANCE = [
   "- REFLECT: return to the ONE person or stake and to the student's own identity (Emotional); ask for the one-sentence core (Simple) and a real, spotted moment from the lesson (Story), never an abstract summary.",
   "- WHERE TO NEXT (teacher-only): each follow-up lesson should carry its own hook — say what students would find surprising or have to decide, not just the topic to cover.",
   "Keep the whole deck playful and human, never corporate or abstract: one core idea, built from the concrete up.",
+  "LAST, AND IT OUTRANKS EVERYTHING ABOVE: the audience brief at the top of this message decides the pitch. Where a sticky framing needs a word, an abstraction or a judgement the band brief rules out, THE BAND WINS — reword the hook or find another one. A question students of this age cannot actually answer is not Unexpected, it is just hard, and it fails all six principles at once. Measured failure (Year 4, 2026-08-07): 'Does the open book show shared learning or control? Choose one clue. Defend your call to the class.' — nine-year-olds were asked to weigh shared learning against control, an abstraction the Junior brief excludes. Before you return, read every student-facing line back as a student of this exact year level and cut anything they could not answer.",
 ].join("\n");
 
 export function injectStickiness(messages, on) {

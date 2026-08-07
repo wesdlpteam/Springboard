@@ -164,6 +164,12 @@ const promptChecks = [
   ["no asserted identity for people in the stimulus", /NEVER state a person's gender, name, age, race, cultural identity/],
   ["people described by what is visible", /the person seated with their back to us/],
   ["concreteness never licenses an invented specific", /not yours to assert/, "api/generate.js"],
+  // A canvas on an easel became "the open book", and IGNITE then asked Year 4 to debate that book.
+  ["no invented objects in the stimulus", /never name a thing you cannot clearly see/],
+  ["a question is never hung on an unsure object", /never hang a question on one/],
+  // The same slide asked nine-year-olds to weigh shared learning against control. The sticky
+  // framing outweighed the band brief, so the band brief now says out loud that it wins.
+  ["band pitch outranks the sticky framing", /THE BAND WINS/, "api/generate.js"],
 ];
 // Some rules live server-side in api/generate.js (the SUCCESs guidance is owned there, never sent
 // by the client), so each check names the file it belongs in.
