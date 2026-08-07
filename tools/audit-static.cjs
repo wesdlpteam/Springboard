@@ -193,7 +193,7 @@ const grabFn = (name) => {
   const j = idx.indexOf("\n}", i);
   return j === -1 ? "" : idx.slice(i + 1, j + 2);
 };
-const FN_NAMES = ["scanJsonOpen", "parsePartialJson", "parseJsonLoose", "keywordsFromLink", "isSearchResultsPage", "imageUrlFromSearchLink"];
+const FN_NAMES = ["scanJsonOpen", "parsePartialJson", "parseJsonLoose", "keywordsFromLink", "isSearchResultsPage", "looksLikeImageUrl", "imageUrlFromSearchLink"];
 let fns = null, fnErr = "";
 try {
   const src = FN_NAMES.map(grabFn).join("\n");
@@ -240,6 +240,13 @@ if (fns) {
       === "https://example.org/koala.jpg", "imgurl not honoured");
   check("link", "a plain link is passed through untouched",
     fns.imageUrlFromSearchLink("https://theconversation.com/story-123") === "", "rewrote a normal link");
+  // The teacher who follows the "Copy image address" advice must land somewhere that works.
+  check("link", "a picture's own address is recognised",
+    fns.looksLikeImageUrl("https://upload.wikimedia.org/wikipedia/commons/a/ab/Founding.jpg") === true, "not detected");
+  check("link", "google's extension-less thumbnail address is recognised",
+    fns.looksLikeImageUrl("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSxyz") === true, "not detected");
+  check("link", "an article link is not mistaken for a picture",
+    fns.looksLikeImageUrl("https://theconversation.com/how-adaptation-works-12345") === false, "false positive");
 }
 
 // Source-level: the budget that caused the cut-off, and the guards on both paste boxes.

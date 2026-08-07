@@ -1423,7 +1423,7 @@ const BAND_ORDER = ["Early","Junior","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.12.11 · 2026-08-07";
+const APP_VERSION = "v0.12.12 · 2026-08-07";
 
 // Maps a class's year level to a teaching band (Prep-Y2 / Y3-6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2586,6 +2586,19 @@ function isSearchResultsPage(url) {
   const engine = /^(images\.)?(google\.[a-z.]+|bing\.com|duckduckgo\.com|search\.yahoo\.com|search\.brave\.com|yandex\.[a-z.]+|ecosia\.org|lens\.google\.com)$/i.test(host);
   if (!engine) return false;
   return /^\/(search|images|imghp|imgres|url|maps)\b/i.test(u.pathname) || u.searchParams.has("q");
+}
+
+/* "Copy image address" hands over the picture's own URL. That is neither a social post nor a page
+   with a picture ON it, so both readers in importFromPostLink fail on one and the teacher is told
+   to do the thing they just did. Recognised by file extension, or by being a search engine's own
+   thumbnail host — Google's thumbnail addresses carry no extension at all, and they are exactly
+   what "Copy image address" gives you from a Google Images results grid. */
+function looksLikeImageUrl(url) {
+  let u;
+  try { u = new URL(url); } catch (_) { return false; }
+  if (/\.(jpe?g|png|webp|gif|avif|bmp)$/i.test(u.pathname)) return true;
+  return /(^|\.)(gstatic\.com|ggpht\.com|bing\.net|duckduckgo\.com)$/i.test(u.hostname)
+    && /^\/(images|th|iu)\b/i.test(u.pathname);
 }
 
 // The one search link that DOES carry the picture: Google's older "imgres" viewer puts the real
@@ -4587,7 +4600,23 @@ function App() {
     // Say what went wrong BEFORE the readers get to half-succeed on it. Nothing on a results-page
     // link names the picture, so guessing one and calling it "found" is worse than saying no.
     if (isSearchResultsPage(url)) {
-      setMediaNote("That's a search results page, not a picture — the link doesn't say which image you were looking at. Click the picture itself, then right-click it and choose Copy image, and press Ctrl+V here. (Or right-click ▸ Save image as… and use Add pictures.)");
+      setMediaNote("That's a search results page, not a picture — the link doesn't say which image you were looking at. Right-click the picture itself and choose Copy image, then press Ctrl+V here. (Copy image address works too, and so does Save image as… plus Add pictures.)");
+      return;
+    }
+    // A picture's own address: fetch the bytes and be done. Neither reader below can read one, so
+    // without this the teacher who followed the advice above got told to follow it again.
+    if (looksLikeImageUrl(url)) {
+      setImportingPost(true);
+      try {
+        const dataUrl = await imageUrlToDataUrl(url);   // the host's own CORS first, then the proxy
+        if (dataUrl) {
+          await addMediaFiles([dataUrlToFile(dataUrl, "picture.jpg")]);
+          setMediaNote("Grabbed that picture ✓");
+          setPostLink("");
+        } else {
+          setMediaNote("That picture's address wouldn't open for the app. Right-click the picture ▸ Copy image, then press Ctrl+V here instead.");
+        }
+      } finally { setImportingPost(false); }
       return;
     }
 
