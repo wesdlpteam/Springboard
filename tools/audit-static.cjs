@@ -186,6 +186,11 @@ const uiChecks = [
   ["aria-live on the build progress", /aria-live/],
   ["role=alert on errors", /role="alert"/],
   ["labels tied to inputs with htmlFor", /htmlFor="bx-/],
+  // The planning phase has no honest percentage, so it shows elapsed seconds instead — otherwise
+  // nothing on the screen moves for ~40-60s and it reads as stuck.
+  ["planning wait shows elapsed time", /<b aria-hidden="true">\{genSecs\}s<\/b>/],
+  ["the elapsed count is hidden from screen readers", /aria-hidden="true">\{genSecs\}/],
+  ["planning wait states what to expect", /first words usually appear about a minute in/],
 ];
 for (const [n, re] of uiChecks) check("ui", n, re.test(idx), "missing");
 check("ui", "every id'd textarea/input has a label or aria-label", (() => {

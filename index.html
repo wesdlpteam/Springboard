@@ -1423,7 +1423,7 @@ const BAND_ORDER = ["Early","Junior","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.13.2 · 2026-08-07";
+const APP_VERSION = "v0.13.3 · 2026-08-07";
 
 // Maps a class's year level to a teaching band (Prep-Y2 / Y3-6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -4286,6 +4286,11 @@ function App() {
   const [genProgress, setGenProgress] = useState(0); // 0-100, driven by what has actually arrived
   const [genLive, setGenLive] = useState(null);      // the lesson so far, while it streams in
   const [genPhase, setGenPhase] = useState("");      // "thinking" (no words yet) | "writing"
+  /* Seconds since Build was pressed. The planning phase is honest about having no percentage, but
+     honest and frozen look identical: nothing on the screen moved for the ~40-60s the model spends
+     thinking, and it read as stuck (Nathan, 2026-08-07). A ticking count and a stated expectation
+     cost nothing and turn "is this broken?" into "this is normal". */
+  const [genSecs, setGenSecs] = useState(0);
   const [regenSlide, setRegenSlide] = useState(null);   // which slide is regenerating: "ignite" | "think" | "launch" | "reflect"
   const [includeReflect, setIncludeReflect] = useState(true);  // teacher toggle: keep the REFLECT slide in the deck
 
@@ -4363,7 +4368,18 @@ function App() {
   // percentage there would either freeze at 2% — which reads as a hang, and did (Nathan,
   // 2026-08-03) — or have to lie. So the planning phase gets a moving indeterminate bar and no
   // number, and the number only appears once real words are actually landing.
-  const genStage = genPhase === "thinking" ? "Reading your stimulus and planning the lesson…"
+  // Restarts on every build, stops the moment the build does.
+  React.useEffect(() => {
+    if (!loading) { setGenSecs(0); return; }
+    setGenSecs(0);
+    const t = setInterval(() => setGenSecs(s => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [loading]);
+
+  const genStage = genPhase === "thinking"
+    ? (genSecs > 100
+        ? "Still planning. A rich stimulus takes longer, and nothing is stuck — it runs for up to three minutes before it gives up."
+        : "Reading your stimulus and planning the lesson… the first words usually appear about a minute in.")
     : genProgress < 40 ? "Writing the opening…"
     : genProgress < 62 ? "Writing the thinking routine…"
     : genProgress < 86 ? "Writing the task and the reflection…"
@@ -6401,7 +6417,12 @@ function App() {
                         <i style={genPhase === "thinking" ? undefined : { width: Math.round(genProgress) + "%" }} />
                       </div>
                       <div className="bx-prog-txt">
-                        Building your lesson…{genPhase === "thinking" ? "" : <React.Fragment> <b>{Math.round(genProgress)}%</b></React.Fragment>}
+                        {/* The seconds tick once a second inside an aria-live region, so they are
+                            hidden from screen readers — otherwise the count is announced every
+                            second and buries the stage line that actually says what is happening. */}
+                        Building your lesson…{genPhase === "thinking"
+                          ? <React.Fragment> <b aria-hidden="true">{genSecs}s</b></React.Fragment>
+                          : <React.Fragment> <b>{Math.round(genProgress)}%</b></React.Fragment>}
                         <br />{genStage}
                       </div>
                     </div>
