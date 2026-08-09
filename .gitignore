@@ -15,3 +15,8 @@ docs/superpowers/inspiration/
 
 # npm run audit:live working dir — downloaded stimulus media, generated decks, the report page
 .audit-live/
+
+# generated each run by tools/audit-static.cjs
+tools/audit-static.json
+# local Claude Code MCP config
+.mcp.json

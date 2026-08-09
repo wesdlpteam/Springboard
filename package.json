@@ -11,7 +11,8 @@
     "audit:deck": "node tools/audit-deck.mjs",
     "audit:ui": "node tools/audit-ui.mjs",
     "audit:live": "node tools/audit-live-stimuli.mjs && node tools/audit-live.mjs && node tools/audit-live-report.mjs && node tools/audit-live-viewer.mjs",
-    "audit:live:rerun": "node tools/audit-live.mjs && node tools/audit-live-report.mjs && node tools/audit-live-viewer.mjs"
+    "audit:live:rerun": "node tools/audit-live.mjs && node tools/audit-live-report.mjs && node tools/audit-live-viewer.mjs",
+    "audit:routines": "node tools/audit-routine-sweep.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "0.10.4"

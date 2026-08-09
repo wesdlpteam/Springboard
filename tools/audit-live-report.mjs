@@ -105,10 +105,20 @@ for (const r of runs) {
     // surprise was New Zealand's 2023 census, and a year-only check called that a spoiler).
     const norm = s => String(s).toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
     const fw = norm(rev.fact);
+    // A commit-family step legitimately shares the reveal's noun phrase when it asks students to
+    // PREDICT the fact the reveal then delivers ("Predict whether large for-profit providers were
+    // more, less or equally likely..." -> reveal: "...more than three times as likely", measured
+    // 2026-08-09, 9-econ-art). That is setup, not a spoiler — the answer itself never appears in
+    // the step. Downgrade those to WARN and only FAIL a gram printed in a plain statement step.
+    const PREDICT_STEP = /\b(predict|guess|vote|estimate|decide whether|commit to)\b|\?/i;
     for (let i = 0; i + 5 <= fw.length; i++) {
       const gram = fw.slice(i, i + 5).join(" ");
-      if (steps.some(s => norm(s).join(" ").includes(gram)))
-        add(id, "FAIL", "pedagogy", `reveal is spoiled: a step already prints "${gram}"`);
+      const hit = steps.find(s => norm(s).join(" ").includes(gram));
+      if (hit) {
+        if (PREDICT_STEP.test(hit)) add(id, "WARN", "pedagogy", `reveal phrasing echoed in a prediction step (check the answer isn't given away): "${gram}"`);
+        else add(id, "FAIL", "pedagogy", `reveal is spoiled: a step already prints "${gram}"`);
+        break;
+      }
     }
   }
 

@@ -297,7 +297,9 @@ check("link", "article box guards search pages too", (idx.match(/isSearchResults
 
 /* ---------------- 9. docs and consistency ---------------- */
 check("docs", "about.html has no stale 'four slides'", !/four editable slides|The four <em>slides/.test(about), "stale");
-check("docs", "about.html flow starts with the thinking move", /Choose a thinking move/.test(about), "stale flow");
+// The flow's first step must be the thinking move. about.html was reworded 2026-08 ("Name the
+// thinking. Begin at the Understanding Map...") and still satisfies the intent, so match either.
+check("docs", "about.html flow starts with the thinking move", /Choose a thinking move|Name the thinking\./.test(about), "stale flow");
 check("docs", "about.html explains EEF-free metacognition", !/EEF/.test(about), "jargon");
 check("docs", "about.html covers ACARA and VCE", /Australian Curriculum v9/.test(about) && /VCE study designs/.test(about), "missing");
 check("docs", "CLAUDE.md documents the deploy split", /Vercel is \*\*not\*\* connected/.test(read("CLAUDE.md")), "missing");
