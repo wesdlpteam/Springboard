@@ -6,6 +6,7 @@
   "scripts": {
     "test": "node --test test/**/*.test.js",
     "check:ui": "node tools/compile-check.mjs",
+    "check:backend": "node tools/check-backend-fresh.mjs",
     "audit": "node tools/audit-static.cjs && node tools/audit-deck.mjs && node tools/audit-ui.mjs",
     "audit:static": "node tools/audit-static.cjs",
     "audit:deck": "node tools/audit-deck.mjs",

@@ -3,12 +3,15 @@
    and a JSON summary the scorer reads. Usage: node audit-static.cjs [--verbose] */
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const ROOT = path.join(__dirname, "..");
 const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
 const idx = read("index.html");
 const about = read("about.html");
 const stats = read("stats.html");
 const lib = read("api/_lib.js");
+const appSourceMatch = idx.match(/<script type="text\/sb-src" id="sb-app-source">([\s\S]*?)<\/script>/);
+const appJs = fs.existsSync(path.join(ROOT, "assets/app.js")) ? read("assets/app.js") : "";
 
 const results = [];
 const check = (cat, name, ok, detail) => results.push({ cat, name, ok: !!ok, detail: ok ? "" : String(detail || "") });
@@ -44,7 +47,18 @@ for (const mv of moves) {
   check("data", `move "${mv.name}" has 5+ routines`, mv.routines.length >= 5, `${mv.routines.length}`);
   check("data", `move "${mv.name}" question ends with ?`, /\?$/.test(mv.question), mv.question);
 }
-// every routine must be reachable from at least one move
+// Five catalogue entries are valid when pinned directly, but are deliberately not offered as
+// thinking routines: they are settling, follow-up, habits-audit or talk-organisation structures.
+const moveExclusions = new Set([
+  "Creating Space for Learning", "Think, Pair, Share", "What Makes You Say That?",
+  "Digital Habits Checkup", "MicroLab",
+]);
+for (const n of moveExclusions) {
+  check("data", `catalogue-only routine remains in ROUTINES: ${n}`, nameSet.has(n), "missing from catalogue");
+  check("data", `catalogue-only routine is absent from every move: ${n}`,
+    moves.every(m => !m.routines.includes(n)), "offered by: " + moves.filter(m => m.routines.includes(n)).map(m => m.name).join(", "));
+}
+// every other routine must be reachable from at least one move
 // Reachable = offered under a thinking move, OR offered in the end-of-lesson REFLECT dropdown.
 // The two menus spell some names differently ("I Used to Think... Now I Think..." vs
 // "I Used to Think… / Now I Think…"), so compare on letters only.
@@ -52,6 +66,7 @@ const flat = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 const reachable = new Set(moves.flatMap(m => m.routines).map(flat));
 const reflectNames = new Set(reflects.map(r => flat(r.name)));
 for (const n of routineNames) {
+  if (moveExclusions.has(n)) continue;
   const f = flat(n);
   check("data", `routine reachable from a move or the reflect menu: ${n}`,
     reachable.has(f) || reflectNames.has(f), "orphan — no teacher can ever pick it");
@@ -95,6 +110,12 @@ check("security", "no innerHTML assignment from variables in index", !/\.innerHT
 check("security", "no eval() in index", !/[^a-zA-Z]eval\(/.test(idx), "found");
 check("security", "no api key literal in frontend", !/sk-[a-zA-Z0-9]{20}/.test(idx + about + stats), "found");
 check("security", "no hardcoded passcode in frontend", !/TEACHER_PASSCODE\s*=\s*"/.test(idx), "found");
+// Browsers normalise script text to LF, so audit the same source bytes they hash at runtime.
+const hashSource = appSourceMatch ? appSourceMatch[1].replace(/\r\n?/g, "\n") : "";
+const sourceHash = hashSource ? crypto.createHash("sha256").update(hashSource, "utf8").digest("hex") : "";
+const builtHash = ((appJs.match(/^\/\/ sb-source-sha256: ([a-f0-9]{64})/) || [])[1] || "");
+check("security", "precompiled app hash matches inline source", !!sourceHash && builtHash === sourceHash,
+  `built ${builtHash || "missing"} vs source ${sourceHash || "missing"}`);
 // noreferrer implies noopener, so either is safe.
 const blanks = (idx.match(/target="_blank"/g) || []).length;
 const safeRel = (idx.match(/rel="(?:noopener|noreferrer)[^"]*"/g) || []).length;
@@ -179,6 +200,7 @@ const promptChecks = [
   ["a multi-person step asks the class to find them", /DO NOT DO THE FINDING FOR THEM/],
   // "Ask X. Compare Y. Decide Z." — three tasks in one Year 4 step.
   ["one step carries one action", /ONE STEP, ONE ACTION/],
+  ["focus mismatch goes to focusNote instead of a forced connection", /do NOT force it into launch\.connection[\s\S]{0,300}launch\.focusNote/],
 ];
 // Some rules live server-side in api/generate.js (the SUCCESs guidance is owned there, never sent
 // by the client), so each check names the file it belongs in.

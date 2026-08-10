@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<!-- Lock script loading to the known CDNs (unpkg/jsdelivr/cdnjs) + self; block injected external scripts, object embeds and base-tag hijack. connect-src/img-src stay permissive https: so the Vercel backend, r.jina.ai, images.weserv.nl and wikimedia (all https) plus blob:/data: media keep working. 'unsafe-eval' is needed by in-browser Babel, 'unsafe-inline' by the inline app + styles. -->
+<!-- Lock script loading to the known CDNs (unpkg/jsdelivr/cdnjs) + self; block injected external scripts, object embeds and base-tag hijack. connect-src/img-src stay permissive https: so the Vercel backend, r.jina.ai, images.weserv.nl and wikimedia (all https) plus blob:/data: media keep working. 'unsafe-eval' is needed by fallback Babel, 'unsafe-inline' by the inline app + styles. -->
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob: data:; frame-src https://www.youtube.com https://www.youtube-nocookie.com; connect-src 'self' https:;" />
 <title>Springboard</title>
@@ -19,10 +19,9 @@
      this stops the cold-load flash where the huge fallback shows before Blackrush swaps in. -->
 <link rel="preload" as="font" type="font/ttf" href="assets/fonts/blackrush.ttf" crossorigin />
 
-<!-- React + Babel (in-browser JSX, no build step) -->
+<!-- React; the app is precompiled locally, with pinned-SRI Babel loaded only as a safe fallback. -->
 <script crossorigin="anonymous" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
 <script crossorigin="anonymous" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
-<script crossorigin="anonymous" integrity="sha384-fsMuX1qrlL2OwY1g8apML4JcSv2aYFaMXKQIjzX+OOveqSCCdmIMjwNQRoralXGe" src="https://unpkg.com/@babel/standalone@8.0.3/babel.min.js"></script>
 
 <!-- QR codes (qrcode-generator: exposes a global `qrcode` with synchronous createDataURL) -->
 <script crossorigin="anonymous" integrity="sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k" src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
@@ -151,6 +150,16 @@
   .modal-err { margin: 0 0 12px; padding: 8px 10px; font-size: 12.5px; color: var(--bad-ink); background: var(--bad-bg); border: 1px solid var(--bad); border-radius: 10px; }
   .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
   .modal-actions .btn { width: auto; }
+  .modal.recent { max-width: 680px; max-height: min(78vh, 680px); overflow: auto; }
+  .recent-list { display: grid; gap: 9px; margin: 14px 0; }
+  .recent-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 11px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+  .recent-row strong, .recent-row span { display: block; }
+  .recent-row strong { font-size: 14px; color: var(--ink); }
+  .recent-row span { margin-top: 3px; font-size: 12.5px; color: var(--muted); }
+  .recent-actions { display: flex; gap: 7px; }
+  .recent-actions button, .recent-clear { min-height: 28px; border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; background: transparent; color: var(--accent-deep); font: inherit; font-size: 12.5px; cursor: pointer; }
+  .recent-actions button:hover, .recent-actions button:focus-visible, .recent-clear:hover, .recent-clear:focus-visible { background: var(--accent-soft); outline: 2px solid var(--accent); outline-offset: 1px; }
+  .recent-empty { color: var(--muted); font-size: 13px; padding: 10px 0; }
   header.app .appver { margin-left: 10px; align-self: center; font-size: 11px; color: rgba(255,255,255,.78); font-variant-numeric: tabular-nums; white-space: nowrap; letter-spacing: .02em; }
   header.app p { margin: 2px 0 0; font-size: 12.5px; color: #fff; }
   /* Phone header: keep the band shallow — wrap the nav pills, drop the version chip. */
@@ -636,13 +645,6 @@
 })();
 </script>
 
-<!-- Force Babel to use the CLASSIC JSX runtime (React.createElement) instead of the
-     automatic runtime, which would emit an `import` that breaks a non-module script. -->
-<script>
-  Babel.registerPreset("react-classic", {
-    presets: [[Babel.availablePresets.react, { runtime: "classic" }]],
-  });
-</script>
 <style id="brain-styles">
   /* ============ Springboard — editorial "Thinking Brain" experience (sandbox) ============
      A print-magazine feature on how understanding works. Porcelain + near-black ink; the
@@ -962,6 +964,7 @@
   .bx-live-row .t { font-size: 13px; line-height: 1.45; color: var(--ink); }
   .bx-live-row .t.waiting { color: var(--muted); font-style: italic; }
   .bx-alert { font-size: 13px; color: #8f1d2e; background: #fdeaee; border: 1px solid #f0b8c4; border-radius: 4px; padding: 8px 11px; margin-top: 10px; }
+  .bx-alert.info { color: var(--ink); background: rgba(197,159,64,.16); border-color: rgba(122,80,18,.42); }
   /* same box, good news: "we got it" must not look like a failure */
   .bx-alert.ok { color: var(--good-ink); background: var(--good-bg); border-color: var(--good); }
 
@@ -1107,7 +1110,10 @@
     padding: 0 clamp(22px, 5vw, 72px) 22px; font-size: 12px; color: #5f594d; pointer-events: auto;
     padding-right: 78px; } /* reserve a lane for the floating mute button (right:20 + 46 wide) */
   .ww-foot a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
-  .ww-foot span:last-child { color: var(--purple); font-weight: 500; }
+  .ww-foot-actions { display: flex; align-items: center; gap: 6px 14px; flex-wrap: wrap; }
+  .ww-foot-team { color: var(--purple); font-weight: 500; }
+  .ww-foot-link { min-height: 24px; border: 0; padding: 3px 1px; background: transparent; color: #5f594d; font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+  .ww-foot-link:hover, .ww-foot-link:focus-visible { color: var(--purple); outline: 2px solid var(--purple); outline-offset: 2px; border-radius: 2px; }
 
   /* ---------- cover responsiveness (looks good at every size) ---------- */
   /* short/laptop heights: keep the headline + CTA above the fold */
@@ -1282,6 +1288,7 @@
     box-shadow: 0 3px 14px rgba(43,40,31,.06); }
   .ww-chamber .bx-btn.mv { background: var(--purple); color: #fff; } /* purple = the only interactive voice */
   .ww-chamber .bx-alert { background: #FDAFBD33; border-color: #8F1D2E55; color: #8F1D2E; }
+  .ww-chamber .bx-alert.info { background: #C59F4029; border-color: #7A50126B; color: var(--ink); }
   .ww-chamber .bx-alert.ok { background: #CFE9D355; border-color: #58C33777; color: #3C5238; }
   /* paste-a-link import row in the chamber's stimulus step */
   .bx-linkrow { display: flex; gap: 6px; margin-top: 8px; }
@@ -1319,7 +1326,7 @@
   .ww .bw-list-row span { color: var(--ink-soft); font-size: 13px; }
 </style>
 
-<script type="text/babel" data-presets="react-classic">
+<script type="text/sb-src" id="sb-app-source">
 const { useState, useRef, useMemo, useEffect, useLayoutEffect } = React;
 
 // Backend base URL: local `vercel dev` while developing on this machine, the
@@ -1423,7 +1430,7 @@ const BAND_ORDER = ["Early","Junior","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.13.5 · 2026-08-09";
+const APP_VERSION = "v0.14.0 · 2026-08-11";
 
 // Maps a class's year level to a teaching band (Prep-Y2 / Y3-6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2228,24 +2235,25 @@ const ROUTINE_SOURCE = "Harvard Project Zero Thinking Routines · pz.harvard.edu
 //   Digital Habits Checkup — a personal-habits audit, no stimulus thinking to rank.
 //   Think, Pair, Share / MicroLab — ways of organising talk, not thinking moves
 //     (Nathan, 2026-07-30, same grounds as What Makes You Say That?).
+// tools/audit-static.cjs enforces these five catalogue-only exclusions.
 // Routines whose catalogue group misleads: Stop, Look, Listen is filed under observation
 // but its steps are source-and-bias checking, so it sits under Reason with Evidence.
 const MOVES = [
   { name: "Wondering", question: "What are you curious about here?",
-    routines: ["Think, Puzzle, Explore", "See, Think, Wonder", "Creative Questions", "Creative Question Starts", "See Wonder Connect x2", "See, Feel, Think, Wonder", "The Explanation Game", "How Else and Why?", "Imagine If...", "Imagine If... (For Younger Children)", "What Can Be", "Options Explosion", "Creative Comparisons", "Portable Surprise", "Chalk Talk", "Creating Space for Learning"] },
+    routines: ["Think, Puzzle, Explore", "See, Think, Wonder", "Creative Questions", "Creative Question Starts", "See Wonder Connect x2", "See, Feel, Think, Wonder", "The Explanation Game", "How Else and Why?", "Imagine If...", "Imagine If... (For Younger Children)", "What Can Be", "Options Explosion", "Creative Comparisons", "Portable Surprise", "Chalk Talk"] },
   { name: "Describe What's There", question: "What do you see and notice?",
     routines: ["See, Think, Wonder", "Looking: Ten Times Two", "Listening: Ten Times Two", "Zoom In", "Colors, Shapes, Lines", "The Elaboration Game", "Name, Describe, Act", "Parts, Purposes, Complexities", "Parts, Purposes, Complexities (For Younger Children)", "See, Feel, Think, Wonder", "See, Think, Me, We", "See Wonder Connect x2", "Slow Complexity Capture", "Reporter's Notebook", "Same and Different", "Creative Hunt"] },
   { name: "Build Explanations", question: "What's really going on here?",
-    routines: ["The Explanation Game", "Claim, Support, Question", "See, Think, Wonder", "Zoom In", "Peel the Fruit", "Parts, People, Interactions", "Layers", "Facts or Fiction", "Beginning, Middle, End", "Thinking with Images", "How Else and Why?", "Think, Pair, Share"] },
+    routines: ["The Explanation Game", "Claim, Support, Question", "See, Think, Wonder", "Zoom In", "Peel the Fruit", "Parts, People, Interactions", "Layers", "Facts or Fiction", "Beginning, Middle, End", "Thinking with Images", "How Else and Why?"] },
   // The Explanation Game ("what makes you think so?") and Zoom In ("what's your hypothesis?" then
   // revise it as more is revealed) are the two Prep-Y2 ways INTO this move — without them an Early
   // Years teacher hits moveRoutineList's top-up and gets Tug of War.
   { name: "Reason with Evidence", question: "Why do you think so?",
-    routines: ["Claim, Support, Question", "Tug for Truth", "Tug of War", "True for Who?", "Facts or Fiction", "Red Light, Yellow Light", "Reporter's Notebook", "Take a Stand", "Sticking Points", "Hotspots", "Stop, Look, Listen", "Does It Fit?", "Options Diamond", "Compass Points", "The 4 Cs", "The Explanation Game", "Zoom In", "What Makes You Say That?"] },
+    routines: ["Claim, Support, Question", "Tug for Truth", "Tug of War", "True for Who?", "Facts or Fiction", "Red Light, Yellow Light", "Reporter's Notebook", "Take a Stand", "Sticking Points", "Hotspots", "Stop, Look, Listen", "Does It Fit?", "Options Diamond", "Compass Points", "The 4 Cs", "The Explanation Game", "Zoom In"] },
   { name: "Make Connections", question: "How does this fit?",
-    routines: ["Connect, Extend, Challenge", "3-2-1 Bridge", "Generate-Sort-Connect-Elaborate", "The 4 Cs", "Same, Different, Connect, Engage", "Here Now / There Then", "Projecting Across Time", "Projecting Across Distance", "The 3 Whys", "Circles of Action", "Outside In", "Creative Comparisons", "Portable Surprise", "Think, Puzzle, Explore", "Pass the Parcel", "Walk the Week", "Digital Habits Checkup"] },
+    routines: ["Connect, Extend, Challenge", "3-2-1 Bridge", "Generate-Sort-Connect-Elaborate", "The 4 Cs", "Same, Different, Connect, Engage", "Here Now / There Then", "Projecting Across Time", "Projecting Across Distance", "The 3 Whys", "Circles of Action", "Outside In", "Creative Comparisons", "Portable Surprise", "Think, Puzzle, Explore", "Pass the Parcel", "Walk the Week"] },
   { name: "Consider Different Viewpoints", question: "What's another angle on this?",
-    routines: ["Circle of Viewpoints", "Step Inside", "Step In, Step Out, Step Back", "Think, Feel, Care", "Think, Feel, Care (For Younger Children)", "Same, Different, Connect, Engage", "My Perspective, Other Perspectives (For Exploring Complexity)", "Parts, Perspectives, Me", "Parts, Perspectives, Me (For Exploring Complexity)", "Seek to See", "Who Am I?", "True for Who?", "Lenses", "Unveiling Stories", "Feelings and Options", "MicroLab"] },
+    routines: ["Circle of Viewpoints", "Step Inside", "Step In, Step Out, Step Back", "Think, Feel, Care", "Think, Feel, Care (For Younger Children)", "Same, Different, Connect, Engage", "My Perspective, Other Perspectives (For Exploring Complexity)", "Parts, Perspectives, Me", "Parts, Perspectives, Me (For Exploring Complexity)", "Seek to See", "Who Am I?", "True for Who?", "Lenses", "Unveiling Stories", "Feelings and Options"] },
   { name: "Capture the Heart & Form Conclusions", question: "What's at the centre of this?",
     routines: ["Headlines", "Color, Symbol, Image", "Word-Phrase-Sentence", "Take Note", "+1 Routine", "The 4 Cs", "Generate-Sort-Connect-Elaborate", "Beauty and Truth", "Values, Identities, Actions", "Stories", "Beginning, Middle, End", "Does It Fit?", "Take a Stand", "See, Think, Make, Discuss", "Circles of Action"] },
   { name: "Uncovering Complexity", question: "What lies beneath the surface?",
@@ -2808,7 +2816,7 @@ function shapeDeck(parsed, { routineName }) {
     // ideas = the 3 ways to run the launch. It was missing here, so the model's three
     // suggestions were dropped before export and the LAUNCH notes carried only the single
     // FACILITATION line.
-    launch:  { connection: str(la.connection), bridge: str(la.bridge), question: str(la.question), ideas: arr(la.ideas, 3) },
+    launch:  { connection: str(la.connection), bridge: str(la.bridge), question: str(la.question), ideas: arr(la.ideas, 3), focusNote: str(la.focusNote) },
     // metacognition = ONE lesson-specific line for the teacher notes, naming the strategy students
     // actually used today. It replaced a seven-line generic stem bank that printed identically on
     // every deck (and duplicated the student stems already on the slide).
@@ -2919,6 +2927,7 @@ Audience tone: ${tone}. ${bandBrief}
 Slides carry MINIMAL text — every field respects its word limit.
 Thinking routine to scaffold the THINK part: "${routine.name}" — ${routine.gist} (${routine.url}).
 ${outcomeLine}
+When the teacher has ticked curriculum focus items, connect ONLY the items the stimulus genuinely supports. If a ticked focus cannot honestly connect to this stimulus, do NOT force it into launch.connection: ground the connection in what the stimulus genuinely supports, and set launch.focusNote to ONE plain sentence naming the ticked item that does not fit and why, written for the teacher. When every ticked item fits, or none are ticked, launch.focusNote must be "".
 WHAT IS ACTUALLY THERE — you are looking at a picture, not reading a caption. NEVER state a person's gender, name, age, race, cultural identity, relationship or role as fact. Refer to people ONLY by what is plainly visible: where they are, what they are doing, what they hold or wear — "the figure standing with the spear", "the person seated with their back to us", "the group under the tree". Name a point of view the same way.
 The same rule governs OBJECTS: never name a thing you cannot clearly see, and never hang a question on one. If an object is not unmistakable, describe what someone is DOING with it ("the person sitting down, painting") or build the question on something you are sure of. Measured failure (Year 4, 2026-08-07): a canvas on an easel being painted was called "the open book", and IGNITE then asked the class to debate that book and choose a clue for it, so the whole slide pointed at an object that is not in the painting. A question about the wrong thing cannot be rescued by a student.
 WRITING in the picture is under the same rule: quote it only when you can read every letter. Handwritten, cursive or partly hidden text must never decide a step or the reveal — if two readings are possible, build on something unmistakable instead. Measured failure (Foundation, 2026-08-09): a chalk sign reading "£1.50 a punnet" was misread as "P/unit", and the reveal then taught the class that £1.50 buys ONE avocado — the opposite of what the sign says. A misreading taught as the surprise fact is worse than no reveal at all.
@@ -2928,7 +2937,7 @@ Each notes field is a teacher script with EXACTLY these labelled sections, IN TH
 FACILITATION: … ENABLING PROMPT: … EXTENDING PROMPT: … CURRICULUM LINKS: …
 ENABLING PROMPT = how to simplify the task so a student who is stuck can still take part (a sentence stem, a smaller step, a concrete support).
 EXTENDING PROMPT = how to push a student who finds it easy further into the same thinking (not extra work — deeper work).
-Return STRICT JSON with keys: title, intention, keywords, ignite{question}, think{routine, steps, structure, summary, reveal{fact, question}}, launch{connection, bridge, question, ideas}, reflect{revisit, prompts, metacognition}, next[3]{title, idea, thinking}, notes{ignite, think, launch, reflect}.`;
+Return STRICT JSON with keys: title, intention, keywords, ignite{question}, think{routine, steps, structure, summary, reveal{fact, question}}, launch{connection, bridge, question, ideas, focusNote}, reflect{revisit, prompts, metacognition}, next[3]{title, idea, thinking}, notes{ignite, think, launch, reflect}.`;
 
   /* The PYP learning slide, on the year level and NOT on the curriculum dropdown. Wesley is an IB
      school that teaches from the Australian Curriculum, so its Prep-Year 6 teachers pick
@@ -3016,7 +3025,7 @@ Never invent a key concept or a learner profile attribute outside those lists.`;
     `think.summary: ${isArticleStim
       ? `EXACTLY 5 sentences summarising the article FOR STUDENTS, printed beside the routine so they can read it while they think. Tone: ${tone}. Make the situation CONCRETE — establish clearly WHAT happened and the specifics a ${classInfo.yearLevel} student needs to follow it. Lead with the most surprising or relatable angle, use plain vivid language, and end on a note that invites discussion. NEVER invent quotes, names, numbers, or events that are not in the supplied text; if the article is vague on something important, leave it out rather than guessing. Punchy, never a dry recap.`
       : `"" — an empty string. The stimulus is an image/video reel, not an article, so there is nothing to summarise.`}${ageCap ? ageCap + " This shortens each sentence; it does NOT change the required number of them." : ""}`,
-    `launch.connection: <=25 words curriculum connection; launch.bridge: <=20 words from the stimulus to today's lesson; launch.question: the lesson launch question${earlyWords ? ", which for this age must be one a 5-8 year old could answer out loud in a sentence, about the actual thing in front of them — never a definition question about when something counts as proof" : ""}; launch.ideas: EXACTLY 3 short, distinct ways to run the launch so students work toward launch.question (e.g. a quick debate, a rank/sort, a role-play, a prediction, a quick-write) — one sentence each, <=20 words.${ageCap}`,
+    `launch.connection: <=25 words curriculum connection; launch.bridge: <=20 words from the stimulus to today's lesson; launch.question: the lesson launch question${earlyWords ? ", which for this age must be one a 5-8 year old could answer out loud in a sentence, about the actual thing in front of them — never a definition question about when something counts as proof" : ""}; launch.ideas: EXACTLY 3 short, distinct ways to run the launch so students work toward launch.question (e.g. a quick debate, a rank/sort, a role-play, a prediction, a quick-write) — one sentence each, <=20 words. launch.focusNote follows the focus-fit rule above and is never student-facing.${ageCap}`,
     `reflect.revisit: ONE complete question a teacher reads aloud, <=20 words, sending students back to the ignite question now they know more. It must stand alone as a sentence — colon-compressed shorthand like "Reconsider: beginning or takeover? Use what the painting leaves out." (measured failure, Year 4, 2026-07-31) is a failure, because it reads as a note to self rather than something you can say to a class. For reflect.prompts, CHOOSE the end-of-lesson reflection routine that best fits THIS lesson, and VARY the choice across lessons (do NOT always use the same one). Pick from: (a) I Used to Think… / Now I Think…; (b) Connect–Extend–Challenge — one new connection, one way it extends thinking, one lingering challenge or question; (c) 3-2-1 Bridge — 3 thoughts, 2 questions, 1 analogy; (d) Headlines — a one-line headline capturing today's core idea; (e) Reflect–Connect–Project — reflect on it, connect to prior learning, project forward; (f) Think About Your Thinking (metacognition) — Task: did your plan/approach work and how do you know; Strategy: which strategy helped and what will you do differently next time; Self: what did you learn about yourself as a learner. Use THAT routine's real prompt stems as reflect.prompts (<=4 short stems). Tie every stem to THIS lesson's content (never generic), and ALWAYS make at least one stem a forward-looking metacognitive prompt — ${earlyWords ? 'for this age write it as what they will LOOK FOR or DO FIRST next time ("Next time I will look at … first"), never as a strategy, an observation or interpreting' : "what the student will do differently, or which strategy they'll reuse, next time"}. EVERY stem must be answerable from what THIS deck actually asked students to do. If a stem refers back to something students made earlier — a headline, a first guess, a ranking, a prediction — that thing must genuinely have been produced in ignite or think; otherwise pick a reflection routine that does not depend on one. Measured failure (Year 4, 2026-07-31): prompt 1 asked students to write a headline and prompt 2 then asked "The lesson moment that changed my headline was…", when they had never written one at the start, so there was nothing to have changed.${ageCap}`,
     // "Where to next" — three teacher-only slides at the end of the deck. These are the NEXT
     // LESSONS, not more ways to run today's: the teacher has just finished this lesson and wants to
@@ -3322,6 +3331,45 @@ Routine names MUST be copied exactly from this menu:\n${routineMenu}`;
   }
 
   return { summary: stripMd(parsed.summary || ""), routines: routines.slice(0, 3) };
+}
+
+// A narrow, non-blocking check of the model's withheld surprise. It sees the same stimulus
+// representation as generation and judges only what is visible, legible or stated there.
+async function verifyRevealFact({ passcode, mode, media = [], sourceText = "", fact }) {
+  if (!String(fact || "").trim()) return null;
+  const sys = `Check whether one claim is directly supported by the supplied stimulus itself. Use only what is visible, legible or stated in the stimulus — no outside knowledge and no plausible inference. Err toward unsupported. Return STRICT JSON only: {"supported": boolean, "reason": string (<=25 words)}.`;
+  const userContent = [];
+  const mediaItems = Array.isArray(media) ? media : [];
+  if (mode === "media" && mediaItems.length) {
+    const clipText = mediaItems
+      .map((m, i) => ((m.kind === "video" || m.kind === "youtube") && m.text && m.text.trim()) ? `${m.kind === "youtube" ? "YouTube clip" : "Video"} at position ${i + 1} — ${m.text.trim().slice(0, 4000)}` : "")
+      .filter(Boolean);
+    userContent.push({ type: "text", text: `Claim to check: "${String(fact).slice(0, 500)}"` + (clipText.length ? "\n\nClip notes:\n" + clipText.join("\n") : "") });
+    mediaItems.forEach(m => {
+      if (m.kind === "image") userContent.push({ type: "image_url", image_url: { url: m.smallUrl || m.dataUrl } });
+      else if (m.kind === "youtube") { const y = m.thumb || m.poster; if (y) userContent.push({ type: "image_url", image_url: { url: y } }); }
+      else (m.frames || []).forEach(fr => userContent.push({ type: "image_url", image_url: { url: fr } }));
+    });
+  } else {
+    const trimmed = String(sourceText || "").slice(0, 12000).replace(/"{3,}/g, "“”");
+    userContent.push({ type: "text", text: `Claim to check: "${String(fact).slice(0, 500)}"\n\nStimulus article:\n\n"""\n${trimmed}\n"""` });
+  }
+  const resp = await fetch(API_BASE + "/api/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-sb-passcode": passcode },
+    body: JSON.stringify({
+      messages: [{ role: "system", content: sys }, { role: "user", content: userContent }],
+      response_format: { type: "json_object" },
+      max_completion_tokens: 1400,
+      reasoning_effort: "low",
+      stickiness: false,
+    }),
+  });
+  if (!resp.ok) return null;
+  const data = await resp.json();
+  const parsed = parseJsonLoose(data?.choices?.[0]?.message?.content || "");
+  if (!parsed || typeof parsed.supported !== "boolean") return null;
+  return { supported: parsed.supported, reason: stripMd(parsed.reason || "") };
 }
 
 /* ----------------------- Suggest outcomes (AI option on the Outcome field) -----------------------
@@ -3904,6 +3952,91 @@ function AdminGate({ onClose }) {
   );
 }
 
+const LESSON_DB = "sb-lessons";
+const LESSON_STORE = "lessons";
+let lessonDbPromise = null;
+function openLessonDb() {
+  if (!window.indexedDB) return Promise.reject(new Error("IndexedDB unavailable"));
+  if (lessonDbPromise) return lessonDbPromise;
+  lessonDbPromise = new Promise((resolve, reject) => {
+    const req = indexedDB.open(LESSON_DB, 1);
+    req.onupgradeneeded = () => { if (!req.result.objectStoreNames.contains(LESSON_STORE)) req.result.createObjectStore(LESSON_STORE, { keyPath: "id" }); };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error || new Error("IndexedDB unavailable"));
+    req.onblocked = () => reject(new Error("IndexedDB blocked"));
+  });
+  return lessonDbPromise;
+}
+async function listRecentLessons() {
+  const db = await openLessonDb();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(LESSON_STORE, "readonly").objectStore(LESSON_STORE).getAll();
+    req.onsuccess = () => resolve((req.result || []).sort((a, b) => b.createdAt - a.createdAt).slice(0, 10));
+    req.onerror = () => reject(req.error);
+  });
+}
+async function saveRecentLesson(entry) {
+  const db = await openLessonDb();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(LESSON_STORE, "readwrite");
+    const store = tx.objectStore(LESSON_STORE);
+    store.put(entry);
+    const all = store.getAll();
+    all.onsuccess = () => (all.result || []).sort((a, b) => b.createdAt - a.createdAt).slice(10).forEach(old => store.delete(old.id));
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+async function removeRecentLesson(id) {
+  const db = await openLessonDb();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(LESSON_STORE, "readwrite");
+    tx.objectStore(LESSON_STORE).delete(id);
+    tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error);
+  });
+}
+async function clearRecentLessons() {
+  const db = await openLessonDb();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(LESSON_STORE, "readwrite");
+    tx.objectStore(LESSON_STORE).clear();
+    tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error);
+  });
+}
+
+function RecentLessons({ entries, onClose, onDownload, onRemove, onClear, busy }) {
+  useEffect(() => {
+    function onKey(event) { if (event.key === "Escape") onClose(); }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal recent" role="dialog" aria-modal="true" aria-labelledby="recentTitle">
+        <div className="modal-head">
+          <h2 id="recentTitle">Recent lessons</h2>
+          <button type="button" className="iconbtn" aria-label="Close recent lessons" onClick={onClose}><Icon d={I.close} size={14} stroke /></button>
+        </div>
+        <p className="modal-sub">Saved on this device only.</p>
+        {entries.length ? <div className="recent-list">{entries.map(entry => (
+          <div className="recent-row" key={entry.id}>
+            <div><strong>{entry.title || "Untitled lesson"}</strong><span>{[entry.routine, entry.year, new Date(entry.createdAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })].filter(Boolean).join(" · ")}</span></div>
+            <div className="recent-actions">
+              <button type="button" disabled={busy} onClick={() => onDownload(entry)} aria-label={"Download " + (entry.title || "lesson")}>Download</button>
+              <button type="button" disabled={busy} onClick={() => onRemove(entry.id)} aria-label={"Remove " + (entry.title || "lesson")}>Remove</button>
+            </div>
+          </div>
+        ))}</div> : <p className="recent-empty">No lessons have been saved on this device yet.</p>}
+        <div className="modal-actions">
+          {entries.length ? <button type="button" className="recent-clear" disabled={busy} onClick={onClear}>Clear all</button> : null}
+          <button type="button" className="btn ghost" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---- YouTube online-video post-processing ----
    Same marked-poster trick as SharePoint videos above, but simpler markup:
    current PowerPoint represents a YouTube clip as an ordinary poster pic whose
@@ -4223,6 +4356,15 @@ function App() {
   // config — passcode persists in this browser's localStorage (per user request)
   const [passcode, setPasscode] = useState(() => { try { return localStorage.getItem(KEY_STORE) || ""; } catch (_) { return ""; } });
   const [adminOpen, setAdminOpen] = useState(false); // admin-analytics password popup
+  const [recentAvailable, setRecentAvailable] = useState(false);
+  const [recentOpen, setRecentOpen] = useState(false);
+  const [recentLessons, setRecentLessons] = useState([]);
+  useEffect(() => {
+    let current = true;
+    listRecentLessons().then(items => { if (current) { setRecentLessons(items); setRecentAvailable(true); } })
+      .catch(() => { if (current) { setRecentAvailable(false); setRecentOpen(false); } });
+    return () => { current = false; };
+  }, []);
   // Editorial brain experience (sandbox): brainView = the new experience (default) vs classic builder.
   const [brainView, setBrainView] = useState(true);
   const [bxDrag, setBxDrag] = useState(false);        // dropzone dragover
@@ -4303,6 +4445,8 @@ function App() {
   const [genSecs, setGenSecs] = useState(0);
   const [regenSlide, setRegenSlide] = useState(null);   // which slide is regenerating: "ignite" | "think" | "launch" | "reflect"
   const [includeReflect, setIncludeReflect] = useState(true);  // teacher toggle: keep the REFLECT slide in the deck
+  const [revealWarning, setRevealWarning] = useState(""); // unsupported reveal reason; infrastructure failures stay silent
+  const revealCheckSeq = useRef(0);                    // a later generate invalidates an older check
 
   // analyse step (runs before Generate): AI recommendation + the teacher's pick
   const [analysis, setAnalysis] = useState(null);       // { summary, routines: [{name,why}] } | null
@@ -4719,8 +4863,12 @@ function App() {
         setMediaNote("Grabbed the picture from that page ✓");
         setPostLink("");
       } catch (pageErr) {
-        const freeNote = await tryFreeVersion(url);
-        setMediaNote(freeNote || grabberMsg || pageErr.message || "Couldn't get a photo or video from that link.");
+        let freeNote = "";
+        try { freeNote = await tryFreeVersion(url); } catch (_) { /* the original failure stays useful */ }
+        const pageMsg = String((pageErr && pageErr.message) || "");
+        setMediaNote(freeNote || grabberMsg || (pageMsg
+          ? pageMsg + " Save the picture or video to this device, then add the file instead."
+          : "That page did not provide a picture or video the app could use. Save the media to this device, then add the file instead."));
         if (freeNote) setPostLink("");
       }
     };
@@ -4735,7 +4883,8 @@ function App() {
       // A social-post failure (private, login-only, unsupported site) is worth saying out loud, but
       // only after the page reader has also had a go — for a museum or news page it's the wrong
       // diagnosis, so the page reader's own message wins when the grabber had nothing useful.
-      if (!items.length) return await tryAsPage(/private|login|isn't supported|YouTube/i.test(String(data.error || "")) ? data.error : "");
+      if (!items.length) return await tryAsPage(/private|login|isn't supported|YouTube/i.test(String(data.error || ""))
+        ? String(data.error) + " Save the media to this device, then add the file instead." : "");
 
       const files = [];
       for (const it of items) {
@@ -4747,12 +4896,12 @@ function App() {
           files.push(new File([b], it.filename || (it.type === "video" ? "clip.mp4" : "photo.jpg"), { type: b.type || fallback }));
         } catch (_) { /* skip the ones the site blocks */ }
       }
-      if (!files.length) return await tryAsPage("Found media but couldn't download it (the site may be blocking it).");
+      if (!files.length) return await tryAsPage("The link-import service found media, but the site blocked the download. Save the media to this device, then add the file instead.");
       await addMediaFiles(files);                          // handles cap + ingest + transcript
       if (data.note) setMediaNote(data.note);
       setPostLink("");
     } catch (_) {
-      await tryAsPage("Couldn't reach the link-import service. Try again in a moment.");
+      await tryAsPage("The link-import service could not be reached. Try again in a moment, or save the media and add the file instead.");
     } finally {
       setImportingPost(false);
     }
@@ -4767,7 +4916,10 @@ function App() {
       if (passcode.trim()) headers["x-sb-passcode"] = passcode.trim();
       const resp = await fetch(API_BASE + "/api/youtube-meta", { method: "POST", headers, body: JSON.stringify({ url }) });
       const data = await resp.json().catch(() => ({}));
-      if (!resp.ok) { setError(data.error || "Couldn't read that YouTube link. Check it and try again."); return; }
+      if (!resp.ok) {
+        setMediaNote((data.error ? String(data.error) + " " : "") + "The YouTube link could not be read. Check the link, then try again.");
+        return;
+      }
       const thumb = data.thumbnailDataUrl || "";          // clean frame -> fed to the model
       const poster = await addPlayBadge(thumb);            // play-badged -> reel + slide
       setMedia(m => m.length >= MAX_MEDIA ? m : [...m, {
@@ -4779,7 +4931,7 @@ function App() {
       setMediaNote("YouTube clip added. It can't be transcribed — type what happens in it under its thumbnail so the questions match.");
       setPostLink("");
     } catch (_) {
-      setError("Couldn't reach the YouTube lookup. Try again in a moment.");
+      setMediaNote("The YouTube lookup could not be reached. Check your connection and try again in a moment.");
     } finally {
       setImportingPost(false);
     }
@@ -4846,7 +4998,23 @@ function App() {
     const resp = await fetch(API_BASE + "/api/fetch-article", { method: "POST", headers, body: JSON.stringify({ url }) });
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok) throw new Error(data.error || "couldn't read that page");
-    return { text: String(data.text || ""), image: String(data.imageDataUrl || data.image || "") };
+    const text = String(data.text || "").trim();
+    if (text.length < 40) throw new Error("no readable article text was returned");
+    return { text, image: String(data.imageDataUrl || data.image || "") };
+  }
+
+  function articleImportFailure(primary, secondary) {
+    const detail = [primary, secondary].filter(Boolean).join(" · ");
+    if (/HTTP\s+(?:4\d\d|5\d\d)|403|401|robot check|blocked|forbidden/i.test(detail)) {
+      return "That site wouldn't let us read the page. Copy the article text and paste it here instead.";
+    }
+    if (/too little text|no readable|paywall|JS-only|empty/i.test(detail)) {
+      return "The page opened, but it did not contain readable article text. Copy the article text and paste it here instead.";
+    }
+    if (/fetch|network|reach|Failed to fetch/i.test(detail)) {
+      return "The page readers could not be reached. Check your connection and try again, or paste the article text here instead.";
+    }
+    return "We couldn't read that article link. Copy the article text and paste it here instead.";
   }
 
   // Pull readable article text + lead image from a public link. Try the reader service first
@@ -4869,10 +5037,8 @@ function App() {
       if (!out) {
         try { out = await readViaServer(url); }
         catch (err) {
-          // Our own fetch says the more useful thing (what the site did and what to do about it);
-          // the reader service's reason is only worth showing when ours has nothing specific.
           const server = String(err.message || "");
-          return fail(server.length > 40 ? server : "Couldn't fetch that link (" + (why || server) + "). Paste the article text instead.");
+          return fail(articleImportFailure(server, why));
         }
       } else if (!out.image) {
         try { const s = await readViaServer(url); if (s.image) out = { ...out, image: s.image }; }
@@ -4887,7 +5053,7 @@ function App() {
         : { text: "Got the text, but no picture on that page the app could use. Save the picture yourself and add it as an image if you want one on the slides.", ok: false });
       return out;
     } catch (err) {
-      return fail("Couldn't fetch that link (" + (err.message || err) + "). Paste the article text instead.");
+      return fail(articleImportFailure(err && err.message, ""));
     } finally {
       setFetchingArticle(false);
     }
@@ -4959,6 +5125,54 @@ function App() {
   // Frames that survive into the export: only while Zoom In is still the routine and the photo is still there.
   const activeReveal = zoomInPicked && Array.isArray(revealFrames) && revealFrames.length ? revealFrames : null;
 
+  // Start only after the deck state has been handed to React. A failed check changes nothing;
+  // unsupported facts get one teacher-facing note beside the editable reveal.
+  function queueRevealVerification(deck, sourceTextNow) {
+    const seq = ++revealCheckSeq.current;
+    setRevealWarning("");
+    const fact = (((deck || {}).think || {}).reveal || {}).fact || "";
+    if (!String(fact).trim()) return;
+    const request = { passcode: passcode.trim(), mode, media: media.slice(), sourceText: sourceTextNow, fact };
+    setTimeout(() => {
+      verifyRevealFact(request).then(result => {
+        if (seq !== revealCheckSeq.current || !result) return;
+        setRevealWarning(result.supported ? "" : (result.reason || "The claim is not directly supported by the stimulus."));
+      }).catch(() => {});
+    }, 0);
+  }
+
+  // Store the exact export inputs, never the live picker state. Reading history never writes any
+  // of this metadata back into classInfo, so every visit still opens with a fresh class setup.
+  async function rememberLesson(deck, bandKey) {
+    try {
+      const savedLead = articleImageUrl ? ((await urlToDataUrl(articleImageUrl)) || articleImageUrl) : "";
+      const createdAt = Date.now();
+      await saveRecentLesson({
+        id: createdAt + "-" + Math.random().toString(36).slice(2, 9),
+        createdAt,
+        title: deck.title || "Untitled lesson",
+        routine: (deck.think && deck.think.routine) || "",
+        year: classInfo.yearLevel || "",
+        band: bandKey,
+        deck,
+        context: {
+          classInfo: { ...classInfo, focus: Array.isArray(classInfo.focus) ? classInfo.focus.slice() : [] },
+          mode,
+          media: media.map(item => ({ ...item, frames: Array.isArray(item.frames) ? item.frames.slice() : item.frames })),
+          link,
+          articleImageUrl: savedLead,
+          includeReflect: true,
+          revealFrames: activeReveal ? activeReveal.map(frame => ({ ...frame })) : null,
+          revealPhoto: activeReveal && revealPhoto ? { ...revealPhoto } : null,
+        },
+      });
+      setRecentLessons(await listRecentLessons());
+      setRecentAvailable(true);
+    } catch (_) {
+      setRecentAvailable(false); setRecentOpen(false);
+    }
+  }
+
   /* ------- generate ------- */
   async function generate() {
     if (regenSlide || loading) return; // a slide regen is in flight, or a generate is already running
@@ -5006,6 +5220,8 @@ function App() {
       setIncludeReflect(true);              // fresh deck defaults to including REFLECT
       genStimKey.current = stimKey; // remember the stimulus fingerprint for the stale-deck hint
       setGenProgress(100);
+      queueRevealVerification(deck, sourceText);
+      rememberLesson(deck, genBand);
       // Log the successful generate event.
       const hasVideo = media.some(m => m.kind === "video");
       const hasImage = media.some(m => m.kind === "image");
@@ -5038,7 +5254,9 @@ function App() {
         intention: (spot.intention || intention || "").trim(),
         scope, current: spot,
       });
-      setSpot(s => mergeScopedFields(s, scope, parsed));
+      const nextDeck = mergeScopedFields(spot, scope, parsed);
+      setSpot(nextDeck);
+      if (scope === "think") queueRevealVerification(nextDeck, sourceText);
       // Log the successful regenerate event.
       logEvent("regenerate", { routine: spot.think.routine, topic: spot.title });
     } catch (err) {
@@ -5114,9 +5332,17 @@ function App() {
   // goes in its Notes pane via addNotes.
   // TRAP: pptxgenjs mutates option objects handed to it (shadow especially) — so EVERY addText/
   // addImage/addShape/addMedia call below gets a FRESH object literal; nothing is shared/reused.
-  async function buildDeckBlob(bandKey, deck) {
+  async function buildDeckBlob(bandKey, deck, savedContext = null) {
     if (!deck) return null;
     try {
+      const exportClassInfo = savedContext ? (savedContext.classInfo || {}) : classInfo;
+      const exportMode = savedContext ? savedContext.mode : mode;
+      const exportMedia = savedContext ? (savedContext.media || []) : media;
+      const exportLink = savedContext ? (savedContext.link || "") : link;
+      const exportArticleImage = savedContext ? (savedContext.articleImageUrl || "") : articleImageUrl;
+      const exportReflect = savedContext ? savedContext.includeReflect !== false : includeReflect;
+      const exportFrames = savedContext ? savedContext.revealFrames : activeReveal;
+      const exportRevealPhoto = savedContext ? savedContext.revealPhoto : revealPhoto;
       const P = WESLEY.purple, GOLD = WESLEY.gold, GOLD_INK = WESLEY.goldInk, GOLD_LT = WESLEY.goldLight,
             INK = WESLEY.ink, MUTED = WESLEY.muted, WHITE = WESLEY.white, SUB = WESLEY.subtle;
       const FONT = "Arial"; // Graphik can't be embedded in a portable .pptx — Arial is the fork's safe fallback
@@ -5140,24 +5366,24 @@ function App() {
       const nextIdeas = (Array.isArray(deck.next) ? deck.next : []).filter(n => n && (n.title || n.idea)).slice(0, 3);
       const focusLines = (Array.isArray(deck.curriculumFocus) && deck.curriculumFocus.length)
         ? "Curriculum focus (teacher): " + deck.curriculumFocus.join("; ") : "";
-      const curriculum = (classInfo.curriculum || "").trim();
-      const subject = (classInfo.subject || "").trim();
-      const yearLevel = (classInfo.yearLevel || "").trim();
+      const curriculum = (exportClassInfo.curriculum || "").trim();
+      const subject = (exportClassInfo.subject || "").trim();
+      const yearLevel = (exportClassInfo.yearLevel || "").trim();
       // yearLevel already reads "Year 9" (BANDS.years), so strip any leading "Year" before
       // re-adding it -- otherwise the cover printed "Middle school (7 - 9) · Year Year 9".
       const yearShort = yearLevel.replace(/^year\s*/i, "");
       const metaLine = [bandLabelOf(bandKey) + (yearShort ? " · Year " + yearShort : ""), subject].filter(Boolean).join("   ·   ");
 
-      const showReflect = !!includeReflect;
+      const showReflect = !!exportReflect;
 
       // ZOOM IN reveal: bake the teacher's frames (the crop tool) into slide-sized JPEGs, then add
       // the whole photo as the final reveal. IGNITE draws revealShots[0] instead of the full photo,
       // and every later shot gets its own student-facing slide before THINK. Guarded on the routine
       // STILL being Zoom In and a crop actually succeeding, so any other lesson exports as before.
-      const revealPhotoNow = (routine === "Zoom In" && activeReveal) ? revealPhoto : null;
+      const revealPhotoNow = (routine === "Zoom In" && exportFrames) ? exportRevealPhoto : null;
       const revealShots = [];
       if (revealPhotoNow) {
-        for (const r of activeReveal) {
+        for (const r of exportFrames) {
           const shot = await cropImageToDataUrl(revealPhotoNow.dataUrl, r);
           if (shot) revealShots.push(shot);
         }
@@ -5331,8 +5557,8 @@ function App() {
       // lighter appearance on THINK). opts.noLink: skip the QR + link row (use the full box).
       // opts.reserveBottom: inches to keep clear under the media (the click-to-enlarge caption).
       async function drawStimulus(s, x, y, w, h, opts = {}) {
-        const items = (mode === "media" && Array.isArray(media)) ? media.filter(m => m && (m.dataUrl || m.poster)) : [];
-        const url = (link || "").trim();
+        const items = (exportMode === "media" && Array.isArray(exportMedia)) ? exportMedia.filter(m => m && (m.dataUrl || m.poster)) : [];
+        const url = (exportLink || "").trim();
         let drew = false;
         // reserve a QR + link row when there's a link, plus any caption band the caller asked for
         const mediaH = h - ((url && !opts.noLink) ? 0.7 : 0) - (opts.reserveBottom || 0);
@@ -5391,7 +5617,7 @@ function App() {
           const rowY = y + h - 0.55;
           if (qr) s.addImage({ data: qr, x, y: rowY, w: 0.5, h: 0.5 });
           s.addText(
-            [{ text: (MODE_VERB[mode] || "Open") + ":  ", options: { bold: true, color: WHITE } },
+            [{ text: (MODE_VERB[exportMode] || "Open") + ":  ", options: { bold: true, color: WHITE } },
              { text: url, options: { color: GOLD_LT, underline: true, hyperlink: { url } } }],
             { x: x + (qr ? 0.65 : 0), y: rowY, w: w - (qr ? 0.65 : 0), h: 0.5, fontSize: 11, valign: "middle", fontFace: FONT });
           drew = true;
@@ -5401,7 +5627,7 @@ function App() {
 
       // The article's lead image, fetched ONCE and shared by IGNITE and THINK. Sharing the exact
       // same data string is what makes both slides link to the SAME zoom slide instead of two.
-      const artLead = (mode === "article" && articleImageUrl) ? await urlToDataUrl(articleImageUrl) : "";
+      const artLead = (exportMode === "article" && exportArticleImage) ? await urlToDataUrl(exportArticleImage) : "";
       // Real ratio, measured — a lead image off the web can be any shape, and both the panel and
       // the full-screen copy letterbox to it rather than stretching.
       const artLeadAspect = (artLead ? await imageAspect(artLead) : 0) || 16 / 9; // imageAspect resolves 0 if it can't load
@@ -5508,13 +5734,13 @@ function App() {
         // drawn, so reserve its band UP FRONT — it used to be printed below the QR row, reading as
         // a caption for the link instead of for the picture.
         const willCaption = !revealShots.length
-          && ((mode === "media" && Array.isArray(media) && media.some(m => m && m.kind === "image" && m.dataUrl)) || !!artLead);
+          && ((exportMode === "media" && Array.isArray(exportMedia) && exportMedia.some(m => m && m.kind === "image" && m.dataUrl)) || !!artLead);
         const capBand = willCaption ? 0.32 : 0;
         const drew = await drawStimulus(s, imgX, imgY, imgW, imgH,
           { reserveBottom: capBand, revealFrame: revealShots.length ? revealShots[0] : null });
         // Tell the room the photo is clickable — nothing on a slide says so on its own.
         if (zooms.length > zoomsBefore) s.addText(zooms.length - zoomsBefore > 1 ? "Click any photo to fill the screen" : "Click the photo to fill the screen",
-          { x: imgX, y: imgY + imgH - ((link || "").trim() ? 0.7 : 0) - capBand, w: imgW, h: 0.3, fontSize: 9.5, color: SUB, align: "center", fontFace: FONT });
+          { x: imgX, y: imgY + imgH - ((exportLink || "").trim() ? 0.7 : 0) - capBand, w: imgW, h: 0.3, fontSize: 9.5, color: SUB, align: "center", fontFace: FONT });
 
         if (drew) {
           // Two columns: title · meta · question on the left, big image on the right. The left column
@@ -5584,10 +5810,10 @@ function App() {
         // draws its lead image + the 5-sentence student summary + a "read the full article" QR row
         // (the Tech Spotlight Generator's provocation layout). With neither, the routine spreads to
         // fill the whole slide instead of leaving empty space — no panel.
-        const hasImageStim = mode === "media" && Array.isArray(media) && media.some(m => m && (m.dataUrl || m.poster));
+        const hasImageStim = exportMode === "media" && Array.isArray(exportMedia) && exportMedia.some(m => m && (m.dataUrl || m.poster));
         const artImg = artLead;
-        const artLink = (link || "").trim();
-        const hasArticleStim = mode === "article" && !!(summary || artImg || artLink);
+        const artLink = (exportLink || "").trim();
+        const hasArticleStim = exportMode === "article" && !!(summary || artImg || artLink);
         const hasPanel = hasImageStim || hasArticleStim; // the two stimulus kinds are mutually exclusive
         const tImgX = 7.4, tColRight = tImgX - 0.4;
         const colW = hasPanel ? (tColRight - 0.7) : (W - 1.4);
@@ -5826,24 +6052,25 @@ function App() {
   }
 
   // Filename: "Springboard – <title> – <subject> Y<year>.pptx" (illegal chars stripped).
-  function deckFileName(deck) {
-    const subject = (classInfo.subject || "").trim();
-    const yearLevel = (classInfo.yearLevel || "").trim();
+  function deckFileName(deck, savedContext = null) {
+    const info = savedContext ? (savedContext.classInfo || {}) : classInfo;
+    const subject = (info.subject || "").trim();
+    const yearLevel = (info.yearLevel || "").trim();
     const subjPart = [subject, yearLevel ? "Y" + yearLevel : ""].filter(Boolean).join(" ");
     const parts = ["Springboard", (deck.title || "").trim(), subjPart].map(s => s.trim()).filter(Boolean);
     return sanitizeFilename(parts.join(" – ")) + ".pptx";
   }
 
   // Build the active deck and download it as a .pptx.
-  async function buildAndSaveDeck(bandKey, deck) {
-    const finalBlob = await buildDeckBlob(bandKey, deck);
+  async function buildAndSaveDeck(bandKey, deck, savedContext = null) {
+    const finalBlob = await buildDeckBlob(bandKey, deck, savedContext);
     if (!finalBlob) return;
     const a = document.createElement("a");
     a.href = URL.createObjectURL(finalBlob);
-    a.download = deckFileName(deck);
+    a.download = deckFileName(deck, savedContext);
     document.body.appendChild(a); a.click(); a.remove();
     // Log the successful download event.
-    logEvent("download", { routine: deck.think.routine, topic: deck.title });
+    if (!savedContext) logEvent("download", { routine: deck.think.routine, topic: deck.title });
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   }
 
@@ -5867,6 +6094,23 @@ function App() {
       }
       fireInkBloom();
     } finally { busyRef.current.exporting = false; setExporting(false); }
+  }
+
+  async function downloadRecentLesson(entry) {
+    if (!entry || busyRef.current.exporting) return;
+    busyRef.current.exporting = true; setExporting(true);
+    try {
+      await buildAndSaveDeck(entry.band, entry.deck, entry.context);
+      fireInkBloom();
+    } finally { busyRef.current.exporting = false; setExporting(false); }
+  }
+  async function removeRecentLessonFromUi(id) {
+    try { await removeRecentLesson(id); setRecentLessons(await listRecentLessons()); }
+    catch (_) { setRecentAvailable(false); setRecentOpen(false); }
+  }
+  async function clearRecentLessonsFromUi() {
+    try { await clearRecentLessons(); setRecentLessons([]); }
+    catch (_) { setRecentAvailable(false); setRecentOpen(false); }
   }
 
   /* ---------- Brain World: watercolour scenes (paper + ink fades, no engine) ---------- */
@@ -6564,7 +6808,8 @@ function App() {
               <label className="bx-lab" htmlFor="bx-think-reveal">Hidden until you click · the surprise</label>
               <textarea id="bx-think-reveal" className="bx-ta" rows={2} value={(spot.think.reveal || {}).fact || ""}
                 placeholder="The surprising true thing students don't know yet…"
-                onChange={e => patchSlide("think", { reveal: { ...(spot.think.reveal || {}), fact: e.target.value } })} />
+                onChange={e => { setRevealWarning(""); patchSlide("think", { reveal: { ...(spot.think.reveal || {}), fact: e.target.value } }); }} />
+              {revealWarning && <div className="bx-alert info" role="status">Worth checking: the surprising fact may not match the stimulus. {revealWarning} Use <b>New options</b> above to regenerate this part.</div>}
               <label className="bx-lab" htmlFor="bx-think-reveal-q">…and the question that follows it</label>
               <textarea id="bx-think-reveal-q" className="bx-ta" rows={2} value={(spot.think.reveal || {}).question || ""}
                 placeholder="What does that change about…?"
@@ -6587,6 +6832,7 @@ function App() {
               <textarea id="bx-launch-bridge" className="bx-ta" rows={2} value={spot.launch.bridge} placeholder="From the stimulus to today's lesson…" onChange={e => patchSlide("launch", { bridge: e.target.value })} />
               <label className="bx-lab" htmlFor="bx-launch-q">Lesson launch question</label>
               <textarea id="bx-launch-q" className="bx-ta" rows={2} value={spot.launch.question} placeholder="The question that opens the lesson…" onChange={e => patchSlide("launch", { question: e.target.value })} />
+              {spot.launch.focusNote && <div className="bx-alert info" role="status">Worth checking: {spot.launch.focusNote} You can adjust the focus in your class details and regenerate.</div>}
               <span className="bx-lab">Ways to run today's task · up to 3, teacher notes only</span>
               {launchIdeas.map((idea, i) => (
                 <div className="bx-listrow" key={i}>
@@ -6732,7 +6978,11 @@ function App() {
           </div>
           <footer className="ww-foot">
             <span>Built on <a href="https://pz.harvard.edu/thinking-routines" target="_blank" rel="noopener">Harvard Project Zero</a> Thinking Routines &amp; Cultures of Thinking</span>
-            <span>Brought to you by the DLP team</span>
+            <span className="ww-foot-actions">
+              <span className="ww-foot-team">Brought to you by the DLP team</span>
+              {recentAvailable && <button type="button" className="ww-foot-link" onClick={() => setRecentOpen(true)}>Recent lessons</button>}
+              <button type="button" className="ww-foot-link" onClick={() => setAdminOpen(true)}>Usage stats</button>
+            </span>
           </footer>
         </section>
       )}
@@ -6827,6 +7077,10 @@ function App() {
 
   return (
     <React.Fragment>
+      {adminOpen && <AdminGate onClose={() => setAdminOpen(false)} />}
+      {recentOpen && recentAvailable && <RecentLessons entries={recentLessons} busy={exporting}
+        onClose={() => setRecentOpen(false)} onDownload={downloadRecentLesson}
+        onRemove={removeRecentLessonFromUi} onClear={clearRecentLessonsFromUi} />}
       {brainView && renderBrain()}
       {!brainView && (<React.Fragment>
       <header className="app">
@@ -6840,8 +7094,6 @@ function App() {
         <button type="button" className="admin-icon" onClick={() => setAdminOpen(true)} aria-label="Admin analytics" title="Admin analytics — password protected"><Icon d={I.chart} size={16} stroke /></button>
         <span className="appver" title="App version — check this matches after a refresh">{APP_VERSION}</span>
       </header>
-
-      {adminOpen && <AdminGate onClose={() => setAdminOpen(false)} />}
 
       <main className={"layout" + (previewOpen ? "" : " pre")}>
         {/* Welcome hero — first-visit warmth; disappears once the preview opens so the
@@ -7279,6 +7531,7 @@ function App() {
                     </div>
                   ))}
                   {spot.think.steps.length < 4 && <button type="button" className="addbtn" onClick={() => addArr("think", "steps")}>+ Add prompt</button>}
+                  {revealWarning && <div className="alert info" role="status">Worth checking: the surprising fact may not match the stimulus. {revealWarning} Use <b>New options</b> above to regenerate this part.</div>}
                   <details className="notes-details">
                     <summary>Teacher notes</summary>
                     <textarea className="editable" rows={5} aria-label="Think teacher notes" value={spot.notes.think} placeholder="FACILITATION: … ENABLING PROMPT: … EXTENDING PROMPT: … CURRICULUM LINKS: …" onChange={e => patchNote("think", e.target.value)} />
@@ -7292,6 +7545,7 @@ function App() {
                   <textarea className="editable" rows={2} aria-label="Bridge from the stimulus" value={spot.launch.bridge} placeholder="From the stimulus to today's lesson…" onChange={e => patchSlide("launch", { bridge: e.target.value })} />
                   <div className="cap" style={{ marginTop: 10 }}>Lesson launch question</div>
                   <textarea className="editable" rows={2} aria-label="Lesson launch question" value={spot.launch.question} placeholder="The question that opens the lesson…" onChange={e => patchSlide("launch", { question: e.target.value })} />
+                  {spot.launch.focusNote && <div className="alert info" role="status">Worth checking: {spot.launch.focusNote} You can adjust the focus in your class details and regenerate.</div>}
                   <details className="notes-details">
                     <summary>Teacher notes · not shown to students</summary>
                     <div className="cap">Curriculum connection</div>
@@ -7386,6 +7640,70 @@ class ErrorBoundary extends React.Component {
 ReactDOM.createRoot(document.getElementById("root")).render(
   <ErrorBoundary><App /></ErrorBoundary>
 );
+</script>
+<script>
+(function () {
+  "use strict";
+  var BABEL_URL = "https://unpkg.com/@babel/standalone@8.0.3/babel.min.js";
+  var BABEL_SRI = "sha384-fsMuX1qrlL2OwY1g8apML4JcSv2aYFaMXKQIjzX+OOveqSCCdmIMjwNQRoralXGe";
+
+  function inject(code) {
+    var script = document.createElement("script");
+    script.text = code;
+    document.body.appendChild(script);
+  }
+
+  function fallback(source, reason) {
+    console.warn("Springboard app precompile fallback: " + reason);
+    var babel = document.createElement("script");
+    babel.src = BABEL_URL;
+    babel.integrity = BABEL_SRI;
+    babel.crossOrigin = "anonymous";
+    babel.onload = function () {
+      try {
+        inject(Babel.transform(source, { presets: [["react", { runtime: "classic" }]], sourceType: "script" }).code);
+      } catch (error) {
+        console.error("Springboard fallback compile failed:", error);
+      }
+    };
+    babel.onerror = function () { console.error("Springboard fallback compiler could not be loaded."); };
+    document.head.appendChild(babel);
+  }
+
+  function hex(buffer) {
+    return Array.prototype.map.call(new Uint8Array(buffer), function (byte) {
+      var part = byte.toString(16);
+      return part.length === 1 ? "0" + part : part;
+    }).join("");
+  }
+
+  function start() {
+    var sourceNode = document.getElementById("sb-app-source");
+    var source = sourceNode ? sourceNode.textContent : "";
+    if (!source) { fallback(source, "inline source was missing"); return; }
+    if (location.protocol === "file:") { fallback(source, "file pages cannot fetch the compiled app"); return; }
+    if (!window.crypto || !window.crypto.subtle || !window.TextEncoder) { fallback(source, "SHA-256 is unavailable"); return; }
+    if (!window.fetch) { fallback(source, "fetch is unavailable"); return; }
+
+    window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(source)).then(function (digest) {
+      var sourceHash = hex(digest);
+      return fetch("assets/app.js", { cache: "no-cache" }).then(function (response) {
+        if (!response.ok) throw new Error("compiled app returned HTTP " + response.status);
+        return response.text();
+      }).then(function (compiled) {
+        var match = compiled.match(/^\/\/ sb-source-sha256: ([a-f0-9]{64})/);
+        if (!match) { fallback(source, "compiled app hash header was missing"); return; }
+        if (match[1] !== sourceHash) { fallback(source, "compiled app hash did not match the inline source"); return; }
+        inject(compiled);
+      });
+    }).catch(function (error) {
+      fallback(source, (error && error.message) || "compiled app could not be loaded");
+    });
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+  else setTimeout(start, 0);
+}());
 </script>
 </body>
 </html>

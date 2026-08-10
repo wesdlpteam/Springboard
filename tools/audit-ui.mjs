@@ -2,6 +2,7 @@
    for accessibility, contrast, overflow and console errors. Usage: node audit-ui.mjs <index.html> */
 import { spawn } from "node:child_process";
 import fs from "node:fs";
+import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -13,6 +14,34 @@ const SCRATCH = path.join(process.env.TEMP || HERE, "sb-audit");
 fs.mkdirSync(SCRATCH, { recursive: true });
 const results = [];
 const check = (ctx, name, ok, detail) => results.push({ ctx, name, ok: !!ok, detail: ok ? "" : String(detail || "") });
+
+// The production loader's fast path requires same-origin fetch, so serve the real files over
+// loopback. file:// is retained nowhere here because it deliberately exercises Babel fallback.
+const MIME = {
+  ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8",
+  ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".svg": "image/svg+xml",
+  ".ttf": "font/ttf", ".m4a": "audio/mp4", ".mp4": "video/mp4",
+};
+const server = http.createServer((req, res) => {
+  let pathname;
+  try { pathname = decodeURIComponent(new URL(req.url || "/", "http://127.0.0.1").pathname); }
+  catch { res.writeHead(400).end("Bad request"); return; }
+  const target = pathname === "/" || pathname === "/index.html"
+    ? APP : path.resolve(DIR, pathname.replace(/^\/+/, ""));
+  const relative = path.relative(DIR, target);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) { res.writeHead(403).end("Forbidden"); return; }
+  fs.readFile(target, (err, body) => {
+    if (err) { res.writeHead(err.code === "ENOENT" ? 404 : 500).end("Not found"); return; }
+    res.writeHead(200, { "Content-Type": MIME[path.extname(target).toLowerCase()] || "application/octet-stream", "Cache-Control": "no-store" });
+    res.end(body);
+  });
+});
+await new Promise((resolve, reject) => {
+  server.once("error", reject);
+  server.listen(0, "127.0.0.1", resolve);
+});
+const ORIGIN = `http://127.0.0.1:${server.address().port}`;
 
 // Nathan's own screen is wide-short (~1163x560 CSS, 1080p at 165% DPI) — it must be in the set.
 const VIEWPORTS = [
@@ -116,7 +145,11 @@ async function withBrowser(vp, fn) {
     let t = null;
     for (let i = 0; i < 40; i++) { try { t = (await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()).find(x => x.type === "page"); if (t) break; } catch {} await sleep(250); }
     ws = new WebSocket(t.webSocketDebuggerUrl);
-    const consoleErrs = [];
+    const consoleErrs = [], consoleWarns = [], eventHandlers = new Map();
+    const onEvent = (method, handler) => {
+      const list = eventHandlers.get(method) || [];
+      list.push(handler); eventHandlers.set(method, list);
+    };
     ws.onmessage = ev => {
       const m = JSON.parse(ev.data);
       if (m.method === "Runtime.exceptionThrown") consoleErrs.push(String(m.params?.exceptionDetails?.exception?.description || "").slice(0, 120));
@@ -128,12 +161,16 @@ async function withBrowser(vp, fn) {
         const text = String(m.params.args?.[0]?.value || "").slice(0, 120);
         if (!/^\[BABEL\] Note:/.test(text)) consoleErrs.push(text);
       }
+      if (m.method === "Runtime.consoleAPICalled" && m.params.type === "warning") {
+        consoleWarns.push(m.params.args?.map(a => a.value ?? a.description ?? "").join(" ").slice(0, 240) || "warning");
+      }
+      for (const handler of eventHandlers.get(m.method) || []) { try { handler(m.params); } catch {} }
       if (m.id && pending.has(m.id)) { const p = pending.get(m.id); pending.delete(m.id); m.error ? p.rej(new Error(m.error.message)) : p.res(m.result); }
     };
     await new Promise(r => { ws.onopen = r; });
     await send("Page.enable"); await send("Runtime.enable");
     await send("Emulation.setDeviceMetricsOverride", { width: vp.w, height: vp.h, deviceScaleFactor: 1, mobile: vp.w < 500 });
-    return await fn({ evaluate, send, consoleErrs });
+    return await fn({ evaluate, send, consoleErrs, consoleWarns, onEvent });
   } finally { try { ws && ws.close(); } catch {} chrome.kill(); }
 }
 
@@ -156,15 +193,17 @@ function assertSweep(ctx, s) {
 for (const vp of VIEWPORTS) {
   process.stdout.write(`sweeping ${vp.id}… `);
   try {
-    await withBrowser(vp, async ({ evaluate, send, consoleErrs }) => {
+    await withBrowser(vp, async ({ evaluate, send, consoleErrs, consoleWarns }) => {
       const waitFor = async (js, label, tries = 40) => {
         for (let i = 0; i < tries; i++) { if (await evaluate(js)) return true; await sleep(500); }
         throw new Error("timed out waiting for " + label);
       };
       // --- scene 1: cover
-      await send("Page.navigate", { url: "file:///" + APP.replace(/\\/g, "/") });
+      await send("Page.navigate", { url: ORIGIN + "/index.html" });
       await waitFor(`!!document.querySelector(".ww-enter")`, "cover");
       assertSweep(`${vp.id}/cover`, JSON.parse(await evaluate(SWEEP)));
+      const fallbackWarns = consoleWarns.filter(w => /Springboard app precompile fallback/.test(w));
+      check(`${vp.id}/cover`, "precompiled app uses the fast path", fallbackWarns.length === 0, fallbackWarns.join(" | "));
       check(`${vp.id}/cover`, "no console errors", consoleErrs.length === 0, consoleErrs.slice(0, 2).join(" | "));
       // --- scene 2: understanding map
       await evaluate(`document.querySelector(".ww-enter").click()`);
@@ -184,7 +223,7 @@ for (const vp of VIEWPORTS) {
           return br.top >= mr.bottom - 2;})()`), "overlapped");
       check(`${vp.id}/chamber`, "no console errors", consoleErrs.length === 0, consoleErrs.slice(0, 2).join(" | "));
       // --- scene 4: about page
-      await send("Page.navigate", { url: "file:///" + path.join(DIR, "about.html").replace(/\\/g, "/") });
+      await send("Page.navigate", { url: ORIGIN + "/about.html" });
       await waitFor(`!!document.querySelector("h1")`, "about page");
       await sleep(1200);
       assertSweep(`${vp.id}/about`, JSON.parse(await evaluate(SWEEP)));
@@ -195,6 +234,35 @@ for (const vp of VIEWPORTS) {
     check(vp.id, "sweep ran to completion", false, e.message);
     console.log("FAILED: " + e.message);
   }
+}
+
+// One blocked compiled-script request proves the pinned-SRI Babel path is a live escape hatch.
+process.stdout.write("checking loader fallback… ");
+try {
+  await withBrowser({ id: "loader-fallback", w: 1024, h: 768 }, async ({ evaluate, send, consoleWarns, onEvent }) => {
+    onEvent("Fetch.requestPaused", params => {
+      if (/\/assets\/app\.js(?:\?|$)/.test(params.request?.url || "")) {
+        send("Fetch.failRequest", { requestId: params.requestId, errorReason: "BlockedByClient" }).catch(() => {});
+      } else {
+        send("Fetch.continueRequest", { requestId: params.requestId }).catch(() => {});
+      }
+    });
+    await send("Fetch.enable", { patterns: [{ urlPattern: "*assets/app.js*", requestStage: "Request" }] });
+    await send("Page.navigate", { url: ORIGIN + "/index.html" });
+    let booted = false;
+    for (let i = 0; i < 40; i++) {
+      if (await evaluate(`!!document.querySelector(".ww-enter")`)) { booted = true; break; }
+      await sleep(500);
+    }
+    check("loader-fallback", "app boots when the compiled script is unavailable", booted, "interactive cover did not appear");
+    const fallbackWarns = consoleWarns.filter(w => /Springboard app precompile fallback/.test(w));
+    check("loader-fallback", "blocked compiled script reports the Babel fallback", fallbackWarns.length > 0, consoleWarns.join(" | "));
+    await send("Fetch.disable");
+  });
+  console.log("done");
+} catch (e) {
+  check("loader-fallback", "fallback check ran to completion", false, e.message);
+  console.log("FAILED: " + e.message);
 }
 
 const byCtx = {};
@@ -211,3 +279,4 @@ for (const [ctx, v] of Object.entries(byCtx)) {
 }
 console.log(`TOTAL ${passed}/${total} (${(passed / total * 100).toFixed(1)}%)`);
 fs.writeFileSync(path.join(SCRATCH, "audit-ui.json"), JSON.stringify({ total, passed, byCtx }, null, 1));
+await new Promise(resolve => server.close(resolve));
