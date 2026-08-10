@@ -1,0 +1,168 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { evaluate } from "../tools/require-codex-worker.mjs";
+
+const TEST_DIR = path.dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = path.resolve(TEST_DIR, "fixtures", "springboard-project");
+const HOOK_PATH = path.resolve(TEST_DIR, "..", "tools", "require-codex-worker.mjs");
+const CONTEXT = { projectRoot: PROJECT_ROOT, cwd: PROJECT_ROOT };
+
+test("blocks Claude structured edits inside the project", () => {
+  for (const [toolName, toolInput] of [
+    ["Edit", { file_path: path.join(PROJECT_ROOT, "index.html") }],
+    ["Write", { file_path: path.join(PROJECT_ROOT, "api", "generate.js") }],
+    ["MultiEdit", { file_path: path.join(PROJECT_ROOT, "test", "generate.test.js") }],
+    ["NotebookEdit", { notebook_path: path.join(PROJECT_ROOT, "analysis.ipynb") }],
+  ]) {
+    const result = evaluate(toolName, toolInput, CONTEXT);
+    assert.equal(result?.decision, "deny", `${toolName} should be denied`);
+    assert.match(result.reason, /codex-worker/);
+  }
+});
+
+test("allows Fable planning files and the external Codex prompt", () => {
+  const plan = evaluate(
+    "Write",
+    { file_path: path.join(PROJECT_ROOT, "docs", "superpowers", "plans", "feature.md") },
+    CONTEXT,
+  );
+  const tempPrompt = evaluate(
+    "Write",
+    { file_path: path.resolve(PROJECT_ROOT, "..", "codex-prompt.md") },
+    CONTEXT,
+  );
+
+  assert.equal(plan, null);
+  assert.equal(tempPrompt, null);
+});
+
+test("blocks obvious shell-writing workarounds", () => {
+  for (const [toolName, command] of [
+    ["PowerShell", "Set-Content -Path index.html -Value $html"],
+    ["Bash", "cat build.txt > index.html"],
+    ["Bash", "apply_patch < change.patch"],
+    ["PowerShell", "npm install new-production-package"],
+    ["PowerShell", "node -e \"require('fs').writeFileSync('index.html', 'x')\""],
+    ["PowerShell", "codex exec --sandbox workspace-write 'change index.html'"],
+  ]) {
+    const result = evaluate(toolName, { command }, CONTEXT);
+    assert.equal(result?.decision, "deny", command);
+  }
+});
+
+test("allows exact worker control and Fable verification commands", () => {
+  const worker = path.join(
+    path.parse(PROJECT_ROOT).root,
+    "Users",
+    "BennN",
+    ".claude",
+    "skills",
+    "codex-worker",
+    "scripts",
+    "codex-worker.mjs",
+  );
+  const prompt = path.join(os.tmpdir(), "springboard-codex-prompt.md");
+  const commands = [
+    `node "${worker}" status --cwd "${PROJECT_ROOT}"`,
+    `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort high --sandbox workspace-write`,
+    `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --resume thread_123 --effort high --sandbox workspace-write`,
+    "rg --files .",
+    "Get-Content -Raw CLAUDE.md",
+    "git status --short",
+    "git diff --check",
+    "npm test",
+    "npm run check:ui",
+    "vercel --prod --yes",
+    "git commit -m 'test'",
+    "git push",
+  ];
+
+  for (const command of commands) {
+    assert.equal(evaluate("PowerShell", { command }, CONTEXT), null, command);
+  }
+});
+
+test("rejects worker bypasses and incorrectly scoped worker commands", () => {
+  const worker = path.join(
+    path.parse(PROJECT_ROOT).root,
+    "Users",
+    "BennN",
+    ".claude",
+    "skills",
+    "codex-worker",
+    "scripts",
+    "codex-worker.mjs",
+  );
+  const prompt = path.join(os.tmpdir(), "springboard-codex-prompt.md");
+  const wrongRoot = path.resolve(PROJECT_ROOT, "..", "another-project");
+  const localPrompt = path.join(PROJECT_ROOT, "prompt.md");
+  const commands = [
+    `node "${worker}" run --cwd "${wrongRoot}" --prompt-file "${prompt}" --effort high --sandbox workspace-write`,
+    `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${localPrompt}" --effort high --sandbox workspace-write`,
+    `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort high --sandbox workspace-write ; Set-Content index.html x`,
+    `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort high --sandbox unrestricted`,
+  ];
+
+  for (const command of commands) {
+    assert.equal(evaluate("PowerShell", { command }, CONTEXT)?.decision, "deny", command);
+  }
+});
+
+test("hook entrypoint emits a Claude PreToolUse deny response", () => {
+  const result = spawnSync(process.execPath, [HOOK_PATH], {
+    encoding: "utf8",
+    env: { ...process.env, CLAUDE_PROJECT_DIR: PROJECT_ROOT },
+    input: JSON.stringify({
+      hook_event_name: "PreToolUse",
+      tool_name: "Edit",
+      tool_input: { file_path: path.join(PROJECT_ROOT, "index.html") },
+      cwd: PROJECT_ROOT,
+    }),
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.hookSpecificOutput.hookEventName, "PreToolUse");
+  assert.equal(output.hookSpecificOutput.permissionDecision, "deny");
+  assert.match(output.hookSpecificOutput.permissionDecisionReason, /codex-worker/);
+});
+
+test("hook entrypoint fails closed on malformed input", () => {
+  const result = spawnSync(process.execPath, [HOOK_PATH], {
+    encoding: "utf8",
+    env: { ...process.env, CLAUDE_PROJECT_DIR: PROJECT_ROOT },
+    input: "not-json",
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.hookSpecificOutput.permissionDecision, "deny");
+  assert.match(output.hookSpecificOutput.permissionDecisionReason, /failed closed/i);
+});
+
+test("project hook configuration is valid and uses the project-relative script", () => {
+  const settingsPath = path.resolve(TEST_DIR, "..", ".claude", "settings.json");
+  const settings = JSON.parse(readFileSync(settingsPath, "utf8"));
+  const entry = settings.hooks.PreToolUse.find((item) => item.matcher.includes("Edit"));
+
+  assert.ok(entry);
+  assert.match(entry.matcher, /PowerShell/);
+  assert.match(entry.hooks[0].command, /\$\{CLAUDE_PROJECT_DIR\}/);
+  assert.match(entry.hooks[0].command, /require-codex-worker\.mjs/);
+});
+
+test("project instructions require visible background Codex progress", () => {
+  const claudePath = path.resolve(TEST_DIR, "..", "CLAUDE.md");
+  const instructions = readFileSync(claudePath, "utf8");
+
+  assert.match(instructions, /visible background runner/i);
+  assert.match(instructions, /run_in_background: true/);
+  assert.match(instructions, /30–60 seconds/);
+  assert.match(instructions, /Never expose or claim hidden chain-of-thought/i);
+  assert.match(instructions, /If `codex-worker` is unavailable or fails, stop/i);
+});

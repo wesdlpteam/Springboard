@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/tools/require-codex-worker.mjs\"",
+            "timeout": 10,
+            "statusMessage": "Enforcing the Springboard Codex writer boundary"
+          }
+        ]
+      }
+    ]
+  }
+}
