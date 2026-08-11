@@ -940,21 +940,18 @@
   .bx-working .sp { width: 30px; height: 2px; background: var(--line-strong); overflow: hidden; position: relative; }
   .bx-working .sp::after { content:""; position:absolute; inset:0 60% 0 0; background: var(--ink); animation: bxsp 1.1s ease-in-out infinite; }
   @keyframes bxsp { 0%{inset:0 100% 0 0} 50%{inset:0 0 0 0} 100%{inset:0 0 0 100%} }
-  /* determinate build progress: eased estimate (the generate call isn't streamed), so the
-     teacher sees movement instead of a silent spinner. */
+  /* One determinate build progress: an elapsed estimate while the model plans, then real
+     field-weighted progress while the lesson streams. */
   .bx-prog { max-width: 320px; }
   .bx-prog-bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
   .bx-prog-bar i { display: block; height: 100%; width: 0; background: var(--mv, var(--ink)); border-radius: 2px; transition: width .3s linear; }
-  /* Planning phase: the model has not written a word yet, so there is no honest percentage to
-     show. A travelling bar says "working, nothing measurable yet" without inventing a number. */
-  .bx-prog-bar.indet i { width: 34%; transition: none; animation: bxindet 1.4s ease-in-out infinite; }
-  @keyframes bxindet { 0% { margin-left: -34%; } 100% { margin-left: 100%; } }
-  @media (prefers-reduced-motion: reduce) {
-    /* Same message without the travel: a steady partial fill, still clearly not a percentage. */
-    .bx-prog-bar.indet i { animation: none; width: 34%; margin-left: 0; opacity: .55; }
-  }
   .bx-prog-txt { margin-top: 9px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .bx-prog-txt b { font-weight: 600; color: var(--ink); }
+  @media (max-width: 520px) {
+    /* The fixed mute control occupies the phone's bottom-right corner; keep live progress copy
+       in a clear lane when the build status is the last content in the chamber. */
+    .bx-prog { box-sizing: border-box; padding-right: 56px; }
+  }
   /* The lesson arriving, live. Sits outside .bx-prog because that is capped at 320px and this
      needs room for real sentences. */
   .bx-live { max-width: 620px; margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
@@ -1430,7 +1427,7 @@ const BAND_ORDER = ["Early","Junior","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.14.5 · 2026-08-11";
+const APP_VERSION = "v0.14.6 · 2026-08-11";
 
 // Maps a class's year level to a teaching band (Prep-Y2 / Y3-6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -1656,7 +1653,6 @@ const ROUTINE_PLAY = {
   "Color, Symbol, Image": { family: "distil", note: "A colour, a symbol and an image for the core idea, each with a one-line reason. The step must ask for the reason, or it becomes decoration." },
   "Chalk Talk": { family: "protocol", note: "Silent writing is the rule and must be stated on the slide: write, move, read, add to someone else's, return. Include the moving and the silence in the steps." },
   "Think, Pair, Share": { family: "protocol", note: "Give each phase its own step and its own time: think alone (written), pair (compare and find one difference), share (report the difference, not just the agreement)." },
-  "MicroLab": { family: "protocol", note: "Equal timed turns with no interruption, then a shared response round. The steps must say how long each person speaks and that nobody responds until every turn is done." },
   "Parts, Purposes, Complexities": { family: "systems", note: "Steps name the actual parts of THIS object, then ask what each part is for, then what gets complicated (a part with two jobs, or one that fails badly)." },
   "Peel the Fruit": { family: "systems", note: "Work from the skin inwards: what is on the surface, what is under it, what is at the core, and a final step on what the core explains that the surface did not." },
   "Think, Puzzle, Explore": { family: "generate", note: "Step 2 must ask for a stated number of puzzles (three or more) before any is chosen, and step 3 must ask HOW they would explore one, naming a method they could actually use here." },
@@ -1971,9 +1967,6 @@ const ROUTINES = [
   { steps: ["Think about the question on your own.","Pair up and share your thinking.","Listen and ask your partner a clarifying question.","Share your thinking with the whole group."], structure: "Individual, then pairs, then whole class", name: "Think, Pair, Share", url: "https://pz.harvard.edu/resources/think-pair-share",
     gist: "Think individually, discuss with a partner, then share with the group.",
     bands: ["early", "junior", "middle"], group: "Activating, connecting, and reflecting on learning" },
-  { steps: ["In small groups, each person speaks uninterrupted for a set time while the others listen silently.","Go around so everyone has spoken once.","Open the floor to discuss and connect what was shared."], structure: "Small groups of 3-4, timed silent-listening rounds", name: "MicroLab", url: "https://pz.harvard.edu/resources/micro-lab-protocol",
-    gist: "A structured talk protocol: each person speaks in turn without interruption, then the group discusses.",
-    bands: ["middle", "senior"], group: "Activating, connecting, and reflecting on learning" },
   { steps: ["Silently write your ideas and questions on the paper.","Move around and read what others wrote.","Add your own comments or questions to their writing.","Return to your paper and discuss what emerged."], structure: "Silent writing on chart paper, then rotate", name: "Chalk Talk", url: "https://pz.harvard.edu/resources/chalk-talk",
     gist: "A silent written conversation: respond to a prompt and to each other's comments on paper.",
     bands: ["junior", "middle", "senior"], group: "Activating, connecting, and reflecting on learning" },
@@ -2097,7 +2090,7 @@ const ROUTINES = [
   { steps: ["Add tugs: evidence pulling toward Yes or No.","Add questions about the tug of war itself.","Can we decide now? Is the answer in a gray area?"], structure: "Whole class, post-its on a rope diagram", name: "Tug for Truth", url: "https://pz.harvard.edu/resources/tug-truth",
     gist: "Tug-of-war for evidence: the reasons a claim might be true, and might not be.",
     bands: ["middle"], group: "Truth, evidence, and fairness" },
-  { steps: ["Identify what pulls at each side of the dilemma.","Generate tugs (reasons) for both sides.","Ask 'what if' questions to explore further.","Has your thinking changed?"], structure: "Whole class, post-its on a rope", name: "Tug of War", url: "https://pz.harvard.edu/resources/tug-war",
+  { steps: ["Identify what pulls at each side of the dilemma.","Generate tugs (reasons) for both sides.","Ask 'what if' questions to explore further."], structure: "Whole class, post-its on a rope", name: "Tug of War", url: "https://pz.harvard.edu/resources/tug-war",
     gist: "Explore the competing pulls on both sides of a dilemma before taking a position.",
     bands: ["senior"], group: "Truth, evidence, and fairness" },
   { steps: ["Brainstorm different viewpoints on the claim.","My viewpoint is... I think this claim is true/false because...","What would convince me to change my mind?","Step back: what is your conclusion now?"], structure: "Circle, speak in role, then debrief", name: "True for Who?", url: "https://pz.harvard.edu/resources/true-who",
@@ -2219,7 +2212,7 @@ const ROUTINE_SOURCE = "Harvard Project Zero Thinking Routines · pz.harvard.edu
 // dropped by movesRoutineList() below, never crash. Order follows the Understanding
 // Map circle.
 //
-// Every one of the 93 routines was read (name, gist and steps) and allocated by the
+// Every one of the 92 routines was read (name, gist and steps) and allocated by the
 // THINKING it demands, not by its catalogue group — a routine can sit under several moves
 // where it genuinely does that thinking (Nathan's call, 2026-07-30). Two earlier faults are
 // fixed here: the lists used to be the superset of two source maps, so the famous routines
@@ -2233,9 +2226,9 @@ const ROUTINE_SOURCE = "Harvard Project Zero Thinking Routines · pz.harvard.edu
 //     reflections; they belong to the REFLECT slide's own picker, which already has them.
 //   Creating Space for Learning — a settling/attention routine, not a thinking move.
 //   Digital Habits Checkup — a personal-habits audit, no stimulus thinking to rank.
-//   Think, Pair, Share / MicroLab — ways of organising talk, not thinking moves
+//   Think, Pair, Share — a way of organising talk, not a thinking move
 //     (Nathan, 2026-07-30, same grounds as What Makes You Say That?).
-// tools/audit-static.cjs enforces these five catalogue-only exclusions.
+// tools/audit-static.cjs enforces these four catalogue-only exclusions.
 // Routines whose catalogue group misleads: Stop, Look, Listen is filed under observation
 // but its steps are source-and-bias checking, so it sits under Reason with Evidence.
 const MOVES = [
@@ -3595,6 +3588,22 @@ const LiveBuild = ({ live }) => {
   );
 };
 
+// A typical one-image build spends about a minute planning before the first streamed field.
+// Scale that expectation for the parts of a request that add measurable model work. Primary
+// lessons also generate the extra PYP learning slide (driven by year level, not curriculum).
+const THINKING_PROGRESS_CEILING = 40;
+function estimateThinkingDurationMs({ mode, media, sourceText, yearLevel }) {
+  const items = Array.isArray(media) ? media : [];
+  const additionalMediaSeconds = Math.max(0, items.length - 1) * 7;
+  const videoFrameSetSeconds = items.filter(item =>
+    item && item.kind === "video" && Array.isArray(item.frames) && item.frames.length
+  ).length * 12;
+  const articleChars = mode === "article" ? String(sourceText || "").length : 0;
+  const articleSeconds = Math.min(30, (articleChars / 1000) * 2);
+  const pypLearningSlideSeconds = ["early", "junior"].includes(bandOf(yearLevel)) ? 8 : 0;
+  return (60 + additionalMediaSeconds + videoFrameSetSeconds + articleSeconds + pypLearningSlideSeconds) * 1000;
+}
+
 // Determinate circular progress ring (white, for use on the primary button).
 const ProgressRing = ({ value, size = 18 }) => {
   const r = (size - 3) / 2, c = 2 * Math.PI * r;
@@ -4442,14 +4451,11 @@ function App() {
 
   // generation
   const [loading, setLoading] = useState(false);
-  const [genProgress, setGenProgress] = useState(0); // 0-100, driven by what has actually arrived
+  const [genProgress, setGenProgress] = useState(0); // one monotonic 0-100 value across planning + streaming
   const [genLive, setGenLive] = useState(null);      // the lesson so far, while it streams in
   const [genPhase, setGenPhase] = useState("");      // "thinking" (no words yet) | "writing"
-  /* Seconds since Build was pressed. The planning phase is honest about having no percentage, but
-     honest and frozen look identical: nothing on the screen moved for the ~40-60s the model spends
-     thinking, and it read as stuck (Nathan, 2026-08-07). A ticking count and a stated expectation
-     cost nothing and turn "is this broken?" into "this is normal". */
-  const [genSecs, setGenSecs] = useState(0);
+  const genStartedAt = useRef(0);
+  const genExpectedThinkingMs = useRef(60000);
   const [regenSlide, setRegenSlide] = useState(null);   // which slide is regenerating: "ignite" | "think" | "launch" | "reflect"
   const [includeReflect, setIncludeReflect] = useState(true);  // teacher toggle: keep the REFLECT slide in the deck
   const [revealWarning, setRevealWarning] = useState(""); // stimulus-misdescription reason; infrastructure failures stay silent
@@ -4522,28 +4528,29 @@ function App() {
   const genBtnRef = useRef(null);
   const genStimKey = useRef(""); // stimulus fingerprint at last successful generate (stale-deck hint)
 
-  // Plain-English stage label beside the build percentage (the call isn't streamed, so
-  // these track the estimate, not literal server steps).
-  // Two phases, because they genuinely differ. The model writes NOTHING for the first several
-  // seconds while it plans (measured: 3,024 reasoning tokens before the first character), so a
-  // percentage there would either freeze at 2% — which reads as a hang, and did (Nathan,
-  // 2026-08-03) — or have to lie. So the planning phase gets a moving indeterminate bar and no
-  // number, and the number only appears once real words are actually landing.
-  // Restarts on every build, stops the moment the build does.
+  // While the model plans, ease elapsed time toward the planning ceiling using the calibrated
+  // request estimate. Once the first field arrives, real field weights take over from that ceiling.
+  // The updater form is the monotonic guard at the handoff (and against late timer ticks).
   React.useEffect(() => {
-    if (!loading) { setGenSecs(0); return; }
-    setGenSecs(0);
-    const t = setInterval(() => setGenSecs(s => s + 1), 1000);
-    return () => clearInterval(t);
-  }, [loading]);
+    if (!loading || genPhase !== "thinking") return;
+    const advance = () => {
+      const elapsed = Math.max(0, Date.now() - genStartedAt.current);
+      const expected = Math.max(1000, genExpectedThinkingMs.current);
+      const estimated = THINKING_PROGRESS_CEILING * (1 - Math.exp(-2 * elapsed / expected));
+      setGenProgress(previous => Math.max(previous, Math.min(THINKING_PROGRESS_CEILING, estimated)));
+    };
+    advance();
+    const timer = setInterval(advance, 250);
+    return () => clearInterval(timer);
+  }, [loading, genPhase]);
 
   const genStage = genPhase === "thinking"
-    ? (genSecs > 100
+    ? (genStartedAt.current && Date.now() - genStartedAt.current > 100000
         ? "Still planning. A rich stimulus takes longer, and nothing is stuck — it runs for up to three minutes before it gives up."
         : "Reading your stimulus and planning the lesson… the first words usually appear about a minute in.")
-    : genProgress < 40 ? "Writing the opening…"
-    : genProgress < 62 ? "Writing the thinking routine…"
-    : genProgress < 86 ? "Writing the task and the reflection…"
+    : genProgress < 65 ? "Writing the opening…"
+    : genProgress < 78 ? "Writing the thinking routine…"
+    : genProgress < 93 ? "Writing the task and the reflection…"
     : genProgress < 100 ? "Finishing your teacher notes…"
     : "Done — scrolling to your lesson…";
 
@@ -5188,16 +5195,14 @@ function App() {
     if (mode === "media" && !media.length) { setError("Add at least one image or video first."); return; }
     if (!inputReady()) { setError("Please add a stimulus first (images/video, or article text/PDF), and fill in the subject and year level."); return; }
 
+    const sourceText = mode === "article" ? articleText : "";
+    genStartedAt.current = Date.now();
+    genExpectedThinkingMs.current = estimateThinkingDurationMs({ mode, media, sourceText, yearLevel: classInfo.yearLevel });
     setLoading(true);
-    // The lesson streams, so the bar reports what has actually ARRIVED (which of the four parts
-    // the model has finished writing) rather than an elapsed-time guess. The old estimate eased
-    // against a supposed ~28s build; the real measured build is ~69s, which is exactly how you
-    // end up with a bar that parks at 90% and reads as a hang.
-    setGenProgress(2);
+    setGenProgress(0);
     setGenLive(null);
     setGenPhase("thinking");
     try {
-      const sourceText = mode === "article" ? articleText : "";
       // Single-class-per-run: one generate() call produces one deck, pitched to the
       // band derived from classInfo.yearLevel (bandOf + BAND_KEY_OF above).
       const genBand = BAND_KEY_OF[bandOf(classInfo.yearLevel)];
@@ -5206,7 +5211,7 @@ function App() {
         classInfo, routineName: selectedRoutine, reflectRoutine, intention, scope: "all",
         onPartial: (p) => {
           setGenLive(p);
-          setGenPhase("writing");   // words are landing now, so a number becomes meaningful
+          setGenPhase("writing");
           // Weight the parts by how much writing each one actually is, or the bar lurches: the
           // notes{} block alone is roughly a third of the reply.
           const done = (p.ignite && p.ignite.question ? 18 : 0)
@@ -5216,7 +5221,9 @@ function App() {
             + (p.reflect && Array.isArray(p.reflect.prompts) && p.reflect.prompts.length ? 14 : 0)
             + (Array.isArray(p.next) && p.next.length ? 10 : 0)
             + (p.notes && p.notes.reflect ? 12 : 0);
-          setGenProgress(Math.max(4, Math.min(97, done)));
+          const streamedProgress = Math.min(100, (done / 98) * 100);
+          const displayedProgress = THINKING_PROGRESS_CEILING + streamedProgress * 0.6;
+          setGenProgress(previous => Math.max(previous, Math.min(99, displayedProgress)));
         },
       });
       const deck = shapeDeck(parsed, { routineName: selectedRoutine });
@@ -5235,6 +5242,9 @@ function App() {
       const hasImage = media.some(m => m.kind === "image");
       let stimulusType = mode === "article" ? (pdfName ? "pdf" : "article") : (hasVideo && hasImage ? "mixed" : hasVideo ? "video" : hasImage ? "image" : "unknown");
       logEvent("generate", { stimulusType, routine: selectedRoutine, topic: deck.title });
+      // Yield long enough for both progress UIs to paint their shared 100% / Done state before
+      // loading clears them. Without the yield React can batch 100% and the hidden state together.
+      await new Promise(resolve => setTimeout(resolve, 450));
     } catch (err) {
       setError(err.message || String(err));
       if (err._raw) setRawDump(err._raw);
@@ -6675,15 +6685,14 @@ function App() {
                 {loading ? (
                   <React.Fragment>
                     <div className="bx-prog" role="status" aria-live="polite">
-                      <div className={"bx-prog-bar" + (genPhase === "thinking" ? " indet" : "")}>
-                        <i style={genPhase === "thinking" ? undefined : { width: Math.round(genProgress) + "%" }} />
+                      <div className="bx-prog-bar">
+                        <i style={{ width: Math.round(genProgress) + "%" }} />
                       </div>
                       <div className="bx-prog-txt">
-                        {/* The seconds tick once a second inside an aria-live region, so they are
-                            hidden from screen readers — otherwise the count is announced every
-                            second and buries the stage line that actually says what is happening. */}
+                        {/* The phase-one percentage ticks inside an aria-live region, so it is hidden
+                            from screen readers; the stage line remains the useful live message. */}
                         Building your lesson…{genPhase === "thinking"
-                          ? <React.Fragment> <b aria-hidden="true">{genSecs}s</b></React.Fragment>
+                          ? <React.Fragment> <b aria-hidden="true">{Math.round(genProgress)}%</b></React.Fragment>
                           : <React.Fragment> <b>{Math.round(genProgress)}%</b></React.Fragment>}
                         <br />{genStage}
                       </div>
@@ -7433,7 +7442,9 @@ function App() {
           </div>
 
           <button className="btn primary generate" ref={genBtnRef} disabled={loading || !!regenSlide || !selectedRoutine} aria-busy={loading} onClick={generate}>
-            {loading ? <React.Fragment><ProgressRing value={genProgress} /> Generating… {Math.round(genProgress)}%</React.Fragment>
+            {loading ? <React.Fragment><ProgressRing value={genProgress} /> Generating… {genPhase === "thinking"
+              ? <span aria-hidden="true">{Math.round(genProgress)}%</span>
+              : <span>{Math.round(genProgress)}%</span>}</React.Fragment>
               : spot ? <React.Fragment><Icon d={I.refresh} size={16} stroke /> Regenerate</React.Fragment>
               : <React.Fragment><Icon d={I.spring} size={18} stroke /> Generate Springboard</React.Fragment>}
           </button>

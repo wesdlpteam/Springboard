@@ -47,11 +47,11 @@ for (const mv of moves) {
   check("data", `move "${mv.name}" has 5+ routines`, mv.routines.length >= 5, `${mv.routines.length}`);
   check("data", `move "${mv.name}" question ends with ?`, /\?$/.test(mv.question), mv.question);
 }
-// Five catalogue entries are valid when pinned directly, but are deliberately not offered as
+// Four catalogue entries are valid when pinned directly, but are deliberately not offered as
 // thinking routines: they are settling, follow-up, habits-audit or talk-organisation structures.
 const moveExclusions = new Set([
   "Creating Space for Learning", "Think, Pair, Share", "What Makes You Say That?",
-  "Digital Habits Checkup", "MicroLab",
+  "Digital Habits Checkup",
 ]);
 for (const n of moveExclusions) {
   check("data", `catalogue-only routine remains in ROUTINES: ${n}`, nameSet.has(n), "missing from catalogue");
@@ -218,10 +218,8 @@ const uiChecks = [
   ["aria-live on the build progress", /aria-live/],
   ["role=alert on errors", /role="alert"/],
   ["labels tied to inputs with htmlFor", /htmlFor="bx-/],
-  // The planning phase has no honest percentage, so it shows elapsed seconds instead — otherwise
-  // nothing on the screen moves for ~40-60s and it reads as stuck.
-  ["planning wait shows elapsed time", /<b aria-hidden="true">\{genSecs\}s<\/b>/],
-  ["the elapsed count is hidden from screen readers", /aria-hidden="true">\{genSecs\}/],
+  ["planning wait shows continuous percentage", /<b aria-hidden="true">\{Math\.round\(genProgress\)\}%<\/b>/],
+  ["the planning percentage is hidden from screen readers", /aria-hidden="true">\{Math\.round\(genProgress\)\}/],
   ["planning wait states what to expect", /first words usually appear about a minute in/],
 ];
 for (const [n, re] of uiChecks) check("ui", n, re.test(idx), "missing");
