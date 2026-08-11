@@ -125,9 +125,9 @@ async function runOne(page, cfg) {
   const stim = resolveStim(cfg);
   const classInfo = { curriculum: cfg.cur, subject: cfg.subject, yearLevel: cfg.year, outcome: cfg.outcome || "", focus: [] };
 
-  // Teacher ticked a couple of curriculum focus items -> exercise /api/guide + the focus injection.
+  // Teacher-ticked curriculum focus items exercise /api/guide and the classInfo.focus path.
   let focusPicked = [];
-  if (cfg.focus) {
+  if (cfg.focus || cfg.focusCodes?.length) {
     focusPicked = await page.evaluate(`(async () => {
       const ci = ${JSON.stringify(classInfo)};
       const g = (typeof vceStudyGuide === "function" && vceStudyGuide(ci)) || acStudyGuide(ci);
@@ -135,9 +135,13 @@ async function runOne(page, cfg) {
       const r = await fetch(API_BASE + "/api/guide", { method: "POST", headers: { "Content-Type": "application/json", "x-sb-passcode": "" }, body: JSON.stringify(g) });
       const d = await r.json();
       const items = (d.groups || []).flatMap(x => x.items || []).map(i => i.text);
-      return items.slice(0, ${cfg.focus});
+      const wanted = ${JSON.stringify(cfg.focusCodes || [])};
+      if (wanted.length) return wanted.map(code => items.find(item => item.startsWith(code + " "))).filter(Boolean);
+      return items.slice(0, ${Number(cfg.focus) || 0});
     })()`);
     classInfo.focus = focusPicked || [];
+    if (cfg.focusCodes?.length && classInfo.focus.length !== cfg.focusCodes.length)
+      throw new Error(`could not resolve configured focus codes: ${cfg.focusCodes.join(", ")}`);
   }
 
   // Build the media reel exactly the way the upload path does. The reel stays in the page —
@@ -188,13 +192,27 @@ async function runOne(page, cfg) {
       intention: ${JSON.stringify(cfg.intention || "")} });
     return { parsed: r.parsed, rawLen: r.raw.length };
   })()`, 240000);
+  const buildSeconds = Math.round((Date.now() - t0) / 1000);
+
+  // Run the app's own non-blocking verifier against exactly the stimulus representation generation saw.
+  const revealFact = gen.parsed?.think?.reveal?.fact || "";
+  let revealCheck = null;
+  if (String(revealFact).trim()) {
+    revealCheck = await page.evaluate(`(async () => {
+      try {
+        const result = await verifyRevealFact({ passcode: "", mode: ${JSON.stringify(mode)}, media: window.__media,
+          sourceText: ${JSON.stringify(sourceText)}, fact: ${JSON.stringify(revealFact)} });
+        return result ? { verdict: result.verdict, reason: result.reason || "" } : null;
+      } catch (_) { return null; }
+    })()`, 180000);
+  }
 
   const errs = await page.evaluate(`window.__errs.slice()`);
   const calls = await page.evaluate(`window.__calls.splice(0)`);
   return {
     id: cfg.id, cfg, stim: { kind: stim.kind, title: stim.title, url: stim.url || stim.page, bytes: stim.bytes },
     classInfo, focusPicked, mediaMeta, analyse, routineName, deck: gen.parsed,
-    rawLen: gen.rawLen, calls, errs, seconds: Math.round((Date.now() - t0) / 1000),
+    rawLen: gen.rawLen, revealCheck, calls, errs, seconds: buildSeconds,
   };
 }
 
@@ -218,6 +236,9 @@ async function worker(n) {
         log(`run  ${cfg.id} [w${n}]`);
         const res = await runOne(page, cfg);
         fs.writeFileSync(dest, JSON.stringify(res, null, 2));
+        // A recovered lesson supersedes its old failure record; keeping both makes the report
+        // count a successful rerun as failed without changing whether the lesson resumes.
+        fs.rmSync(path.join(OUT, cfg.id + ".ERROR.json"), { force: true });
         log(`ok   ${cfg.id} ${res.seconds}s routine="${res.routineName}"`);
         done.push(cfg.id);
       } catch (e) {

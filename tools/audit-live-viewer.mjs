@@ -15,11 +15,17 @@ const findings = fs.existsSync(path.join(WORK, "findings.json"))
 
 const yearLabel = y => y === "F" ? "Foundation" : "Year " + y;
 const li = (arr) => `<ul>${(arr || []).map(x => `<li>${esc(typeof x === "string" ? x : x.title)}</li>`).join("")}</ul>`;
+const REVEAL_VERDICTS = new Set(["misdescribes", "supported", "external"]);
 
 const cards = runs.map(r => {
   const d = r.deck || {};
   const f = findings.filter(x => x.run === r.id);
   const rev = d.think?.reveal || {};
+  const revealVerdict = rev.fact
+    ? (REVEAL_VERDICTS.has(r.revealCheck?.verdict)
+      ? `<p class="verdict ${r.revealCheck.verdict}"><b>Reveal check:</b> ${esc(r.revealCheck.verdict)}${r.revealCheck.reason ? ` — ${esc(r.revealCheck.reason)}` : ""}</p>`
+      : `<p class="verdict unavailable"><b>Reveal check:</b> unavailable</p>`)
+    : "";
   return `
 <article class="lesson" data-year="${esc(r.classInfo.yearLevel)}" data-kind="${esc(r.cfg.kind)}">
   <header>
@@ -38,10 +44,13 @@ const cards = runs.map(r => {
       ${li(d.think?.steps)}
       ${d.think?.summary ? `<p class="summary">${esc(d.think.summary)}</p>` : ""}
       ${rev.fact ? `<p class="reveal"><b>Reveal (${esc(rev.label)}):</b> ${esc(rev.fact)}<br><i>${esc(rev.question)}</i></p>` : `<p class="noreveal">no reveal written</p>`}
+      ${revealVerdict}
     </section>
     <section><h4>Launch</h4><p class="q">${esc(d.launch?.question)}</p>
       <p class="meta">${esc(d.launch?.connection)}</p>
-      <p class="meta">${esc(d.launch?.bridge)}</p>${li(d.launch?.ideas)}</section>
+      <p class="meta">${esc(d.launch?.bridge)}</p>
+      ${d.launch?.focusNote ? `<p class="focus-note"><b>Focus note:</b> ${esc(d.launch.focusNote)}</p>` : ""}
+      ${li(d.launch?.ideas)}</section>
     <section><h4>Reflect</h4><p class="q">${esc(d.reflect?.revisit)}</p>${li(d.reflect?.prompts)}</section>
   </div>
   <details><summary>Teacher notes + where to next</summary>
@@ -57,6 +66,10 @@ const cards = runs.map(r => {
 const fails = findings.filter(f => f.sev === "FAIL").length;
 const warns = findings.filter(f => f.sev === "WARN").length;
 const revealOn = runs.filter(r => String(r.deck?.think?.reveal?.fact || "").trim()).length;
+const revealChecked = runs.filter(r => String(r.deck?.think?.reveal?.fact || "").trim() && REVEAL_VERDICTS.has(r.revealCheck?.verdict)).length;
+const revealMisdescribes = runs.filter(r => r.revealCheck?.verdict === "misdescribes").length;
+const revealSupported = runs.filter(r => r.revealCheck?.verdict === "supported").length;
+const revealExternal = runs.filter(r => r.revealCheck?.verdict === "external").length;
 const routineCount = new Set(runs.map(r => r.routineName)).size;
 const avgSec = Math.round(runs.reduce((a, r) => a + r.seconds, 0) / runs.length);
 const byKind = k => runs.filter(r => r.cfg.kind === k).length;
@@ -147,6 +160,12 @@ button[aria-pressed="true"] { background:var(--ink); color:var(--paper); border-
 ul { margin:.3rem 0; padding-left:1.05rem; } li { margin:.2rem 0; font-size:.9rem; }
 .reveal { font-size:.86rem; border-left:2px solid var(--gold); padding-left:.6rem; margin-top:.55rem; }
 .noreveal { font-size:.78rem; color:var(--muted); font-style:italic; }
+.verdict,.focus-note { font-size:.8rem; border-left:2px solid var(--line); padding:.35rem .55rem; margin:.55rem 0; }
+.verdict.supported { color:var(--pass); border-color:var(--pass); }
+.verdict.misdescribes { color:var(--warn); border-color:var(--warn); }
+.verdict.external { color:var(--plum); border-color:var(--plum); }
+.verdict.unavailable { color:var(--muted); }
+.focus-note { color:var(--plum); border-color:var(--plum); }
 details { margin-top:.85rem; font-size:.87rem; } summary { cursor:pointer; font-size:.78rem; font-weight:600; color:var(--muted); }
 details p { margin:.4rem 0; }
 .issues .FAIL { color:var(--fail); } .issues .WARN { color:var(--warn); }
@@ -155,7 +174,7 @@ details p { margin:.4rem 0; }
 </style>
 <div class="wrap">
 <p class="eyebrow" style="margin-top:1.6rem">Springboard · live test · ${new Date().toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })}</p>
-<h1>Twenty-nine lessons, one per year level and then some</h1>
+<h1>${runs.length} lessons, every year level and then some</h1>
 <p class="lede">Every lesson on this page was built by the real Springboard app talking to the real model, from a real photograph, video clip or news article. Nothing was hand-written or tidied up afterwards. Foundation through Year 12, ${byKind("image")} photos, ${byKind("video")} video clips and ${byKind("article")} articles.</p>
 
 <div class="tiles">
@@ -165,6 +184,7 @@ details p { margin:.4rem 0; }
   ${tile(avgSec + "s", "average build", "reading the stimulus, then writing the lesson")}
   ${tile(routineCount, "thinking routines", "different Project Zero routines chosen across the set")}
   ${tile(revealOn + "/" + runs.length, "with a reveal", "lessons that hid a genuine surprise behind the click")}
+  ${tile(revealChecked + "/" + revealOn, "reveal verdicts", `${revealMisdescribes} misdescribes · ${revealSupported} supported · ${revealExternal} external`)}
 </div>
 
 <p class="eyebrow">Year levels covered</p>

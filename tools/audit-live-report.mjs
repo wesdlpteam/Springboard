@@ -3,6 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { CONFIGS } from "./audit-live-configs.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(HERE, "..");
@@ -19,6 +20,9 @@ const words = s => String(s || "").trim().split(/\s+/).filter(Boolean).length;
 const sentences = s => String(s || "").split(/(?<=[.!?])\s+/).map(x => x.trim()).filter(x => x.length > 1);
 const findings = [];   // {run, sev, area, msg}
 const add = (run, sev, area, msg) => findings.push({ run, sev, area, msg });
+for (const cfg of CONFIGS.filter(c => c.focusMismatch)) {
+  if (!runs.some(r => r.id === cfg.id)) add(cfg.id, "FAIL", "focusNote", "focus-mismatch config did not produce a lesson");
+}
 
 /* ---- student-facing text: what a child actually reads on the four slides ---- */
 // Each field is its own unit. Joining them into one string made the title run into the intention
@@ -134,6 +138,22 @@ for (const r of runs) {
   if (ideas.length !== 3) add(id, "FAIL", "schema", `launch.ideas ${ideas.length} (spec: exactly 3)`);
   ideas.forEach((x, i) => { if (words(x) > 20) add(id, "WARN", "limits", `launch.idea ${i + 1} ${words(x)} words (max 20)`); });
   if (!String(d.launch?.question || "").trim()) add(id, "FAIL", "schema", "launch.question empty");
+  const focusNote = String(d.launch?.focusNote || "").trim();
+  if (r.cfg.focusMismatch) {
+    for (const code of (r.cfg.focusCodes || [])) {
+      if (!(r.classInfo?.focus || []).some(item => String(item).startsWith(code + " ")))
+        add(id, "FAIL", "focusNote", `mismatched focus code ${code} was not ticked through classInfo.focus`);
+    }
+    if (!focusNote) add(id, "FAIL", "focusNote", "mismatched ticked focus produced no launch.focusNote");
+    else if (r.cfg.focusNoteMatch && !new RegExp(r.cfg.focusNoteMatch, "i").test(focusNote))
+      add(id, "FAIL", "focusNote", `focusNote does not name the mismatched item: "${focusNote}"`);
+    const connection = String(d.launch?.connection || "");
+    for (const code of (r.cfg.focusCodes || [])) {
+      if (connection.toUpperCase().includes(code.toUpperCase())) add(id, "FAIL", "focusNote", `launch.connection forces mismatched code ${code}: "${connection}"`);
+    }
+  } else if ((r.focusPicked || []).length && focusNote) {
+    add(id, "FAIL", "focusNote", `valid ticked focus produced an unexpected focusNote: "${focusNote}"`);
+  }
 
   if (words(d.reflect?.revisit) > 20) add(id, "WARN", "limits", `reflect.revisit ${words(d.reflect?.revisit)} words (max 20)`);
   if (!/[?]/.test(String(d.reflect?.revisit || ""))) add(id, "WARN", "pedagogy", `reflect.revisit is not a question a teacher can read aloud: "${d.reflect?.revisit}"`);
@@ -251,6 +271,16 @@ for (const r of runs) {
 }
 for (const [q, ids] of byIgnite) if (ids.length > 1) add(ids.join("+"), "FAIL", "variety", `identical ignite question in ${ids.length} decks: "${q.slice(0, 60)}"`);
 
+const revealRuns = runs.filter(r => String(r.deck?.think?.reveal?.fact || "").trim());
+const revealVerdictNames = new Set(["misdescribes", "supported", "external"]);
+const revealVerdicts = revealRuns.filter(r => revealVerdictNames.has(r.revealCheck?.verdict));
+const revealUnavailable = revealRuns.filter(r => !revealVerdictNames.has(r.revealCheck?.verdict));
+const revealMisdescribes = revealVerdicts.filter(r => r.revealCheck.verdict === "misdescribes");
+const revealSupported = revealVerdicts.filter(r => r.revealCheck.verdict === "supported");
+const revealExternal = revealVerdicts.filter(r => r.revealCheck.verdict === "external");
+if (revealRuns.length && revealUnavailable.length > revealRuns.length / 2)
+  add("matrix", "FAIL", "reveal verifier", `verifier returned no verdict for ${revealUnavailable.length}/${revealRuns.length} lessons with a reveal fact`);
+
 /* ---------- report ---------- */
 const sev = s => findings.filter(f => f.sev === s);
 const L = [];
@@ -285,11 +315,37 @@ for (const s of ["FAIL", "WARN"]) {
 L.push("## Signals worth knowing\n");
 const revealOn = runs.filter(r => String(r.deck?.think?.reveal?.fact || "").trim()).length;
 L.push(`- Reveal (the "click to show" surprise) written in **${revealOn}/${runs.length}** lessons.`);
+L.push(`- Reveal verifier returned **${revealVerdicts.length}/${revealRuns.length}** verdicts: ${revealMisdescribes.length} misdescribes, ${revealSupported.length} supported, ${revealExternal.length} external, ${revealUnavailable.length} unavailable.`);
 const routines = [...new Set(runs.map(r => r.routineName))];
 L.push(`- ${routines.length} different thinking routines used across ${runs.length} lessons.`);
 const reflectRoutineGuess = runs.map(r => (r.deck?.reflect?.prompts || []).join(" ").slice(0, 30));
 L.push(`- Average build time ${Math.round(runs.reduce((a, r) => a + r.seconds, 0) / Math.max(1, runs.length))}s (analyse + generate, no export).`);
 L.push("");
+
+L.push("## Focus-note wording (verbatim)\n");
+const focusNotes = runs.filter(r => String(r.deck?.launch?.focusNote || "").trim());
+if (!focusNotes.length) L.push("No lesson returned a focusNote.\n");
+for (const r of focusNotes) {
+  L.push(`### ${r.id}\n`);
+  L.push(`Ticked focus: ${(r.focusPicked || []).join(" | ") || "none"}\n`);
+  L.push(`Launch connection: ${r.deck.launch.connection || "(empty)"}\n`);
+  L.push("focusNote:\n");
+  for (const line of String(r.deck.launch.focusNote).split(/\r?\n/)) L.push(`> ${line}`);
+  L.push("");
+}
+
+L.push("## Reveal verification\n");
+L.push(`Verdicts were returned for **${revealVerdicts.length}/${revealRuns.length}** lessons with a reveal fact. Infrastructure returned no verdict for **${revealUnavailable.length}**.\n`);
+L.push(`**${revealMisdescribes.length} misdescribes · ${revealSupported.length} supported · ${revealExternal.length} external · ${revealUnavailable.length} unavailable**\n`);
+L.push("| Lesson | Verdict | Reason |");
+L.push("|---|---|---|");
+for (const r of revealRuns) {
+  const verdict = revealVerdictNames.has(r.revealCheck?.verdict) ? r.revealCheck.verdict : "unavailable";
+  const reason = String(r.revealCheck?.reason || "No reason returned.").replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
+  L.push(`| ${r.id} | ${verdict} | ${reason} |`);
+}
+L.push("");
+
 L.push("| Lesson | Words per student sentence | Long words |");
 L.push("|---|---|---|");
 for (const r of runs) L.push(`| ${r.id} | ${r._pitch?.avgWords} | ${r._pitch?.longWordPct}% |`);

@@ -14,9 +14,12 @@ This rule applies to every implementation request in this repository, including 
 - Codex is the sole implementation writer for changes to application code, tests, configuration, scripts, dependencies, deployment files, and tracked documentation. Fable may directly write planning/specification files under `docs/superpowers/`.
 - The moment a request moves from analysis or suggestions into building, implementing, fixing, refactoring, updating, or otherwise changing the repository, invoke the global `codex-worker` skill **before any repository mutation**. A follow-up such as "do all of those" is an implementation request and must trigger the handoff.
 - For implementation, always use the skill's **visible background runner** (`run_in_background: true`), not the synchronous Codex MCP call. The background run is what exposes Codex activity in Nathan's Fable chat.
+- For every user-facing interface change, launch the worker with `--visual-required true`. The brief must require real-browser desktop and mobile checks, normal interaction, console review, screenshots, and visual inspection; the runner fails closed when that evidence is missing or invalid.
 - Tell Nathan as soon as the worker starts. Read the background output/live progress log after meaningful intervals (normally every 30–60 seconds) and post short chat updates saying what Codex has reported: current activity, commands/tests, files changed, or blockers. Never expose or claim hidden chain-of-thought.
+- When progress reports `visual evidence: <path>`, open the image and include it or its path in the next Fable update with a concise description of what is actually visible. Review every final screenshot before signoff.
 - Keep monitoring until the worker reaches a terminal state. A quiet interval is normal; report that it is still running rather than starting another worker. If the runner says `BUSY`, inspect and continue the existing run.
 - Use exactly one Codex writer for this project. Resume the same Codex thread for corrections and related follow-ups; never start a second writer because the first looks slow.
+- Use `xhigh` for ordinary implementation and `ultra` for demanding coding tasks such as cross-cutting architecture, complex multi-file features or migrations, difficult debugging, security- or data-integrity-sensitive changes, and substantial performance work. Do not launch implementation below `xhigh`.
 - Do not use `Edit`, `Write`, `MultiEdit`, `NotebookEdit`, or a shell-writing workaround to implement changes directly. The project `PreToolUse` hook enforces this one-writer boundary.
 - The Codex prompt must include the bounded scope, constraints, acceptance criteria, and required tests. Codex must read `AGENTS.md` and `CLAUDE.md` before editing.
 - If `codex-worker` is unavailable or fails, stop and tell Nathan. Do not silently fall back to direct implementation or another writer.
@@ -34,7 +37,7 @@ npm run audit                     # full system audit: ~1000 assertions across t
 npm run audit:static              # data, recipes, security, privacy, prompt rules (no browser, fast)
 npm run audit:deck                # exports four real decks headless, asserts on the .pptx XML
 npm run audit:ui                  # accessibility + contrast sweep, 4 scenes x 4 window shapes
-npm run audit:live                # SPENDS MONEY: 29 real lessons, F-12, against the deployed backend
+npm run audit:live                # SPENDS MONEY: 30 real lessons, F-12, against the deployed backend
 npm run audit:live:rerun          # same, reusing the already-downloaded stimulus pack
 npx vercel dev                    # serve index.html + api/* locally (reads .env)
 node tools/stats-stub.mjs         # fake /api/stats for stats.html work (STUB_EMPTY=1 for empty state)

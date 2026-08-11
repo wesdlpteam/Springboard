@@ -201,6 +201,7 @@ const promptChecks = [
   // "Ask X. Compare Y. Decide Z." — three tasks in one Year 4 step.
   ["one step carries one action", /ONE STEP, ONE ACTION/],
   ["focus mismatch goes to focusNote instead of a forced connection", /do NOT force it into launch\.connection[\s\S]{0,300}launch\.focusNote/],
+  ["focus mismatch keeps launch connection positive", /launch\.connection must ALWAYS be a positive curriculum connection[\s\S]{0,250}ONLY in launch\.focusNote/],
 ];
 // Some rules live server-side in api/generate.js (the SUCCESs guidance is owned there, never sent
 // by the client), so each check names the file it belongs in.
