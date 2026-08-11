@@ -1430,7 +1430,7 @@ const BAND_ORDER = ["Early","Junior","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.14.4 · 2026-08-11";
+const APP_VERSION = "v0.14.5 · 2026-08-11";
 
 // Maps a class's year level to a teaching band (Prep-Y2 / Y3-6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -1661,8 +1661,8 @@ const ROUTINE_PLAY = {
   "Peel the Fruit": { family: "systems", note: "Work from the skin inwards: what is on the surface, what is under it, what is at the core, and a final step on what the core explains that the surface did not." },
   "Think, Puzzle, Explore": { family: "generate", note: "Step 2 must ask for a stated number of puzzles (three or more) before any is chosen, and step 3 must ask HOW they would explore one, naming a method they could actually use here." },
   "Creative Questions": { family: "generate", note: "Ask for a set number of questions using the stems, no filtering, then a step that picks one and asks what makes it worth chasing." },
-  "Imagine If...": { family: "generate", note: "Give the 'what if' stem with one worked example from this stimulus, ask for several more, then a step choosing the one that would change the most." },
-  "Imagine If... (For Younger Children)": { family: "generate", note: "Same shape, but the stem and the example must be concrete and spoken, and the number of ideas small (three)." },
+  "Imagine If...": { family: "generate", note: "The four lenses ARE the routine — ask each in order about the actual thing students are looking at (more effective, more efficient, more ethical, more beautiful). Never replace them with a general 'what if' brainstorm." },
+  "Imagine If... (For Younger Children)": { family: "generate", note: "Same four lenses in concrete spoken words for this age, then the open fifth prompt ('How could you make it ___?'). Never replace the lenses with a general 'what if' brainstorm." },
   // ---- batch 2: the rest of the looking, telling and making routines ----
   "See, Feel, Think, Wonder": { family: "observe", note: "Feeling comes second, before interpretation: step 2 asks what the piece makes them feel and where in the image that feeling comes from. Step 3 then interprets, step 4 wonders." },
   "See, Think, Me, We": { family: "observe", note: "Keep all four apart. ME must ask for a personal connection they could actually name; WE must widen to the human story this belongs to, and say which one." },
@@ -1675,10 +1675,10 @@ const ROUTINE_PLAY = {
   "Thinking with Images": { family: "generate", note: "Steps must handle each image in turn: first impression, how it is like the topic, how it is NOT like it. The 'not like' step is the one that does the work — insist on it." },
   "Beginning, Middle, End": { family: "generate", note: "Students decide whether this is a beginning, a middle or an end, and must justify from something visible. A later step asks what the missing parts of the story would contain." },
   "Stories": { family: "perspective", note: "Three distinct stories: the one being told, the one left out (name who is missing here), and the student's own. Do not blur the untold story into 'other viewpoints'." },
-  "Unveiling Stories": { family: "perspective", note: "Work outward — the story, the human story, the world story, the untold story — and each step must say whose story it is looking for in THIS stimulus." },
+  "Unveiling Stories": { family: "perspective", note: "Work outward — the story, the human story, the world story, the new story, the untold story — and each step must say whose story it is looking for in THIS stimulus." },
   "Creative Question Starts": { family: "generate", note: "Ask for at least twelve questions using the starters, with no discussion until the list is done, then pick one and say what makes it worth chasing." },
   "Creative Comparisons": { family: "generate", note: "Fix the comparison category on the slide (if this were an animal / a machine / a piece of music), then require three explained ways it compares." },
-  "Creative Hunt": { family: "systems", note: "Purpose first, then parts and their purposes, then star the clever ones, then name the audience. The starring step must ask WHY that part is clever." },
+  "Creative Hunt": { family: "systems", note: "Purpose first, then parts and their purposes, then name the audience, then sum up by starring the clever ones. The starring step must ask WHY that part is clever." },
   "How Else and Why?": { family: "generate", note: "Same idea said three different ways, each with a reason for the change. The step must give the sentence being rephrased." },
   "Options Explosion": { family: "generate", note: "Obvious options first and quickly, then hidden ones by combining two or imagining someone else deciding. Say how many hidden options to find." },
   "Generate-Sort-Connect-Elaborate": { family: "systems", note: "Sorting is central-to-tangential and students must justify one placement; connecting means drawing a line and saying what the line means." },
@@ -1693,7 +1693,7 @@ const ROUTINE_PLAY = {
   "Tug for Truth": { family: "weigh", note: "The rope is about whether something is TRUE, so tugs must be evidence, not opinion, and one step asks what evidence would settle it." },
   "True for Who?": { family: "weigh", note: "The same claim from named viewpoints, then what would change their own mind, then a conclusion they own." },
   "Take a Stand": { family: "weigh", note: "Their own view written down FIRST, then listening, then an explicit 'has it shifted, and what shifted it'." },
-  "Options Diamond": { family: "weigh", note: "Name the two options in tension at the top and bottom, then fill the middle corners with combinations, and say what the middle teaches." },
+  "Options Diamond": { family: "weigh", note: "Put the two trade-offs in tension at the left and right points, compromises at the bottom, and creative solutions combining both at the top. Ask what the diamond reveals." },
   "Does It Fit?": { family: "weigh", note: "Score each option against the four lenses (ideal, criteria, real situation, how it feels to imagine doing it) and require the scores to disagree somewhere." },
   "Sticking Points": { family: "weigh", note: "Separate facts, values, interests and policies — the point is that people often agree on facts and still disagree, so a step must say where the real disagreement sits." },
   "Hotspots": { family: "weigh", note: "Place statements on true-to-false AND how much it matters; the step must ask for the placement and the reason, and name a statement that is deliberately uncertain." },
@@ -1712,7 +1712,7 @@ const ROUTINE_PLAY = {
   "Same, Different, Connect, Engage": { family: "action", note: "Similar, different, connected as people, then one thing they would actually say, ask or do — that last step is the routine." },
   "Lenses": { family: "perspective", note: "Name the lens (what shapes how someone sees this) before using it, and one step must be a genuine question asked of someone with a different lens." },
   "Who Am I?": { family: "identity", note: "Keep it optional and low-stakes on the slide, and tie each move back to the stimulus so it is not an interrogation of the student." },
-  "Seek to See": { family: "identity", note: "Strengths and cultural richness come before anything else, and the last step asks for words that honour this person's humanity." },
+  "Seek to See": { family: "identity", note: "Follow the routine's order — multiple feelings first, then strength, then connections — and the last step asks for words that honour this person's humanity." },
   "Values, Identities, Actions": { family: "identity", note: "Whose values are these, who is being spoken about and who to, and what the work invites people to do." },
   "Parts, Purposes, Complexities (For Exploring Complexity)": { family: "systems", note: "Slower and closer than the standard version: the sketch step belongs on the slide, and complexities must be traced back to specific parts." },
   "Parts, Purposes, Complexities (For Younger Children)": { family: "systems", note: "Short, concrete steps, drawing or acting encouraged, and 'what's puzzling about it' instead of 'complexities'." },
@@ -1733,7 +1733,7 @@ const ROUTINE_PLAY = {
   "Circles of Action": { family: "action", note: "Three rings, each with one concrete action, and a final step naming what is actually stopping them." },
   "Pass the Parcel": { family: "action", note: "The connections that matter to them personally, then a decision about what they will do with it." },
   "Feelings and Options": { family: "action", note: "Who is involved and what each feels, then options, then the actual words someone could say — script it." },
-  "Digital Habits Checkup": { family: "action", note: "Habits and how each one feels, one habit chosen, then a specific challenge with a length and a way to track it." },
+  "Digital Habits Checkup": { family: "action", note: "Habits and how each one feels, one habit chosen, then a specific challenge with a length, a boost to help it stick, and a way to track it." },
   "Walk the Week": { family: "action", note: "Where this topic shows up in their week, what those moments connect to, and one way to use it elsewhere." },
 };
 function routinePlaybook(name) {
@@ -2029,13 +2029,13 @@ const ROUTINES = [
   { steps: ["What do you see or know about the topic?","Choose a comparison category.","Imagine: if this was a ______, what would it be?","Explain three ways it compares."], structure: "Individual or pair, pick a category", name: "Creative Comparisons", url: "https://pz.harvard.edu/resources/creative-comparisons",
     gist: "Explore a topic by comparing it to something seemingly unrelated.",
     bands: ["junior", "middle", "senior"], group: "Questioning and possibility thinking" },
-  { steps: ["What's the main purpose here?","What are the parts and their purposes?","Which parts are especially smart or creative? Star them.","Who is the audience for this?"], structure: "Annotate the object, walk through in order", name: "Creative Hunt", url: "https://pz.harvard.edu/resources/creative-hunt",
+  { steps: ["What's the main purpose here?","What are the parts and their purposes?","Who is the audience for this?","Sum up: star the parts that are especially smart or creative, and add more."], structure: "Annotate the object, walk through in order", name: "Creative Hunt", url: "https://pz.harvard.edu/resources/creative-hunt",
     gist: "Hunt for creative and design features in objects or environments.",
     bands: ["early", "junior", "middle", "senior"], group: "Questioning and possibility thinking" },
   { steps: ["In what ways could it be more effective?","In what ways could it be more efficient?","In what ways could it be more ethical?","In what ways could it be more beautiful?"], structure: "Whole class, one prompt at a time", name: "Imagine If...", url: "https://pz.harvard.edu/resources/imagine-if",
     gist: "Consider how something could be made more effective, efficient, ethical, or beautiful.",
     bands: ["senior"], group: "Questioning and possibility thinking" },
-  { steps: ["How could you make it work better?","How could you make it easier or faster to use?","How could you make it fairer or safer to share?","How could you make it more beautiful?"], structure: "Verbal or drawing responses, kid-friendly", name: "Imagine If... (For Younger Children)", url: "https://pz.harvard.edu/resources/imagine-if-younger-children",
+  { steps: ["How could you make it work better?","How could you make it easier or faster to use?","How could you make it fairer or safer to share?","How could you make it more beautiful?","How could you make it __________?"], structure: "Verbal or drawing responses, kid-friendly", name: "Imagine If... (For Younger Children)", url: "https://pz.harvard.edu/resources/imagine-if-younger-children",
     gist: "The early-years adaptation of Imagine If.",
     bands: ["early", "junior"], group: "Questioning and possibility thinking" },
   { steps: ["Review: how did it get to be this way?","Predict: how else might this change in future?","Imagine: what could be created from these changes?"], structure: "Linked discussion, history to future", name: "What Can Be", url: "https://pz.harvard.edu/resources/what-can-be",
@@ -2182,7 +2182,7 @@ const ROUTINES = [
   { steps: ["What can I do in my inner circle (friends/family)?","What can I do in my community?","What can I do in the world?","What's stopping me from acting?"], structure: "Draw three circles, brainstorm each ring", name: "Circles of Action", url: "https://pz.harvard.edu/resources/circles-of-action",
     gist: "Consider possible actions in widening spheres, from close to home to the wider world.",
     bands: ["junior", "middle", "senior"], group: "Global and civic thinking" },
-  { steps: ["What's the story?","What is the human story?","What is the world story?","What is the untold story?"], structure: "Work through prompts in order or pick some", name: "Unveiling Stories", url: "https://pz.harvard.edu/resources/unveiling-stories",
+  { steps: ["What's the story?","What is the human story?","What is the world story?","What is the new story?","What is the untold story?"], structure: "Work through prompts in order or pick some", name: "Unveiling Stories", url: "https://pz.harvard.edu/resources/unveiling-stories",
     gist: "Explore an image or event's layered stories: visible, untold, human, world, new.",
     bands: ["senior"], group: "Global and civic thinking" },
   { steps: ["Map what you know about the topic.","Reach back: how has it changed over 10, 100, 1000 years?","Reach forward: how might it change in the future?","How has your thinking changed?"], structure: "One shared timeline, colour-coded steps", name: "Projecting Across Time", url: "https://pz.harvard.edu/resources/projecting-across-time",
@@ -2199,7 +2199,7 @@ const ROUTINES = [
     bands: ["senior"], group: "Global and civic thinking" },
 
   // --- Digital life and wellbeing ---
-  { steps: ["Check: list your digital habits and how each makes you feel.","Choose one habit you want to change.","Challenge: plan what you'll do differently for a set time.","Track: note each day how the challenge is going."], structure: "Scaffolded over a week, daily check-ins", name: "Digital Habits Checkup", url: "https://pz.harvard.edu/resources/digital-habits-checkup",
+  { steps: ["Check: list your digital habits and how each makes you feel.","Choose one habit you want to change.","Challenge: plan what you'll do differently for a set time.","Boost: plan ways to help your new habit stick, so you don't slip back.","Track: note each day how the challenge is going."], structure: "Scaffolded over a week, daily check-ins", name: "Digital Habits Checkup", url: "https://pz.harvard.edu/resources/digital-habits-checkup",
     gist: "Reflect on and evaluate personal digital habits.",
     bands: ["early", "junior", "middle", "senior"], group: "Digital life and wellbeing" },
   { steps: ["Identify: who's involved, and what's the challenge?","Feel: what is each person feeling, and why?","Imagine: brainstorm options and pick the most positive one.","Say: what could the people involved actually say?"], structure: "Individually, pairs, or class on a real dilemma", name: "Feelings and Options", url: "https://pz.harvard.edu/resources/feelings-and-options",
