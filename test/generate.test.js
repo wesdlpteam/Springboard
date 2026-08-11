@@ -207,3 +207,29 @@ test("forwards to OpenAI with server-side model and returns raw JSON", async () 
     globalThis.fetch = origFetch;
   }
 });
+
+test("selects only the fixed server-side model tiers", async () => {
+  const origFetch = globalThis.fetch;
+  const sentFor = async (body = {}) => {
+    let sent = null;
+    globalThis.fetch = async (url, opts) => {
+      sent = JSON.parse(opts.body);
+      return { json: async () => ({ choices: [{ message: { content: "ok" } }] }) };
+    };
+    const { req, res } = mockReqRes({
+      headers: { "x-sb-passcode": "test-pass" },
+      body: { messages: [{ role: "user", content: "hi" }], ...body },
+    });
+    await handler(req, res);
+    assert.equal(res.statusCode, 200);
+    return sent;
+  };
+  try {
+    assert.equal((await sentFor({ tier: "helper" })).model, "gpt-5.6-luna");
+    assert.equal((await sentFor()).model, "gpt-5.6-sol");
+    assert.equal((await sentFor({ tier: "gpt-4" })).model, "gpt-5.6-sol");
+    assert.equal((await sentFor({ tier: "anything-else", model: "gpt-99-hax" })).model, "gpt-5.6-sol");
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});

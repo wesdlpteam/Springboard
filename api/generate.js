@@ -76,6 +76,10 @@ export function injectStickiness(messages, on) {
 // open mode, so an arbitrary string must never reach OpenAI.
 const REASONING_EFFORTS = ["none", "minimal", "low", "medium", "high"];
 
+// Two fixed tiers, still hard-pinned server-side with no env override: the flagship writes the
+// lesson; the near-free tier runs the narrow helper calls. Anything unrecognised gets the flagship.
+const MODEL_TIERS = { main: "gpt-5.6-sol", helper: "gpt-5.6-luna" };
+
 export default async function handler(req, res) {
   if (applyCors(req, res)) return;
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -83,7 +87,7 @@ export default async function handler(req, res) {
   if (!rateLimit(req, res, { max: 20, windowMs: 60000, name: "generate" })) return;
 
   const { messages, response_format, max_completion_tokens, temperature, studyGuide, stickiness,
-          stream, reasoning_effort } = req.body || {};
+          stream, reasoning_effort, tier } = req.body || {};
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: "No messages provided" });
   }
@@ -95,9 +99,8 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Too many messages" });
   }
 
-  // Pinned to OpenAI's flagship tier by request — no env override, so a stale
-  // OPENAI_MODEL var in Vercel can't silently downgrade the model.
-  const payload = { model: "gpt-5.6-sol", messages: injectStickiness(injectStudyGuide(messages, studyGuide), stickiness) };
+  const payload = { messages: injectStickiness(injectStudyGuide(messages, studyGuide), stickiness) };
+  payload.model = tier === "helper" ? MODEL_TIERS.helper : MODEL_TIERS.main;
   if (response_format) payload.response_format = response_format;
   // 8000 = 2x the app's largest legit request (4000 tokens); anything bigger is abuse. Non-numeric
   // input is dropped rather than forwarded. Temperature is coerced into OpenAI's valid [0,2] range.
