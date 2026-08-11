@@ -200,7 +200,7 @@ test("forwards to OpenAI with server-side model and returns raw JSON", async () 
     assert.equal(sent.url, "https://api.openai.com/v1/chat/completions");
     assert.equal(sent.auth, "Bearer sk-test");
     assert.notEqual(sent.body.model, "gpt-99-hax"); // client cannot pick the model
-    assert.equal(sent.body.model, "gpt-5.6-sol");
+    assert.equal(sent.body.model, "gpt-5.6-terra");
     assert.equal(sent.body.temperature, 0.4);
     assert.equal(res.body.choices[0].message.content, "ok");
   } finally {
@@ -226,9 +226,9 @@ test("selects only the fixed server-side model tiers", async () => {
   };
   try {
     assert.equal((await sentFor({ tier: "helper" })).model, "gpt-5.6-luna");
-    assert.equal((await sentFor()).model, "gpt-5.6-sol");
-    assert.equal((await sentFor({ tier: "gpt-4" })).model, "gpt-5.6-sol");
-    assert.equal((await sentFor({ tier: "anything-else", model: "gpt-99-hax" })).model, "gpt-5.6-sol");
+    assert.equal((await sentFor()).model, "gpt-5.6-terra");
+    assert.equal((await sentFor({ tier: "gpt-4" })).model, "gpt-5.6-terra");
+    assert.equal((await sentFor({ tier: "anything-else", model: "gpt-99-hax" })).model, "gpt-5.6-terra");
   } finally {
     globalThis.fetch = origFetch;
   }

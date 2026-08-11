@@ -76,9 +76,10 @@ export function injectStickiness(messages, on) {
 // open mode, so an arbitrary string must never reach OpenAI.
 const REASONING_EFFORTS = ["none", "minimal", "low", "medium", "high"];
 
-// Two fixed tiers, still hard-pinned server-side with no env override: the flagship writes the
-// lesson; the near-free tier runs the narrow helper calls. Anything unrecognised gets the flagship.
-const MODEL_TIERS = { main: "gpt-5.6-sol", helper: "gpt-5.6-luna" };
+// Two fixed tiers, still hard-pinned server-side with no env override: the main tier writes the
+// lesson; the near-free tier runs the narrow helper calls. Anything unrecognised gets the main tier.
+// Nathan's cost decision 2026-08-11 after the 30-lesson trial; rollback = swap this string back and redeploy.
+const MODEL_TIERS = { main: "gpt-5.6-terra", helper: "gpt-5.6-luna" };
 
 export default async function handler(req, res) {
   if (applyCors(req, res)) return;
