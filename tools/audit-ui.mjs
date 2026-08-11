@@ -51,6 +51,49 @@ const VIEWPORTS = [
   { id: "phone-390x844", w: 390, h: 844 },
 ];
 
+const statsDay = offset => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
+const STATS_FIXTURE = {
+  totals: [
+    { event: "generate", n: 38 }, { event: "analyse", n: 31 },
+    { event: "download", n: 26 }, { event: "regenerate", n: 7 },
+  ],
+  byDay: [
+    { day: statsDay(-6), n: 3 }, { day: statsDay(-4), n: 6 },
+    { day: statsDay(-2), n: 4 }, { day: statsDay(0), n: 8 },
+  ],
+  byCurriculum: [
+    { curriculum: "Australian Curriculum", n: 19 }, { curriculum: "IB MYP", n: 12 },
+  ],
+  byRoutine: [
+    { routine: "See, Think, Wonder", n: 15 }, { routine: "Claim, Support, Question", n: 9 },
+    { routine: "Connect, Extend, Challenge", n: 6 },
+  ],
+  byStimulus: [
+    { stimulus_type: "image", n: 18 }, { stimulus_type: "link", n: 11 },
+    { stimulus_type: "video", n: 5 },
+  ],
+  bySubject: [
+    { subject: "Humanities", n: 14 }, { subject: "Science", n: 10 },
+    { subject: "English", n: 7 },
+  ],
+  recent: [
+    { ts: "2026-08-11 09:12", topic: "Migration and visual evidence", curriculum: "Australian Curriculum", subject: "Humanities", year_level: "7", routine: "See, Think, Wonder" },
+    { ts: "2026-08-11 08:34", topic: "Ecosystem relationships", curriculum: "IB MYP", subject: "Science", year_level: "8", routine: "Claim, Support, Question" },
+  ],
+};
+const STATS_BOOTSTRAP = `(() => {
+  sessionStorage.setItem("sb_admin", "audit-ui");
+  const fixture = ${JSON.stringify(STATS_FIXTURE)};
+  const realFetch = window.fetch.bind(window);
+  window.fetch = (input, init) => {
+    const url = typeof input === "string" ? input : input.url;
+    if (/\\/api\\/stats(?:\\?|$)/.test(url)) return Promise.resolve(new Response(JSON.stringify(fixture), {
+      status: 200, headers: { "Content-Type": "application/json" },
+    }));
+    return realFetch(input, init);
+  };
+})();`;
+
 /* In-page sweep: returns findings as data so Node does the asserting. */
 const SWEEP = `(() => {
   const vis = el => { const r = el.getBoundingClientRect(); const s = getComputedStyle(el);
@@ -232,6 +275,55 @@ for (const vp of VIEWPORTS) {
     console.log("done");
   } catch (e) {
     check(vp.id, "sweep ran to completion", false, e.message);
+    console.log("FAILED: " + e.message);
+  }
+}
+
+// The admin page is independent of the app bundle, so give it its own authenticated fixture and
+// sweep at a representative desktop shape and Nathan's wide-short window.
+for (const vp of [
+  { id: "stats-1024x768", w: 1024, h: 768 },
+  { id: "stats-nathan-1163x560", w: 1163, h: 560 },
+]) {
+  process.stdout.write(`sweeping ${vp.id}… `);
+  try {
+    await withBrowser(vp, async ({ evaluate, send, consoleErrs }) => {
+      await send("Page.addScriptToEvaluateOnNewDocument", { source: STATS_BOOTSTRAP });
+      await send("Page.navigate", { url: ORIGIN + "/stats.html" });
+      let ready = false;
+      for (let i = 0; i < 40; i++) {
+        ready = await evaluate(`!!document.querySelector("#dash:not([hidden])") && document.querySelectorAll(".chart-mark").length > 0`);
+        if (ready) break;
+        await sleep(250);
+      }
+      const ctx = `${vp.id}/dashboard`;
+      check(ctx, "stats dashboard reaches its interactive state", ready, "charts did not render");
+      assertSweep(ctx, JSON.parse(await evaluate(SWEEP)));
+      check(ctx, "all five charts render from the stats fixture",
+        await evaluate(`document.querySelectorAll(".chart-host").length === 5`), "expected five chart hosts");
+      check(ctx, "every chart mark is keyboard reachable and named",
+        await evaluate(`[...document.querySelectorAll(".chart-mark")].every(mark => mark.tabIndex === 0 && !!mark.getAttribute("aria-label"))`),
+        "a chart mark is missing tabindex or an accessible name");
+      check(ctx, "every chart provides a plain HTML tooltip",
+        await evaluate(`document.querySelectorAll(".chart-tooltip").length === 5`), "expected five tooltips");
+      const pressTab = async shift => {
+        const key = { key: "Tab", code: "Tab", windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9, modifiers: shift ? 8 : 0 };
+        await send("Input.dispatchKeyEvent", { type: "keyDown", ...key });
+        await send("Input.dispatchKeyEvent", { type: "keyUp", ...key });
+      };
+      await evaluate(`document.querySelector("#refreshBtn").focus()`);
+      await pressTab(false);
+      const tooltipShown = await evaluate(`(()=>{const active=document.activeElement;const tip=document.querySelector(".chart-tooltip:not([hidden])");return {linePoint:active?.matches(".line-hit.chart-mark"),label:active?.getAttribute("aria-label")||"",tip:tip?.textContent||""};})()`);
+      await pressTab(true);
+      const tooltipHidden = await evaluate(`document.activeElement === document.querySelector("#refreshBtn") && !document.querySelector(".chart-tooltip:not([hidden])")`);
+      check(ctx, "keyboard Tab reveals a chart value tooltip and Shift+Tab hides it",
+        tooltipShown.linePoint && tooltipShown.label && tooltipShown.tip === tooltipShown.label && tooltipHidden,
+        `focus=${tooltipShown.label || "not a line point"}; tooltip=${tooltipShown.tip || "hidden"}; blur=${tooltipHidden}`);
+      check(ctx, "no console errors", consoleErrs.length === 0, consoleErrs.slice(0, 2).join(" | "));
+    });
+    console.log("done");
+  } catch (e) {
+    check(vp.id, "stats sweep ran to completion", false, e.message);
     console.log("FAILED: " + e.message);
   }
 }

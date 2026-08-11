@@ -5,86 +5,105 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="robots" content="noindex" />
 <title>Springboard — Stats</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Inter:wght@400;450;500;600;700&family=Kaushan+Script&display=swap" rel="stylesheet" />
 
 <style>
-  /* Graphik — same self-hosted family as index.html, weights actually used here only. */
-  @font-face { font-family: "Graphik"; font-weight: 400;     font-style: normal; font-display: swap; src: url("fonts/Graphik-Regular.woff2") format("woff2"); }
-  @font-face { font-family: "Graphik"; font-weight: 600 800; font-style: normal; font-display: swap; src: url("fonts/Graphik-Semibold.woff2") format("woff2"); }
-
   :root {
-    --ink: #2b2536;
-    --muted: #574f63;
-    --line: #e7e1ef;
-    --card-line: #e3d9ec;     /* card/panel border — slightly warmer than --line, Wesley design system */
-    --label: #6a5375;         /* small uppercase label ink */
-    --bg: #f6f2fb;
-    --panel: #ffffff;
-    --accent: #4f2759;        /* Wesley Purple — the single data colour */
+    --paper: #F4EFE6;
+    --paper-deep: #EBE4D7;
+    --ink: #2B281F;
+    --ink-soft: #4b473d;
+    --muted: #4b473d;
+    --line: rgba(43,40,31,.18);
+    --card-line: rgba(43,40,31,.22);
+    --label: #4b473d;
+    --bg: #F4EFE6;
+    --panel: rgba(255,255,255,.56);
+    --accent: #4F2759;        /* one data colour across every chart */
     --accent-deep: #3d1d45;
     --accent-soft: #e9deeb;
-    --gold-light: #e4d1a1;    /* header title gold, purple-bg only — never on white */
-    --pop: #2c1533;           /* solid "press" underside for primary button */
     --bad: #e83534; --bad-bg: #fdafbd; --bad-ink: #8f1d2e;
-    --grid: #d9d3e2;          /* muted gray-purple gridlines */
-    --font-body: "Graphik", Arial, sans-serif;
-    --radius: 20px;
-    --shadow: 0 10px 30px rgba(60,40,90,.12);
+    --grid: rgba(43,40,31,.14);
+    --font-body: "Inter", "Segoe UI", system-ui, sans-serif;
+    --font-display: "Fraunces", Georgia, serif;
+    --radius: 10px;
+    --shadow: 0 12px 30px rgba(43,40,31,.08);
   }
   * { box-sizing: border-box; }
+  html { background: var(--paper); }
   body {
     margin: 0; font-family: var(--font-body); color: var(--ink);
     background:
-      radial-gradient(900px 520px at 88% -120px, rgba(197,159,64,.16), transparent 60%),
-      radial-gradient(820px 560px at -160px 28%, rgba(124,163,255,.13), transparent 60%),
-      radial-gradient(760px 500px at 108% 82%, rgba(253,175,189,.12), transparent 62%),
-      #f7f3fc;
+      radial-gradient(760px 520px at 92% 4%, rgba(79,39,89,.10), transparent 66%),
+      radial-gradient(680px 460px at -8% 42%, rgba(79,39,89,.07), transparent 68%),
+      var(--paper) url("assets/brain/paper.jpg") repeat;
+    background-size: auto, auto, 620px 620px;
     background-attachment: fixed;
     min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 20px 60px; }
+  body::after { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background: radial-gradient(120% 100% at 50% 44%, transparent 62%, rgba(43,40,31,.045) 100%); }
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 28px clamp(18px, 4vw, 48px) 72px; }
 
-  header.app { background: var(--accent); color: #fff; box-shadow: 0 2px 18px rgba(79,39,89,.30); }
-  header.app .wrap { display: flex; align-items: center; gap: 12px; padding: 18px 20px; }
-  header.app h1 { font-size: 20px; margin: 0; color: var(--gold-light); font-weight: 800; }
-  header.app p { margin: 2px 0 0; font-size: 12.5px; color: #fff; }
+  header.app { background: rgba(244,239,230,.72); color: var(--ink); border-bottom: 1px solid var(--line); }
+  header.app .wrap { display: flex; align-items: center; gap: 20px; padding-top: 22px; padding-bottom: 20px; }
+  header.app h1 { font-family: var(--font-display); font-size: clamp(25px, 3vw, 34px); line-height: 1.05;
+    letter-spacing: -.02em; margin: 0; color: var(--ink); font-weight: 500; }
+  header.app h1 em { color: var(--accent); font-weight: 400; }
+  header.app p { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
   .back-link { margin-left: auto; align-self: center; text-decoration: none; font-size: 13px; white-space: nowrap; }
-  /* Nav pill, not a solid button, when it lives in the purple header band. */
-  header.app .back-link { background: transparent; color: #fff; border: 1.5px solid rgba(255,255,255,.4); border-radius: 999px; box-shadow: none; transition: background .15s, border-color .15s; }
-  header.app .back-link:hover { background: rgba(255,255,255,.14); border-color: #fff; color: #fff; }
-  header.app .back-link:focus-visible { outline: 2px solid #fff; outline-offset: 2px; box-shadow: none; }
+  header.app .back-link { min-height: 32px; background: rgba(255,255,255,.38); color: var(--accent);
+    border: 1px solid rgba(79,39,89,.34); border-radius: 999px; box-shadow: none;
+    transition: background .15s, border-color .15s, color .15s; }
+  header.app .back-link:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-deep); }
+  header.app .back-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; box-shadow: none; }
 
-  .panel { background: var(--panel); border: 1.5px solid var(--card-line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--card-line); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: clamp(18px, 2.5vw, 26px); backdrop-filter: blur(2px); }
 
   #statusMsg { font-size: 13px; color: var(--muted); margin: 0 0 14px; }
 
-  .gate { max-width: 360px; margin: 40px auto; }
-  .gate label { display: block; font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--label); font-weight: 800; margin-bottom: 6px; }
-  .gate input[type=password] { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; font: inherit; margin-bottom: 12px; color: var(--ink); }
-  .gate input:focus { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 2px; box-shadow: 0 0 0 3px var(--accent-soft); } /* solid ring primary (accent ~11.9:1) — old soft-glow-only was ~1.3:1, failing WCAG 2.4.11 */
+  .gate { max-width: 420px; margin: clamp(40px, 9vh, 92px) auto; }
+  .gate::before { content: "Private dashboard"; display: block; margin-bottom: 14px; font-family: var(--font-display);
+    font-size: 24px; font-style: italic; color: var(--accent); }
+  .gate label { display: block; font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--label); font-weight: 700; margin-bottom: 7px; }
+  .gate input[type=password] { width: 100%; min-height: 42px; padding: 10px 12px; border: 1px solid var(--card-line);
+    border-radius: 5px; font: inherit; margin-bottom: 13px; color: var(--ink); background: rgba(255,255,255,.52); }
+  .gate input:focus { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 2px; box-shadow: none; }
 
-  .btn { padding: 10px 16px; border: 0; border-radius: 14px; font: inherit; font-weight: 700; cursor: pointer; transition: background .15s, transform .15s, border-color .15s, color .15s; }
-  .btn.primary { background: var(--accent); color: #fff; width: 100%; box-shadow: 0 4px 0 var(--pop); }
-  .btn.primary:hover { background: var(--accent-deep); transform: translateY(-2px); }
-  .btn.ghost { background: #fff; border: 1.5px solid #cec3cf; color: var(--ink); width: auto; }
+  .btn { min-height: 36px; padding: 8px 16px; border: 0; border-radius: 4px; font: inherit; font-weight: 600;
+    cursor: pointer; transition: background .15s, border-color .15s, color .15s, opacity .15s; }
+  .btn.primary { background: var(--accent); color: #fff; width: 100%; box-shadow: 0 5px 14px rgba(79,39,89,.18); }
+  .btn.primary:hover { background: var(--accent-deep); }
+  .btn.ghost { background: rgba(255,255,255,.46); border: 1px solid var(--card-line); color: var(--ink); width: auto; }
   .btn.ghost:hover { border-color: var(--accent); color: var(--accent); }
-  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; box-shadow: 0 0 0 3px var(--accent-soft); } /* solid ring primary — WCAG 2.4.11 */
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; box-shadow: none; }
 
   .alert.bad { background: var(--bad-bg); color: var(--bad-ink); border: 1px solid var(--bad); border-radius: 10px; padding: 10px 12px; font-size: 13px; margin: 10px 0 0; }
 
   #dash[hidden], #gate[hidden] { display: none; }
-  .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
 
-  .totals-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 24px; }
-  .tile { background: var(--panel); border: 1.5px solid var(--card-line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; text-align: center; }
-  .tile .n { font-size: 28px; font-weight: 800; color: var(--accent); line-height: 1.1; }
-  .tile .label { font-size: 12.5px; color: var(--muted); margin-top: 4px; text-transform: capitalize; }
+  .totals-strip { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .tile { position: relative; overflow: hidden; background: rgba(255,255,255,.46); border: 1px solid var(--card-line);
+    border-radius: var(--radius); box-shadow: 0 8px 24px rgba(43,40,31,.055); padding: 16px 18px; text-align: left; }
+  .tile::after { content: ""; position: absolute; right: -24px; bottom: -36px; width: 100px; height: 90px;
+    border-radius: 50%; background: rgba(79,39,89,.07); filter: blur(9px); pointer-events: none; }
+  .tile .n { position: relative; z-index: 1; font-family: var(--font-display); font-size: 34px; font-style: italic;
+    font-weight: 500; color: var(--accent); line-height: 1; }
+  .tile .label { position: relative; z-index: 1; font-size: 12px; color: var(--muted); margin-top: 7px; text-transform: capitalize; }
 
   .card { margin-bottom: 24px; }
-  .card h2 { font-size: 15px; margin: 0 0 12px; }
+  .card h2 { font-family: var(--font-display); font-size: 19px; font-weight: 500; letter-spacing: -.01em; margin: 0 0 16px; }
   .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
   @media (max-width: 860px) { .charts-grid { grid-template-columns: 1fr; } }
 
-  .empty-note { color: var(--muted); font-size: 13px; padding: 24px 4px; text-align: center; margin: 0; }
+  .empty-note { color: var(--muted); font-family: var(--font-display); font-style: italic; font-size: 16px;
+    padding: 32px 12px; text-align: center; margin: 0; border: 1px dashed var(--line); border-radius: 6px;
+    background: rgba(235,228,215,.46); }
 
   /* Visually hidden but available to screen readers (chart data-table equivalents). */
   .sr-only {
@@ -92,28 +111,73 @@
     overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
   }
 
-  svg.chart { display: block; max-width: 100%; }
+  .chart-host { position: relative; min-width: 0; }
+  svg.chart { display: block; max-width: 100%; overflow: visible; }
   svg.chart text { font-family: var(--font-body); fill: var(--ink); font-size: 12px; }
   svg.chart .axis-label { fill: var(--muted); }
   svg.chart .gridline { stroke: var(--grid); stroke-width: 1; }
-  svg.chart .bar { fill: var(--accent); }
   svg.chart .line-path { fill: none; stroke: var(--accent); stroke-width: 2; }
   svg.chart .dot { fill: var(--accent); }
+  svg.chart .line-hit { fill: transparent; stroke: transparent; stroke-width: 2; cursor: help; }
+  svg.chart .line-hit:focus-visible { fill: rgba(79,39,89,.10); stroke: var(--ink); outline: none; }
+  svg.chart .max-label { fill: var(--ink); font-size: 11px; font-weight: 600; }
 
-  .table-scroll { overflow-x: auto; }
-  table.recent { width: 100%; border-collapse: collapse; font-size: 13px; }
-  table.recent th, table.recent td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-  table.recent th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--label); font-weight: 800; }
+  .bar-chart { display: grid; gap: 5px; }
+  .bar-row, .bar-scale { display: grid; grid-template-columns: minmax(112px, 190px) minmax(120px, 1fr) 34px;
+    align-items: center; gap: 10px; min-height: 30px; }
+  .bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--ink-soft, var(--muted)); }
+  .bar-plot { position: relative; height: 24px; border-left: 1px solid var(--grid); border-right: 1px solid var(--grid);
+    background: linear-gradient(to right, transparent calc(50% - .5px), var(--grid) calc(50% - .5px), var(--grid) calc(50% + .5px), transparent calc(50% + .5px)); }
+  .bar-fill { position: absolute; left: 0; top: 6px; width: var(--bar-w, 0%); min-width: 2px; height: 12px;
+    border-radius: 0 4px 4px 0; background: var(--accent); transition: background .15s; }
+  .bar-fill.is-active { background: var(--accent-deep); }
+  .bar-mark { --bar-w: 0%; position: absolute; left: 0; top: 0; width: max(var(--bar-w), 24px); height: 24px;
+    padding: 0; border: 0; background: transparent; cursor: help; }
+  .bar-mark:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 2px; }
+  .bar-max { font-size: 11px; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .bar-scale { min-height: 18px; margin-top: -3px; }
+  .bar-ticks { display: flex; justify-content: space-between; color: var(--muted); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+
+  .chart-tooltip { position: absolute; z-index: 5; max-width: min(240px, calc(100% - 8px)); padding: 6px 8px;
+    border-radius: 4px; background: var(--ink); color: var(--paper); box-shadow: 0 6px 18px rgba(43,40,31,.18);
+    font-size: 11.5px; line-height: 1.35; pointer-events: none; }
+  .chart-tooltip[hidden] { display: none; }
+
+  .table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: rgba(255,255,255,.30); }
+  table.recent { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.recent th, table.recent td { text-align: left; padding: 10px 11px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  table.recent th { background: rgba(235,228,215,.56); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--label); font-weight: 700; }
   table.recent td:nth-child(2) { white-space: normal; min-width: 220px; }
+  table.recent tbody tr:last-child td { border-bottom: 0; }
 
-  @media (prefers-reduced-motion: reduce) { * { animation-duration: .001ms !important; transition-duration: .001ms !important; } }
+  @media (max-width: 720px) {
+    header.app .wrap { align-items: flex-start; padding-top: 18px; padding-bottom: 17px; }
+    header.app p { max-width: 26ch; }
+    .back-link { padding-left: 12px; padding-right: 12px; }
+    .totals-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .bar-row, .bar-scale { grid-template-columns: minmax(88px, 34%) minmax(100px, 1fr) 28px; gap: 7px; }
+    .bar-label { font-size: 11px; }
+  }
+  @media (max-width: 430px) {
+    .wrap { padding-left: 14px; padding-right: 14px; }
+    header.app h1 { font-size: 24px; }
+    header.app p { font-size: 12px; }
+    header.app .back-link { font-size: 0; padding: 5px 10px; }
+    header.app .back-link::after { content: "← Back"; font-size: 12px; }
+    .tile { padding: 14px; }
+    .tile .n { font-size: 30px; }
+    .panel { padding: 17px 15px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  }
 </style>
 </head>
 <body>
 <header class="app">
   <div class="wrap">
     <div>
-      <h1>Springboard — Admin Stats</h1>
+      <h1>Springboard — <em>Admin stats</em></h1>
       <p>Usage analytics. Password-protected.</p>
     </div>
     <a class="btn ghost back-link" href="index.html">&larr; Back to Springboard</a>
@@ -338,11 +402,7 @@
     return out;
   }
 
-  function truncate(s, max) {
-    return s.length > max ? s.slice(0, max - 1) + "…" : s;
-  }
-
-  // ---------- hand-rolled SVG chart helpers ----------
+  // ---------- hand-rolled chart helpers ----------
 
   var SVG_NS = "http://www.w3.org/2000/svg";
   function svgEl(tag, attrs) {
@@ -358,7 +418,44 @@
     el.appendChild(p);
   }
 
-  // Sighted-hidden data-table equivalent for a chart's SVG (WCAG 1.1.1) — same rows the
+  function makeChartTooltip(host) {
+    host.classList.add("chart-host");
+    var tooltip = document.createElement("div");
+    tooltip.className = "chart-tooltip";
+    tooltip.setAttribute("role", "tooltip");
+    tooltip.hidden = true;
+    host.appendChild(tooltip);
+    return tooltip;
+  }
+
+  function wireChartTooltip(host, mark, tooltip, text, activeMark) {
+    mark.setAttribute("tabindex", "0");
+    mark.setAttribute("role", "img");
+    mark.setAttribute("aria-label", text);
+    function show() {
+      tooltip.textContent = text;
+      tooltip.hidden = false;
+      if (activeMark) activeMark.classList.add("is-active");
+      var markRect = mark.getBoundingClientRect();
+      var hostRect = host.getBoundingClientRect();
+      var left = markRect.left - hostRect.left + markRect.width / 2 - tooltip.offsetWidth / 2;
+      left = Math.max(4, Math.min(left, hostRect.width - tooltip.offsetWidth - 4));
+      var top = markRect.top - hostRect.top - tooltip.offsetHeight - 7;
+      if (top < 2) top = markRect.bottom - hostRect.top + 7;
+      tooltip.style.left = left + "px";
+      tooltip.style.top = top + "px";
+    }
+    function hide() {
+      tooltip.hidden = true;
+      if (activeMark) activeMark.classList.remove("is-active");
+    }
+    mark.addEventListener("mouseenter", show);
+    mark.addEventListener("focus", show);
+    mark.addEventListener("mouseleave", hide);
+    mark.addEventListener("blur", hide);
+  }
+
+  // Sighted-hidden data-table equivalent for a chart (WCAG 1.1.1) — same rows the
   // bars/dots draw from, so screen readers get every label+value, not just the "top" ones.
   function srDataTable(id, labelHeader, labelKey, rows) {
     var table = document.createElement("table");
@@ -394,53 +491,66 @@
     el.textContent = "";
     if (!rows.length) { emptyNote(el); return; }
 
-    var rowH = 28, gap = 8, leftPad = 210, chartW = 340, rightPad = 55, topPad = 10;
-    var width = leftPad + chartW + rightPad;
-    var height = topPad * 2 + rows.length * (rowH + gap) - gap;
     var max = Math.max.apply(null, rows.map(function (r) { return r.n || 0; }).concat([1]));
-
     var dataId = el.id + "-data";
-    var svg = svgEl("svg", {
-      "class": "chart", viewBox: "0 0 " + width + " " + height, width: "100%",
-      height: String(height), role: "img", "aria-label": "Bar chart of " + labelKey,
-      "aria-describedby": dataId,
-    });
+    var chart = document.createElement("div");
+    chart.className = "bar-chart";
+    chart.setAttribute("role", "group");
+    chart.setAttribute("aria-label", "Bar chart of " + (labelHeader || labelKey));
+    chart.setAttribute("aria-describedby", dataId);
+    el.appendChild(chart);
+    var tooltip = makeChartTooltip(el);
+    var maxLabelled = false;
 
-    // gridlines at 0/50/100% of max, with numeric ticks along the bottom.
-    [0, 0.5, 1].forEach(function (f) {
-      var x = leftPad + chartW * f;
-      svg.appendChild(svgEl("line", { "class": "gridline", x1: x, x2: x, y1: topPad, y2: height - topPad }));
-      var tick = svgEl("text", { "class": "axis-label", x: x, y: height - 1, "text-anchor": f === 0 ? "start" : (f === 1 ? "end" : "middle") });
-      tick.textContent = String(Math.round(max * f));
-      svg.appendChild(tick);
-    });
-
-    rows.forEach(function (row, i) {
-      var y = topPad + i * (rowH + gap);
+    rows.forEach(function (row) {
       var fullLabel = String(row[labelKey] == null ? "—" : row[labelKey]);
       var n = row.n || 0;
-      var barW = Math.max((n / max) * chartW, 1);
-
-      var g = svgEl("g", {});
-      var title = svgEl("title", {});
-      title.textContent = fullLabel + ": " + n;
-      g.appendChild(title);
-
-      var labelText = svgEl("text", { x: leftPad - 10, y: y + rowH / 2 + 4, "text-anchor": "end" });
-      labelText.textContent = truncate(fullLabel, 28);
-      g.appendChild(labelText);
-
-      var rect = svgEl("rect", { "class": "bar", x: leftPad, y: y, width: barW, height: rowH - 8, rx: 4 });
-      g.appendChild(rect);
-
-      var valueText = svgEl("text", { "class": "axis-label", x: leftPad + barW + 8, y: y + rowH / 2 + 4 });
-      valueText.textContent = String(n);
-      g.appendChild(valueText);
-
-      svg.appendChild(g);
+      var barWidth = ((n / max) * 100).toFixed(2) + "%";
+      var rowEl = document.createElement("div");
+      rowEl.className = "bar-row";
+      var label = document.createElement("span");
+      label.className = "bar-label";
+      label.title = fullLabel;
+      label.textContent = fullLabel;
+      var plot = document.createElement("div");
+      plot.className = "bar-plot";
+      var fill = document.createElement("span");
+      fill.className = "bar-fill";
+      fill.style.setProperty("--bar-w", barWidth);
+      fill.setAttribute("aria-hidden", "true");
+      var mark = document.createElement("button");
+      mark.type = "button";
+      mark.className = "bar-mark chart-mark";
+      mark.style.setProperty("--bar-w", barWidth);
+      wireChartTooltip(el, mark, tooltip, fullLabel + ": " + n, fill);
+      plot.appendChild(fill);
+      plot.appendChild(mark);
+      var maxValue = document.createElement("span");
+      maxValue.className = "bar-max";
+      if (!maxLabelled && n === max) {
+        maxValue.textContent = String(n);
+        maxLabelled = true;
+      }
+      rowEl.appendChild(label);
+      rowEl.appendChild(plot);
+      rowEl.appendChild(maxValue);
+      chart.appendChild(rowEl);
     });
 
-    el.appendChild(svg);
+    var scale = document.createElement("div");
+    scale.className = "bar-scale";
+    scale.setAttribute("aria-hidden", "true");
+    scale.appendChild(document.createElement("span"));
+    var ticks = document.createElement("span");
+    ticks.className = "bar-ticks";
+    [0, Math.round(max / 2), max].forEach(function (value) {
+      var tick = document.createElement("span");
+      tick.textContent = String(value);
+      ticks.appendChild(tick);
+    });
+    scale.appendChild(ticks);
+    scale.appendChild(document.createElement("span"));
+    chart.appendChild(scale);
     el.appendChild(srDataTable(dataId, labelHeader || labelKey, labelKey, rows));
   }
 
@@ -449,14 +559,16 @@
     el.textContent = "";
     if (!rows.length) { emptyNote(el); return; }
 
-    var width = 700, height = 220, padL = 40, padR = 16, padT = 16, padB = 26;
+    el.classList.add("chart-host");
+    var width = Math.max(320, Math.round(el.clientWidth || 700));
+    var height = 220, padL = 40, padR = 16, padT = 16, padB = 26;
     var plotW = width - padL - padR, plotH = height - padT - padB;
     var max = Math.max.apply(null, rows.map(function (r) { return r.n || 0; }).concat([1]));
 
     var dataId = el.id + "-data";
     var svg = svgEl("svg", {
-      "class": "chart", viewBox: "0 0 " + width + " " + height, width: "100%",
-      height: String(height), role: "img", "aria-label": "Line chart of PowerPoints generated per day",
+      "class": "chart line-chart", viewBox: "0 0 " + width + " " + height, width: "100%",
+      height: String(height), role: "group", "aria-label": "Line chart of PowerPoints generated per day",
       "aria-describedby": dataId,
     });
 
@@ -476,6 +588,7 @@
     var d = points.map(function (p, i) { return (i === 0 ? "M" : "L") + p.x.toFixed(1) + "," + p.y.toFixed(1); }).join(" ");
     svg.appendChild(svgEl("path", { "class": "line-path", d: d }));
 
+    var tooltip = makeChartTooltip(el);
     points.forEach(function (p, i) {
       if (i === 0 || i === points.length - 1 || i % 5 === 0) {
         var t = svgEl("text", { "class": "axis-label", x: p.x, y: height - 6, "text-anchor": "middle" });
@@ -483,10 +596,10 @@
         svg.appendChild(t);
       }
       var dot = svgEl("circle", { "class": "dot", cx: p.x, cy: p.y, r: 3 });
-      var title = svgEl("title", {});
-      title.textContent = p.row.day + ": " + (p.row.n || 0);
-      dot.appendChild(title);
       svg.appendChild(dot);
+      var hit = svgEl("circle", { "class": "line-hit chart-mark", cx: p.x, cy: p.y, r: 12 });
+      wireChartTooltip(el, hit, tooltip, p.row.day + ": " + (p.row.n || 0));
+      svg.appendChild(hit);
     });
 
     el.appendChild(svg);
