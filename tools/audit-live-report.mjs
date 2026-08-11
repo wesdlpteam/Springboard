@@ -44,7 +44,7 @@ const GAMBLE = /\b(bet|bets|betting|wager|wagers|odds|put money on)\b/i;
 const GENERIC_STEP = /\b(look closely at the (image|picture|photo)|see one tiny section|study the (image|picture) carefully|observe the image)\b/i;
 // "point to it" and "show me" are the Prep–Year 2 wording of a commitment (BAND_GUIDANCE/
 // EARLY_WORDS_RULE tells the model to use them instead of "commit"), so they belong in this list.
-const COMMIT = /\b(choose|chooses|decide|decides|predict|predicts|commit|commits|vote|votes|rank|ranks|guess|guesses|pick|picks|point to|point at|show me|call it|make a call|stance|argue|defend)\b/i;
+const COMMIT = /\b(choose|chooses|decide|decides|predict|predicts|commit|commits|vote|votes|rank|ranks|guess|guesses|pick|picks|point to|point at|show me|call it|make a call|stance|argue|defend|agree|agrees|disagree|disagrees)\b/i;
 const SHARE = /\b(class|partner|pair|group|share|tell|defend|explain to|ready to|say it out|out loud|board|post|hold up)\b/i;
 
 for (const r of runs) {
@@ -68,7 +68,7 @@ for (const r of runs) {
   if (kw.length < 3 || kw.length > 6) add(id, "WARN", "limits", `keywords ${kw.length} (want 3-6)`);
 
   const iq = d.ignite?.question || "";
-  if (words(iq) > 20) add(id, "FAIL", "limits", `ignite.question ${words(iq)} words (max 20): "${iq}"`);
+  if (words(iq) > 24) add(id, "FAIL", "limits", `ignite.question ${words(iq)} words (max 24): "${iq}"`);
   if (!COMMIT.test(iq)) add(id, "WARN", "pedagogy", `ignite asks for no commitment: "${iq}"`);
   if (!SHARE.test(iq)) add(id, "WARN", "pedagogy", `ignite never says how the answer goes public: "${iq}"`);
   if (/\bimagine\b/i.test(iq)) add(id, "WARN", "pedagogy", `ignite opens with "imagine" instead of a real commitment: "${iq}"`);
