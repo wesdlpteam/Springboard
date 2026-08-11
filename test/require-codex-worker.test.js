@@ -69,8 +69,10 @@ test("allows exact worker control and Fable verification commands", () => {
   const prompt = path.join(os.tmpdir(), "springboard-codex-prompt.md");
   const commands = [
     `node "${worker}" status --cwd "${PROJECT_ROOT}"`,
-    `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort high --sandbox workspace-write`,
-    `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --resume thread_123 --effort high --sandbox workspace-write`,
+    `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort xhigh --sandbox workspace-write`,
+    `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort ultra --sandbox workspace-write`,
+    `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort xhigh --sandbox workspace-write --visual-required true`,
+    `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --resume thread_123 --effort ultra --sandbox workspace-write`,
     "rg --files .",
     "Get-Content -Raw CLAUDE.md",
     "git status --short",
@@ -84,6 +86,30 @@ test("allows exact worker control and Fable verification commands", () => {
 
   for (const command of commands) {
     assert.equal(evaluate("PowerShell", { command }, CONTEXT), null, command);
+  }
+});
+
+test("allows only the deliberate live-audit command forms", () => {
+  const allowed = [
+    "npm run audit:live",
+    "npm run audit:live:rerun",
+    "node tools/audit-live.mjs",
+    "node tools/audit-live-report.mjs",
+    "node tools/audit-live-viewer.mjs",
+  ];
+  const denied = [
+    "FORCE=1 npm run audit:live",
+    "$env:FORCE='1'; npm run audit:live",
+    "npm run audit:live -- --force",
+    "node tools/audit-live.mjs --force",
+    "npm run audit:live && Set-Content index.html x",
+  ];
+
+  for (const command of allowed) {
+    assert.equal(evaluate("PowerShell", { command }, CONTEXT), null, command);
+  }
+  for (const command of denied) {
+    assert.equal(evaluate("PowerShell", { command }, CONTEXT)?.decision, "deny", command);
   }
 });
 
@@ -102,10 +128,16 @@ test("rejects worker bypasses and incorrectly scoped worker commands", () => {
   const wrongRoot = path.resolve(PROJECT_ROOT, "..", "another-project");
   const localPrompt = path.join(PROJECT_ROOT, "prompt.md");
   const commands = [
-    `node "${worker}" run --cwd "${wrongRoot}" --prompt-file "${prompt}" --effort high --sandbox workspace-write`,
-    `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${localPrompt}" --effort high --sandbox workspace-write`,
-    `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort high --sandbox workspace-write ; Set-Content index.html x`,
-    `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort high --sandbox unrestricted`,
+    `node "${worker}" run --cwd "${wrongRoot}" --prompt-file "${prompt}" --effort xhigh --sandbox workspace-write`,
+    `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${localPrompt}" --effort xhigh --sandbox workspace-write`,
+    `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort xhigh --sandbox workspace-write ; Set-Content index.html x`,
+    `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort xhigh --sandbox unrestricted`,
+    `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort xhigh --sandbox read-only --visual-required true`,
+    `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort xhigh --sandbox workspace-write --visual-required maybe`,
+    `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort low --sandbox workspace-write`,
+    `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort medium --sandbox workspace-write`,
+    `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort high --sandbox workspace-write`,
+    `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort max --sandbox workspace-write`,
   ];
 
   for (const command of commands) {
@@ -162,6 +194,12 @@ test("project instructions require visible background Codex progress", () => {
 
   assert.match(instructions, /visible background runner/i);
   assert.match(instructions, /run_in_background: true/);
+  assert.match(instructions, /--visual-required true/);
+  assert.match(instructions, /visual evidence: <path>/i);
+  assert.match(instructions, /desktop and mobile checks/i);
+  assert.match(instructions, /Use `xhigh` for ordinary implementation/i);
+  assert.match(instructions, /`ultra` for demanding coding tasks/i);
+  assert.match(instructions, /Do not launch implementation below `xhigh`/i);
   assert.match(instructions, /30–60 seconds/);
   assert.match(instructions, /Never expose or claim hidden chain-of-thought/i);
   assert.match(instructions, /If `codex-worker` is unavailable or fails, stop/i);

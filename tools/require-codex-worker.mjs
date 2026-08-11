@@ -25,8 +25,10 @@ const ALLOWED_SHELL_COMMANDS = [
   /^node\s+--(?:check|test)(?:\s|$)/i,
   /^npm\s+test(?:\s|$)/i,
   /^npm\s+run\s+(?:check:ui|audit|audit:static|audit:deck|audit:ui|audit:routines)(?:\s|$)/i,
+  /^npm\s+run\s+(?:audit:live|audit:live:rerun)$/i,
   /^npx\s+vercel\s+dev(?:\s|$)/i,
   /^node\s+tools[\\/](?:stats-stub|compile-check|audit-static|audit-deck|audit-ui|audit-routine-sweep)\.(?:mjs|cjs)(?:\s|$)/i,
+  /^node\s+tools[\\/](?:audit-live|audit-live-report|audit-live-viewer)\.mjs$/i,
   /^git\s+(?:add|commit|push)(?:\s|$)/i,
   /^vercel\s+--prod\s+--yes(?:\s|$)/i,
   /^curl(?:\.exe)?\s+-i\s+-X\s+OPTIONS\s+https:\/\/springboard-dlp-s-projects\.vercel\.app\/api\/[A-Za-z0-9_./-]+\s*$/i,
@@ -35,7 +37,7 @@ const ALLOWED_SHELL_COMMANDS = [
 ];
 
 const WORKER_SCRIPT_SUFFIX = "/.claude/skills/codex-worker/scripts/codex-worker.mjs";
-const VALID_EFFORTS = new Set(["low", "medium", "high", "xhigh", "max", "ultra"]);
+const VALID_EFFORTS = new Set(["xhigh", "ultra"]);
 const VALID_SANDBOXES = new Set(["read-only", "workspace-write"]);
 
 function deny(reason) {
@@ -140,7 +142,7 @@ function isAllowedWorkerCommand(command, projectRoot) {
   }
 
   if (action !== "run") return false;
-  const allowedFlags = new Set(["--cwd", "--prompt-file", "--effort", "--sandbox", "--resume"]);
+  const allowedFlags = new Set(["--cwd", "--prompt-file", "--effort", "--sandbox", "--resume", "--visual-required"]);
   if ([...options.keys()].some((flag) => !allowedFlags.has(flag))) return false;
   if (!options.has("--prompt-file") || !options.has("--effort") || !options.has("--sandbox")) return false;
 
@@ -149,6 +151,8 @@ function isAllowedWorkerCommand(command, projectRoot) {
   if (!VALID_EFFORTS.has(options.get("--effort"))) return false;
   if (!VALID_SANDBOXES.has(options.get("--sandbox"))) return false;
   if (options.has("--resume") && !/^[A-Za-z0-9._:-]+$/.test(options.get("--resume"))) return false;
+  if (options.has("--visual-required") && !["true", "false"].includes(options.get("--visual-required"))) return false;
+  if (options.get("--visual-required") === "true" && options.get("--sandbox") !== "workspace-write") return false;
   return true;
 }
 

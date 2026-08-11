@@ -12,6 +12,8 @@ When Fable delegates an implementation through `codex-worker`, Codex is the sole
 - Preserve pre-existing user changes and do not broaden the task into nearby cleanup or refactoring.
 - Make all implementation edits yourself; do not ask Fable to edit project files for you.
 - Keep one writer. Corrections and related follow-ups must resume the same Codex thread.
+- Worker runs use `xhigh` for ordinary implementation and `ultra` for demanding coding tasks, including cross-cutting architecture, complex multi-file features or migrations, difficult debugging, security- or data-integrity-sensitive work, and substantial performance work.
+- For any user-facing change, use the installed `$playwright` skill and complete the global desktop/mobile visual verification contract. Save and inspect screenshots in `CODEX_VISUAL_EVIDENCE_DIR`, check the console, iterate on visible defects, and write the required `visual-review.json` before handoff.
 - Run the narrow checks needed for the change. Before handoff, also run `npm test` and `npm run check:ui` unless the brief explicitly explains why one cannot run.
 - Report the files changed, verification commands and results, and any remaining risk or decision.
 - Do not commit, push, deploy, install new production dependencies, or perform destructive actions unless the delegation brief explicitly authorizes them.
