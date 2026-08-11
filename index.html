@@ -1428,7 +1428,7 @@ const BAND_ORDER = ["Early","Junior","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.15.0 · 2026-08-11";
+const APP_VERSION = "v0.15.1 · 2026-08-11";
 
 // Maps a class's year level to a teaching band (Prep-Y2 / Y3-6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2895,7 +2895,13 @@ const REFLECT_ROUTINES = [
 
 /* --------------------------- Backend call --------------------------- */
 
-async function generateSpringboard({ passcode, mode, media = [], sourceText = "", classInfo, routineName, reflectRoutine = "", intention = "", scope = "all", current = null, onPartial = null, onReviewStart = null }) {
+// One shared definition of a summary sentence: the early-years shape guard and the article
+// five-sentence retry must agree on exactly what they are counting.
+const splitSummarySentences = (value) => String(value || "")
+  .split(/(?<=[.!?])\s+/)
+  .filter(sentence => sentence.trim().length > 1);
+
+async function generateSpringboard({ passcode, mode, media = [], sourceText = "", classInfo, routineName, reflectRoutine = "", intention = "", scope = "all", current = null, onPartial = null, onReviewStart = null, allowSummaryRetry = true }) {
   const routine = ROUTINES.find(r => r.name === routineName) || ROUTINES[0];
   // Article stimulus (PDF / pasted text / fetched link) rather than a reel of images+video.
   // Only an article gets think.summary — the 5 sentences students read on the THINK slide.
@@ -3165,6 +3171,29 @@ Never invent a key concept or a learner profile attribute outside those lists.`;
   // Prep-Year 2 only: a second, narrow pass over the words students actually read.
   parsed = await simplifyForEarlyYears({ passcode, deck: parsed, classInfo, onPartial });
   parsed = await studentJuryPass({ passcode, deck: parsed, classInfo, scope, current, onPartial });
+  // Article summaries are the students' reading text, so a malformed count gets one targeted
+  // THINK regeneration through the normal scoped path. Never recurse, and fail open: a retry
+  // only lands when its post-jury summary has exactly the required five sentences.
+  if (isArticleStim && allowSummaryRetry && (scope === "all" || scope === "think")
+      && splitSummarySentences(parsed?.think?.summary).length !== 5) {
+    try {
+      const retryContext = scope === "all"
+        ? parsed
+        : (current ? mergeScopedFields(current, "think", parsed) : parsed);
+      const retry = await generateSpringboard({
+        passcode, mode, media, sourceText, classInfo, routineName: routine.name,
+        reflectRoutine, intention, scope: "think", current: retryContext,
+        allowSummaryRetry: false,
+      });
+      if (splitSummarySentences(retry?.parsed?.think?.summary).length === 5) {
+        parsed = scope === "all"
+          ? mergeScopedFields(parsed, "think", retry.parsed)
+          : retry.parsed;
+      }
+    } catch (_) {
+      // A count repair must never cost the teacher the otherwise usable lesson already built.
+    }
+  }
   return { parsed, raw };
 }
 
@@ -3204,7 +3233,7 @@ async function simplifyForEarlyYears({ passcode, deck, classInfo, onPartial = nu
   const payload = Object.fromEntries(Object.entries(src).filter(([, v]) => v !== undefined && v !== null && (Array.isArray(v) ? v.length : String(v).trim())));
   if (!Object.keys(payload).length) return deck;
 
-  const summarySentences = String(src.summary || "").split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 1).length;
+  const summarySentences = splitSummarySentences(src.summary).length;
   const sys = `You rewrite lesson text so a ${classInfo.yearLevel === "F" ? "Prep" : "Year " + classInfo.yearLevel} class (age 5-8) can follow it when their teacher reads it aloud. You are NOT writing a new lesson — keep every idea, every instruction and every order exactly as it is, and change only the words.
 ${EARLY_WORDS_RULE}
 Also: at most 12 words per sentence, one instruction per sentence — split a long sentence into two short ones rather than dropping anything. Keep questions as questions. Keep any name, number, colour or object that is named. Never add a new fact.
@@ -3258,7 +3287,7 @@ Return STRICT JSON with EXACTLY the same keys and the same shape you were given.
   put(str(out.revealQuestion) && str(src.revealQuestion) ? str(out.revealQuestion) : null, v => { next.think.reveal.question = v; });
   // The summary is the one field with a required count, so it only lands if the count survived.
   const newSummary = str(out.summary);
-  if (newSummary && summarySentences && newSummary.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 1).length === summarySentences) next.think.summary = newSummary;
+  if (newSummary && summarySentences && splitSummarySentences(newSummary).length === summarySentences) next.think.summary = newSummary;
   put(str(out.launchQuestion), v => { next.launch.question = v; });
   put(str(out.reflectRevisit), v => { next.reflect.revisit = v; });
   put(src.reflectPrompts && sameLenArray(out.reflectPrompts, src.reflectPrompts), v => { next.reflect.prompts = v; });
@@ -3333,12 +3362,13 @@ async function studentJuryPass({ passcode, deck, classInfo, scope = "all", curre
     }
     const sys = `You are Springboard's final publish gate: a panel of four ${classLabel} students with different reading confidence. Keep four distinct student voices in mind; do not average them into one imaginary child. Walk the supplied lesson items in classroom order.
 For every discussion question or stem, EACH juror must be able to (a) restate what it asks in their own words on first hearing and (b) take a defensible position, and the panel must genuinely disagree enough to sustain deep, thoughtful discussion. Clarity alone is not a pass. A one-word-answer item fails. For a procedural THINK step, each juror must be able to restate it and act on it immediately; do not add debate mechanics to a routine step.
+The opening question or statement must also be a COMMITMENT a student could later be proven wrong about — a pick-a-side choice, a falsifiable prediction, or a stance to defend. A safe invitation ("Do you think…?", "What might…?", "How do you feel about…?") fails even when every juror can discuss it: rewrite it to force the commitment while keeping the sharing move, the word cap, and the lesson's focus. Measured failure (Terra trial, 2026-08-11): "Do you think these people were living through hard times when photographed? Share yes or no, then show the class one clue." — discussable, but nobody can be proven wrong about what they "think"; the passing shape asks what WAS true and stakes a side: "Were these people living through hard times when this photograph was taken? Pick yes or no and show the class one clue."
 Critique and fix in this ONE response. Preserve the lesson's intent and the same stimulus anchor. Change only the supplied writable items:
 - igniteQuestion may be one provocative question OR one provocative statement students agree or disagree with. Keep the sharing move and keep it at 24 words or fewer. It must still be decidable and open the lesson's focus.
 - thinkSteps use the canonical thinking routine wording, which is LOCKED. You may adjust only a light anchor phrase such as "in this painting" when that is needed for immediate clarity. Keep every move and its order.
 - revealQuestion may be rewritten, but the reveal fact in the read-only context is locked. After the surprise, the question must REOPEN discussion rather than invite a one-word answer.
 - reflectRevisit and reflectPrompts may have their wording repaired, but keep each reflection routine move and its order. They must be instantly understandable, invite a position, and produce an exchange rather than one-word answers.
-Worked failure: "Did everyone shown meet together exactly like this?" No juror can restate "everyone shown" or "exactly like this" on first hearing. A passing shape names the thing plainly: "Do you think this meeting really happened just the way the painting shows it?" Use that as a SHAPE only; write this lesson's own words and retain its sharing move.
+Worked failure: "Did everyone shown meet together exactly like this?" No juror can restate "everyone shown" or "exactly like this" on first hearing. A clearer first-hearing shape names the thing plainly: "Do you think this meeting really happened just the way the painting shows it?" Use that as a CLARITY SHAPE only; it still needs a falsifiable commitment, this lesson's own words, and its sharing move.
 Return STRICT JSON with EXACTLY the same top-level keys as the supplied items, using this shape: ${JSON.stringify(exampleShape)}. Every item has verdict "pass" or "fixed" plus its final text. If verdict is "pass", copy the supplied text exactly. Arrays must keep the same length and order. Do not return critique, juror restatements, read-only fields, markdown or extra keys.`;
 
     // A helper pass is never worth more than a minute of a teacher's wait; past 60s we publish what we have.
