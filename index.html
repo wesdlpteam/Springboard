@@ -308,6 +308,7 @@
 
   .alert { padding: 11px 13px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 12px; line-height: 1.45; }
   .alert.bad { background: var(--bad-bg); color: var(--bad-ink); border: 1px solid var(--bad); }
+  .alert.warn { background: var(--warn-bg); color: var(--warn-ink); border: 1px solid var(--warn); }
   .alert.info { background: var(--accent-soft); color: var(--accent); border: 1px solid var(--purple-grey); }
   .alert pre { white-space: pre-wrap; word-break: break-word; margin: 6px 0 0; font-size: 11.5px; }
 
@@ -873,6 +874,14 @@
     background: var(--ink); color: var(--paper); font-family: var(--bx-ui); font-style: normal; font-weight: 600;
     font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
   .bx-more summary { font-size: 12.5px; color: var(--muted); cursor: pointer; margin-top: 10px; }
+  .bx-first-time { display: flex; align-items: flex-start; gap: 10px; min-height: 40px; margin: 14px 0 2px;
+    padding: 10px 11px; border-left: 3px solid var(--accent-2); border-radius: 4px;
+    background: color-mix(in srgb, var(--gold-soft) 38%, #fff); color: var(--ink);
+    font-size: 13px; line-height: 1.45; cursor: pointer; }
+  .bx-first-time input { flex: 0 0 auto; width: 18px; height: 18px; margin: 1px 0 0; accent-color: var(--accent); }
+  .bx-first-time input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .bx-first-time:has(input:disabled) { opacity: .68; cursor: wait; }
+  .bx-first-time small { display: block; margin-top: 3px; color: var(--muted); font-size: 11.5px; }
 
   /* ---- the finished lesson: full content, editable in place (brain view's answer to the
      Classic editor). Fields write straight into the deck the .pptx export reads. ---- */
@@ -963,6 +972,7 @@
   .bx-live-row .t.waiting { color: var(--muted); font-style: italic; }
   .bx-alert { font-size: 13px; color: #8f1d2e; background: #fdeaee; border: 1px solid #f0b8c4; border-radius: 4px; padding: 8px 11px; margin-top: 10px; }
   .bx-alert.info { color: var(--ink); background: rgba(197,159,64,.16); border-color: rgba(122,80,18,.42); }
+  .bx-alert.warn { color: var(--warn-ink); background: var(--warn-bg); border-color: var(--warn); }
   /* same box, good news: "we got it" must not look like a failure */
   .bx-alert.ok { color: var(--good-ink); background: var(--good-bg); border-color: var(--good); }
 
@@ -1287,6 +1297,7 @@
   .ww-chamber .bx-btn.mv { background: var(--purple); color: #fff; } /* purple = the only interactive voice */
   .ww-chamber .bx-alert { background: #FDAFBD33; border-color: #8F1D2E55; color: #8F1D2E; }
   .ww-chamber .bx-alert.info { background: #C59F4029; border-color: #7A50126B; color: var(--ink); }
+  .ww-chamber .bx-alert.warn { background: var(--warn-bg); border-color: var(--warn); color: var(--warn-ink); }
   .ww-chamber .bx-alert.ok { background: #CFE9D355; border-color: #58C33777; color: #3C5238; }
   /* paste-a-link import row in the chamber's stimulus step */
   .bx-linkrow { display: flex; gap: 6px; margin-top: 8px; }
@@ -1428,7 +1439,7 @@ const BAND_ORDER = ["Early","Junior","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.15.1 · 2026-08-11";
+const APP_VERSION = "v0.15.2 · 2026-08-12";
 
 // Maps a class's year level to a teaching band (Prep-Y2 / Y3-6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -2207,6 +2218,22 @@ const ROUTINES = [
 ];
 const ROUTINE_SOURCE = "Harvard Project Zero Thinking Routines · pz.harvard.edu/thinking-routines";
 
+// The first-time line is deliberately deterministic: it comes from the routine catalogue, not the
+// model, so the teacher sees the same plain introduction in the editor and in the exported deck.
+function routineIntroText(routine) {
+  if (!routine || !String(routine.name || "").trim() || !String(routine.gist || "").trim()) return "";
+  return `Today we’re using “${routine.name}”, a Project Zero routine: ${routine.gist}`;
+}
+
+// Compatibility guard: an unticked checkbox must not add even an empty field to today's deck.
+// Returning the same object also gives the static audit a direct way to enforce that promise.
+function withRoutineIntro(deck, routine, enabled) {
+  if (!enabled) return deck;
+  const intro = routineIntroText(routine);
+  if (!deck || !deck.think || !intro) return deck;
+  return { ...deck, think: { ...deck.think, intro } };
+}
+
 // The Understanding Map (Harvard Project Zero / Cultures of Thinking). The teacher
 // picks a Thinking Move first; Analyse then ranks routines FROM that move's list.
 // `routines` names MUST match ROUTINES[].name exactly — unmatched names are silently
@@ -2901,7 +2928,7 @@ const splitSummarySentences = (value) => String(value || "")
   .split(/(?<=[.!?])\s+/)
   .filter(sentence => sentence.trim().length > 1);
 
-async function generateSpringboard({ passcode, mode, media = [], sourceText = "", classInfo, routineName, reflectRoutine = "", intention = "", scope = "all", current = null, onPartial = null, onReviewStart = null, allowSummaryRetry = true }) {
+async function generateSpringboard({ passcode, mode, media = [], sourceText = "", classInfo, routineName, reflectRoutine = "", intention = "", firstTimeRoutine = false, scope = "all", current = null, onPartial = null, onReviewStart = null, allowSummaryRetry = true }) {
   const routine = ROUTINES.find(r => r.name === routineName) || ROUTINES[0];
   // Article stimulus (PDF / pasted text / fetched link) rather than a reel of images+video.
   // Only an article gets think.summary — the 5 sentences students read on the THINK slide.
@@ -2974,6 +3001,13 @@ Never invent a key concept or a learner profile attribute outside those lists.`;
   // reappearing on the slides however the earlier rules were worded, so restate the ban right after
   // it — the model follows the most specific, most recent instruction.
   if (playbook) sys += "\n" + playbook;
+
+  // This option changes only the teacher's way into the routine. The deterministic student-facing
+  // introduction is added locally after generation, so the model is never invited to rewrite it —
+  // or the canonical routine moves — in order to satisfy the first-time request.
+  if (firstTimeRoutine && (scope === "all" || scope === "think")) {
+    sys += `\nFIRST-TIME ROUTINE: This class is meeting "${routine.name}" for the first time. In notes.think, FACILITATION must open with one sentence introducing the routine and the thinking it makes visible. In notes.think, the ENABLING PROMPT must make the most abstract step concrete as question forms suited to this class, such as "What puzzles you?", "What seems contradictory?", and "What is not yet explained?" This instruction applies to notes.think ONLY. The canonical wording and order of think.steps stay LOCKED: do not rewrite, replace or reorder them for this first-time introduction.`;
+  }
 
   // Teacher pinned a specific end-of-lesson reflection routine from the REFLECT dropdown:
   // override the "vary the choice" instruction below and lock reflect.prompts to it.
@@ -3182,7 +3216,7 @@ Never invent a key concept or a learner profile attribute outside those lists.`;
         : (current ? mergeScopedFields(current, "think", parsed) : parsed);
       const retry = await generateSpringboard({
         passcode, mode, media, sourceText, classInfo, routineName: routine.name,
-        reflectRoutine, intention, scope: "think", current: retryContext,
+        reflectRoutine, intention, firstTimeRoutine, scope: "think", current: retryContext,
         allowSummaryRetry: false,
       });
       if (splitSummarySentences(retry?.parsed?.think?.summary).length === 5) {
@@ -3713,9 +3747,15 @@ function mergeScopedFields(deck, scope, parsed) {
   // ticked curriculum focus (it lives on the deck, not in the model's reply) or the LAUNCH notes
   // would silently lose it.
   if (!SLICES.includes(scope)) return { ...shaped, curriculumFocus: deck.curriculumFocus };
+  // A first-time intro is teacher-editable local content, not model output. Preserve the property
+  // (including an intentionally emptied string) when THINK is regenerated; old/off decks have no
+  // such property and keep today's exact object shape.
+  const scopedPart = scope === "think" && Object.prototype.hasOwnProperty.call(deck.think || {}, "intro")
+    ? { ...shaped.think, intro: deck.think.intro }
+    : shaped[scope];
   return {
     ...deck,
-    [scope]: shaped[scope],
+    [scope]: scopedPart,
     notes: { ...deck.notes, [scope]: shaped.notes[scope] },
   };
 }
@@ -4575,6 +4615,36 @@ const splitFocusCode = (text) => {
   return m ? { code: m[1], desc: m[2] } : { code: "", desc: String(text || "").trim() };
 };
 
+// Say exactly what is blocking Analyse/Generate. Kept outside App so the same pure helper can be
+// exercised by audit:static without inventing a frontend test framework.
+function inputMissing({ mode, media, articleText, pdfName, pdfReadProblem, subject, yearLevel }) {
+  const textLength = String(articleText || "").trim().length;
+  const pdfExtracting = mode === "article" && /\(extracting…\)$/.test(String(pdfName || ""));
+  const stimulusMissing = mode === "media"
+    ? !(Array.isArray(media) && media.length)
+    : mode === "article" ? textLength <= 20 : true;
+  const shortPdf = mode === "article" && stimulusMissing && !pdfExtracting && !!(pdfName || pdfReadProblem);
+  const missing = [];
+  if (stimulusMissing && !shortPdf) missing.push("a stimulus");
+  if (!String(subject || "").trim()) missing.push("the subject");
+  if (!String(yearLevel || "").trim()) missing.push("the year level");
+  const formatList = items => items.length < 2
+    ? (items[0] || "")
+    : items.length === 2
+      ? items.join(" and ")
+      : items.slice(0, -1).join(", ") + " and " + items[items.length - 1];
+  const list = formatList(missing);
+  if (shortPdf) {
+    const pdfMessage = "Your PDF loaded, but Springboard could read too little text to use it. It may be a scan. Paste the text below, or add the pages as images under Photo / video.";
+    return list ? pdfMessage + " Also add " + list + "." : pdfMessage;
+  }
+  if (pdfExtracting && stimulusMissing) {
+    const classList = formatList(missing.filter(item => item !== "a stimulus"));
+    return "Springboard is still reading your PDF." + (classList ? " Also add " + classList + "." : "");
+  }
+  return list ? "Add " + list + " to continue." : "";
+}
+
 function App() {
   // config — passcode persists in this browser's localStorage (per user request)
   const [passcode, setPasscode] = useState(() => { try { return localStorage.getItem(KEY_STORE) || ""; } catch (_) { return ""; } });
@@ -4628,6 +4698,9 @@ function App() {
   const [articleText, setArticleText] = useState("");
   const [articleImageUrl, setArticleImageUrl] = useState("");
   const [pdfName, setPdfName] = useState("");
+  // In-memory only. A zero-text scan clears pdfName (no success badge), but validation still needs
+  // to explain that the PDF — not an absent upload — is the blocker. Never written to storage.
+  const [pdfReadProblem, setPdfReadProblem] = useState(false);
   const [title, setTitle] = useState("");
   const [link, setLink] = useState("");
   const [activeBand, setActiveBand] = useState(null);// which generated deck is shown
@@ -4674,6 +4747,7 @@ function App() {
   const [analysing, setAnalysing] = useState(false);
   const [analyseError, setAnalyseError] = useState("");
   const [selectedRoutine, setSelectedRoutine] = useState(""); // "" until the teacher picks a card
+  const [firstTimeRoutine, setFirstTimeRoutine] = useState(false); // class setting for this visit only; never persisted
   const [selectedMove, setSelectedMove] = useState("");       // "" until the teacher picks a Thinking Move (the new first step); else a MOVES name
   const selectedMoveObj = MOVES.find(m => m.name === selectedMove) || null;
   const [reflectRoutine, setReflectRoutine] = useState("");   // "" = let the model vary the end-of-lesson reflection routine; else a pinned REFLECT_ROUTINES name
@@ -4792,6 +4866,7 @@ function App() {
   // and `setSpot` (accepting a value OR a function updater, like the old useState
   // setter) writes back into the active band's slot of the spots map.
   const spot = activeBand ? (spots[activeBand] || null) : null;
+  const hasRoutineIntro = !!(spot && spot.think && Object.prototype.hasOwnProperty.call(spot.think, "intro"));
   // The 3 "ways to run the launch" (teacher notes only). Absent on decks the model
   // returned without them, so always read through this guard.
   const launchIdeas = (spot && spot.launch && Array.isArray(spot.launch.ideas)) ? spot.launch.ideas : [];
@@ -5193,6 +5268,12 @@ function App() {
   const fetchedArticleRef = React.useRef("");
   const onArticleTextChange = (t) => {
     setArticleText(t);
+    if (String(t).trim().length > 20) {
+      setPdfReadProblem(false);
+      // The teacher followed the zero-text PDF guidance and pasted usable text. Remove that stale
+      // error; an amber low-text warning remains honest until the text itself is replaced fully.
+      setArticleNote(note => note && note.pdfProblem && note.kind !== "warn" ? null : note);
+    }
     const src = fetchedArticleRef.current;
     if (!src || !articleImageUrl) return;
     const head = (s) => String(s).replace(/\s+/g, " ").trim().slice(0, 80);
@@ -5203,17 +5284,39 @@ function App() {
   async function onPdf(e) {
     const f = e.target.files?.[0]; e.target.value = ""; if (!f) return; // reset so re-picking the same file re-fires
     const seq = ++pdfSeqRef.current; // any later pick supersedes this one so a slow parse can't clobber a newer PDF
+    setError(""); setArticleNote(null); setPdfReadProblem(false);
+    setArticleText(""); setArticleImageUrl(""); setLink(""); fetchedArticleRef.current = "";
     setPdfName(f.name + " (extracting…)");
     try {
       const t = await extractPdfText(f);
       if (seq !== pdfSeqRef.current) return;
-      setArticleText(t); setPdfName(f.name + ` (${t.length.toLocaleString()} chars)`);
       // The PDF replaces whatever article was loaded before it, so drop that article's lead image
       // and link too — otherwise the deck printed the OLD story's photo and QR beside the new text.
-      setArticleImageUrl(""); setLink(""); setArticleNote(null); fetchedArticleRef.current = "";
+      setArticleImageUrl(""); setLink(""); fetchedArticleRef.current = "";
+      const charCount = t.trim().length;
+      if (charCount === 0) {
+        setArticleText(""); setPdfName(""); setPdfReadProblem(true);
+        setArticleNote({
+          text: "Springboard couldn't read any text from this PDF. It is likely a scan or photo PDF. Paste the text below, or add the pages as images under Photo / video.",
+          ok: false, pdfProblem: true,
+        });
+        return;
+      }
+      setArticleText(t);
+      if (charCount < 200) {
+        setPdfName(f.name + ` (only ${charCount.toLocaleString()} chars — may be a scan)`);
+        setPdfReadProblem(charCount <= 20);
+        setArticleNote({
+          text: `Springboard could only read ${charCount.toLocaleString()} characters from this PDF. It may be a scan. Paste the text below, or add the pages as images under Photo / video.`,
+          ok: false, kind: "warn", pdfProblem: true,
+        });
+      } else {
+        setPdfName(f.name + ` (${charCount.toLocaleString()} chars)`);
+        setArticleNote(null);
+      }
     } catch (err) {
       if (seq !== pdfSeqRef.current) return;
-      setError("Could not extract text from that PDF: " + err.message); setPdfName("");
+      setError("Could not extract text from that PDF: " + err.message); setPdfName(""); setPdfReadProblem(false);
     }
   }
   // Reader 1: r.jina.ai turns a public page into markdown and allows browser/CORS requests, so
@@ -5285,6 +5388,7 @@ function App() {
       }
 
       setArticleText(out.text);
+      setPdfReadProblem(false);
       setArticleImageUrl(out.image);
       fetchedArticleRef.current = out.text; // the image belongs to THIS text — see onArticleTextChange
       setArticleNote(out.image
@@ -5308,7 +5412,10 @@ function App() {
   async function runAnalyse() {
     if (analysing) return;
     setAnalyseError("");
-    if (!inputReady()) { setAnalyseError("Please add a stimulus first, and fill in the subject and year level."); return; }
+    if (!inputReady()) {
+      setAnalyseError(inputMissing({ mode, media, articleText, pdfName, pdfReadProblem, subject: classInfo.subject, yearLevel: classInfo.yearLevel }));
+      return;
+    }
     if (!selectedMove) { setAnalyseError("Please choose a Thinking Move first."); return; }
     setAnalysing(true);
     try {
@@ -5329,6 +5436,22 @@ function App() {
   }
   function pickRoutine(name) {
     setSelectedRoutine(name);
+  }
+  function toggleFirstTimeRoutine(enabled) {
+    setFirstTimeRoutine(enabled);
+    // If a lesson is already open, keep the visible choice, editor and exported slide in step.
+    // Teacher-note wording changes only on the next full rebuild, when the prompt runs again.
+    if (!spot || !spot.think) return;
+    setSpot(deck => {
+      if (!deck || !deck.think) return deck;
+      if (enabled) {
+        const routine = ROUTINES.find(r => r.name === deck.think.routine) || null;
+        return withRoutineIntro(deck, routine, true);
+      }
+      if (!Object.prototype.hasOwnProperty.call(deck.think, "intro")) return deck;
+      const { intro, ...thinkWithoutIntro } = deck.think;
+      return { ...deck, think: thinkWithoutIntro };
+    });
   }
   function pickMove(name) {
     if (name === selectedMove) return;
@@ -5417,8 +5540,10 @@ function App() {
   async function generate() {
     if (regenSlide || loading) return; // a slide regen is in flight, or a generate is already running
     setError(""); setRawDump("");
-    if (mode === "media" && !media.length) { setError("Add at least one image or video first."); return; }
-    if (!inputReady()) { setError("Please add a stimulus first (images/video, or article text/PDF), and fill in the subject and year level."); return; }
+    if (!inputReady()) {
+      setError(inputMissing({ mode, media, articleText, pdfName, pdfReadProblem, subject: classInfo.subject, yearLevel: classInfo.yearLevel }));
+      return;
+    }
 
     const sourceText = mode === "article" ? articleText : "";
     genStartedAt.current = Date.now();
@@ -5433,7 +5558,7 @@ function App() {
       const genBand = BAND_KEY_OF[bandOf(classInfo.yearLevel)];
       const { parsed, raw } = await generateSpringboard({
         passcode: passcode.trim(), mode, media, sourceText,
-        classInfo, routineName: selectedRoutine, reflectRoutine, intention, scope: "all",
+        classInfo, routineName: selectedRoutine, reflectRoutine, intention, firstTimeRoutine, scope: "all",
         onPartial: (p) => {
           setGenLive(p);
           // The early-years pass can repaint after review starts; do not let that late paint send
@@ -5459,7 +5584,8 @@ function App() {
           setGenProgress(previous => Math.max(previous, STREAMING_PROGRESS_CEILING));
         },
       });
-      const deck = shapeDeck(parsed, { routineName: selectedRoutine });
+      const pickedRoutine = ROUTINES.find(r => r.name === selectedRoutine) || null;
+      const deck = withRoutineIntro(shapeDeck(parsed, { routineName: selectedRoutine }), pickedRoutine, firstTimeRoutine);
       deck.curriculumFocus = Array.isArray(classInfo.focus) ? classInfo.focus.slice() : [];
       setRawDump(raw);
       jumpToDeck.current = true;    // brain view: ride down to the finished deck once it paints
@@ -5501,6 +5627,7 @@ function App() {
       const { parsed } = await generateSpringboard({
         passcode: passcode.trim(), mode, media, sourceText,
         classInfo, routineName: spot.think.routine || selectedRoutine, reflectRoutine: rr,
+        firstTimeRoutine: scope === "think" && hasRoutineIntro,
         // A regenerated slide must keep serving the intention the deck already carries, whoever wrote it.
         intention: (spot.intention || intention || "").trim(),
         scope, current: spot,
@@ -5603,6 +5730,7 @@ function App() {
       const title = (deck.title || "").trim() || "Springboard";
       const routine = ((deck.think && deck.think.routine) || "").trim();
       const structure = ((deck.think && deck.think.structure) || "").trim();
+      const routineIntro = ((deck.think && deck.think.intro) || "").trim();
       // The 5 sentences students read beside the routine on THINK. Article stimulus only; empty
       // for an image/video reel and on decks generated before think.summary existed.
       const summary = ((deck.think && deck.think.summary) || "").trim();
@@ -6069,12 +6197,26 @@ function App() {
         const tImgX = 7.4, tColRight = tImgX - 0.4;
         const colW = hasPanel ? (tColRight - 0.7) : (W - 1.4);
         const stepW = hasPanel ? (tColRight - 1.32) : (W - 2.1);
-        s.addText(routine || "Thinking routine", { x: 0.7, y: 1.05, w: colW, h: 0.75, fontSize: 32, bold: true, color: P, valign: "top", fontFace: FONT, fit: "shrink" });
-        // "How to run it" gets the full column width back: the timer used to sit top-right of it,
-        // and now lives at the foot of the slide.
         const tMins = (deck.think && deck.think.minutes) || thinkMinutes(structure);
-        if (structure) s.addText([{ text: "How to run it:  ", options: { bold: true, color: INK } }, { text: structure, options: { color: INK } }],
-          { x: 0.7, y: 1.9, w: colW, h: 0.5, fontSize: fitFontSize("How to run it:  " + structure, colW, 0.3, 14, 10), valign: "top", fontFace: FONT });
+        if (routineIntro) {
+          // First-time classes get one catalogue-grounded line above the canonical steps. Compress
+          // only this top stack: the steps, reveal and timer keep their proven geometry below.
+          const routineHeading = routine || "Thinking routine";
+          s.addText(routineHeading, { x: 0.7, y: 1.05, w: colW, h: 0.44,
+            fontSize: fitFontSize(routineHeading, colW, 0.44, 30, 14), bold: true, color: P, valign: "top", fontFace: FONT });
+          s.addText(routineIntro, { x: 0.7, y: 1.5, w: colW, h: 0.65,
+            fontSize: fitFontSize(routineIntro, colW, 0.65, 12.5, 9.5), color: INK,
+            valign: "top", lineSpacingMultiple: 1.08, fontFace: FONT });
+          if (structure) s.addText([{ text: "How to run it:  ", options: { bold: true, color: INK } }, { text: structure, options: { color: INK } }],
+            { x: 0.7, y: 2.18, w: colW, h: 0.32, fontSize: fitFontSize("How to run it:  " + structure, colW, 0.3, 13, 9.5), valign: "top", fontFace: FONT });
+        } else {
+          // Exact pre-feature path: an unticked checkbox leaves the slide geometry and objects alone.
+          s.addText(routine || "Thinking routine", { x: 0.7, y: 1.05, w: colW, h: 0.75, fontSize: 32, bold: true, color: P, valign: "top", fontFace: FONT, fit: "shrink" });
+          // "How to run it" gets the full column width back: the timer used to sit top-right of it,
+          // and now lives at the foot of the slide.
+          if (structure) s.addText([{ text: "How to run it:  ", options: { bold: true, color: INK } }, { text: structure, options: { color: INK } }],
+            { x: 0.7, y: 1.9, w: colW, h: 0.5, fontSize: fitFontSize("How to run it:  " + structure, colW, 0.3, 14, 10), valign: "top", fontFace: FONT });
+        }
         // Countdown, bottom-right: a digital MM:SS clock plus preset buttons, because timing always
         // changes and the old bar was baked to one duration at export (Nathan, 2026-07-31).
         // PowerPoint has no countdown and a .pptx cannot carry macros, so the clock is a stack of
@@ -6726,7 +6868,7 @@ function App() {
                   {fetchingArticle ? "Fetching…" : "Fetch text"}
                 </button>
               </div>
-              {articleNote && <div className={"bx-alert" + (articleNote.ok ? " ok" : "")} role={articleNote.ok ? "status" : "alert"} aria-live="polite">{articleNote.text}</div>}
+              {articleNote && <div className={"bx-alert" + (articleNote.ok ? " ok" : articleNote.kind === "warn" ? " warn" : "")} role={articleNote.ok || articleNote.kind === "warn" ? "status" : "alert"} aria-live="polite">{articleNote.text}</div>}
               <textarea rows={6} value={articleText} onChange={e => onArticleTextChange(e.target.value)} placeholder="…or paste the article text here" />
               <p className="bx-note">The link also becomes a QR code on the Think slide, so students can read the whole article themselves. For the article's picture, copy it on the page (right-click → Copy image) and press Ctrl+V here.</p>
             </React.Fragment>
@@ -6883,12 +7025,13 @@ function App() {
         <div className="bx-panel">
           <span className="bx-step-n">Step three</span>
           <h3>The thinking</h3>
+          <p className="bx-note">Springboard turns this into an editable four-slide PowerPoint you download and adapt.</p>
           {!analysis ? (
             <React.Fragment>
               <p className="bx-note">Springboard reads your stimulus and suggests the routines from this move that fit it best.</p>
               {analysing ? <div className="bx-working"><span className="sp" /> Reading your stimulus…</div>
                 : <button className="bx-btn mv" disabled={!inputReady()} onClick={runAnalyse}>Suggest routines</button>}
-              {!inputReady() && !analysing && <p className="bx-note" style={{ marginTop: 8 }}>Add a stimulus and fill in subject + year.</p>}
+              {!inputReady() && !analysing && <p className="bx-note" style={{ marginTop: 8 }}>{inputMissing({ mode, media, articleText, pdfName, pdfReadProblem, subject: classInfo.subject, yearLevel: classInfo.yearLevel })}</p>}
               {analyseError && <div className="bx-alert" role="alert">{analyseError}</div>}
             </React.Fragment>
           ) : (
@@ -6911,6 +7054,12 @@ function App() {
                   <label key={r.name} style={{ display: "flex", gap: 8, alignItems: "center", padding: "5px 0", fontSize: 13, cursor: "pointer" }}>
                     <input type="radio" name="bx-routine" checked={selectedRoutine === r.name} onChange={() => pickRoutine(r.name)} />{r.name}</label>))}</div>
               </details>
+              <label className="bx-first-time" htmlFor="bx-first-time-routine">
+                <input id="bx-first-time-routine" type="checkbox" checked={firstTimeRoutine} disabled={loading || !!regenSlide} onChange={e => toggleFirstTimeRoutine(e.target.checked)} />
+                <span>My class hasn't used this routine before — introduce it in the deck.
+                  {spot && <small>Rebuild the lesson to update its teacher notes too.</small>}
+                </span>
+              </label>
               {zoomInPicked && activeReveal && (
                 <div style={{ marginTop: 18 }}>
                   <span className="bx-step-n">Zoom In</span>
@@ -6939,6 +7088,7 @@ function App() {
                 ) : <button className="bx-btn" disabled={!selectedRoutine} onClick={generate}>Make the lesson</button>}
                 {error && <div className="bx-alert" role="alert">{error}</div>}
               </div>
+              {!selectedRoutine && !loading && <p className="bx-note" style={{ marginTop: 8 }}>Pick a routine above first.</p>}
             </React.Fragment>
           )}
         </div>
@@ -7045,6 +7195,14 @@ function App() {
                 <React.Fragment>
                   <label className="bx-lab" htmlFor="bx-think-summary">What students read · 5 sentences beside the routine</label>
                   <textarea id="bx-think-summary" className="bx-ta" rows={5} value={spot.think.summary || ""} placeholder="A short summary of the article, in students' language…" onChange={e => patchSlide("think", { summary: e.target.value })} />
+                </React.Fragment>
+              )}
+              {hasRoutineIntro && (
+                <React.Fragment>
+                  <label className="bx-lab" htmlFor="bx-think-intro">Routine introduction · students see this above the prompts</label>
+                  <textarea id="bx-think-intro" className="bx-ta" rows={3} value={spot.think.intro || ""}
+                    placeholder="Leave empty to omit the introduction from the slide."
+                    onChange={e => patchSlide("think", { intro: e.target.value })} />
                 </React.Fragment>
               )}
               <span className="bx-lab">Student prompts · up to 4</span>
@@ -7483,7 +7641,7 @@ function App() {
                 </button>
               </div>
 
-              {articleNote && <div className={"alert " + (articleNote.ok ? "info" : "bad")} role={articleNote.ok ? "status" : "alert"} aria-live="polite" style={{ marginTop: 8 }}>{articleNote.text}</div>}
+              {articleNote && <div className={"alert " + (articleNote.ok ? "info" : articleNote.kind === "warn" ? "warn" : "bad")} role={articleNote.ok || articleNote.kind === "warn" ? "status" : "alert"} aria-live="polite" style={{ marginTop: 8 }}>{articleNote.text}</div>}
               <textarea style={{ marginTop: 8 }} aria-label="Article text" value={articleText} placeholder="…the fetched or pasted article text appears here (edit freely)" onChange={e => onArticleTextChange(e.target.value)} />
               <div className="hint"><b>Fetch text</b> pulls the article via a public reader service — works for open news sites (the link also becomes the QR code). Hard paywalls may fail; upload the PDF or paste the text instead.</div>
             </div>
@@ -7666,6 +7824,12 @@ function App() {
                     </div>
                   ))}
                 </details>
+                <label className="bx-first-time" htmlFor="classic-first-time-routine">
+                  <input id="classic-first-time-routine" type="checkbox" checked={firstTimeRoutine} disabled={loading || !!regenSlide} onChange={e => toggleFirstTimeRoutine(e.target.checked)} />
+                  <span>My class hasn't used this routine before — introduce it in the deck.
+                    {spot && <small>Regenerate to update its teacher notes too.</small>}
+                  </span>
+                </label>
               </React.Fragment>
             )}
             {/* Zoom In's crop tool — same component the brain view uses (Classic must not silently
@@ -7776,6 +7940,13 @@ function App() {
                     <React.Fragment>
                       <div className="cap" style={{ marginTop: 12 }}>What students read <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· 5 sentences beside the routine</span></div>
                       <textarea className="editable" rows={5} aria-label="Article summary students read" value={spot.think.summary || ""} placeholder="A short summary of the article, in students' language…" onChange={e => patchSlide("think", { summary: e.target.value })} />
+                    </React.Fragment>
+                  )}
+                  {hasRoutineIntro && (
+                    <React.Fragment>
+                      <div className="cap" style={{ marginTop: 12 }}>Routine introduction <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· students see this above the prompts</span></div>
+                      <textarea className="editable" rows={3} aria-label="Routine introduction students see" value={spot.think.intro || ""}
+                        placeholder="Leave empty to omit the introduction from the slide." onChange={e => patchSlide("think", { intro: e.target.value })} />
                     </React.Fragment>
                   )}
                   <div className="cap" style={{ marginTop: 12 }}>Student prompts <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: "var(--muted)" }}>· up to 4</span></div>

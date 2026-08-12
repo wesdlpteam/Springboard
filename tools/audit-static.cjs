@@ -166,6 +166,20 @@ check("deck", "timer presets get their own build groups", /grpId="\$\{grp\}"/.te
 check("deck", "clock ticks once a second", /const TIMER_STEP_SEC = 1;/.test(idx), "not per-second");
 check("deck", "every slide gets notes", (idx.match(/addNotes\(/g) || []).length >= 6, `${(idx.match(/addNotes\(/g) || []).length}`);
 check("deck", "fitFontSize used for long text blocks", (idx.match(/fitFontSize\(/g) || []).length >= 8, "too few");
+check("deck", "first-time routine intro uses fitFontSize", /s\.addText\(routineIntro[\s\S]{0,220}fitFontSize\(routineIntro/.test(idx), "intro not fitted");
+check("deck", "routine-intro off branch keeps the original THINK geometry",
+  idx.includes("Exact pre-feature path: an unticked checkbox leaves the slide geometry and objects alone.")
+    && idx.includes('{ x: 0.7, y: 1.05, w: colW, h: 0.75, fontSize: 32')
+    && idx.includes('{ x: 0.7, y: 1.9, w: colW, h: 0.5, fontSize: fitFontSize("How to run it:  " + structure, colW, 0.3, 14, 10)'),
+  "original title/structure path changed");
+const introBoxFits = routines.every(r => {
+  const text = `Today we’re using “${r.name}”, a Project Zero routine: ${r.gist}`;
+  const fs = 9.5, boxW = 6.3, boxH = 0.65;
+  const perLine = Math.max(8, Math.floor((boxW - 0.2) * 72 / (fs * 0.45)));
+  const lines = Math.max(1, Math.ceil(text.length / perLine));
+  return lines * (fs * 1.8 / 72) <= boxH - 0.08;
+});
+check("deck", "every catalogue routine intro fits the narrow THINK column", introBoxFits, "a real routine intro exceeds the fitted box");
 check("deck", "contain() used instead of sizing:contain", !/sizing:\s*\{\s*type:\s*"contain"/.test(idx), "stretching images");
 
 /* ---------------- 6. prompt quality rules ---------------- */
@@ -202,6 +216,8 @@ const promptChecks = [
   ["one step carries one action", /ONE STEP, ONE ACTION/],
   ["focus mismatch goes to focusNote instead of a forced connection", /do NOT force it into launch\.connection[\s\S]{0,300}launch\.focusNote/],
   ["focus mismatch keeps launch connection positive", /launch\.connection must ALWAYS be a positive curriculum connection[\s\S]{0,250}ONLY in launch\.focusNote/],
+  ["first-time routine guidance targets THINK notes", /FIRST-TIME ROUTINE:[\s\S]{0,500}notes\.think[\s\S]{0,500}ENABLING PROMPT/],
+  ["first-time guidance keeps canonical steps locked", /FIRST-TIME ROUTINE:[\s\S]{0,900}think\.steps stay LOCKED/],
 ];
 // Some rules live server-side in api/generate.js (the SUCCESs guidance is owned there, never sent
 // by the client), so each check names the file it belongs in.
@@ -221,8 +237,18 @@ const uiChecks = [
   ["planning wait shows continuous percentage", /<b aria-hidden="true">\{Math\.round\(genProgress\)\}%<\/b>/],
   ["the planning percentage is hidden from screen readers", /aria-hidden="true">\{Math\.round\(genProgress\)\}/],
   ["planning wait states what to expect", /first words usually appear about a minute in/],
+  ["PDF low-text warning names the count", /only \$\{charCount\.toLocaleString\(\)\} chars — may be a scan/],
+  ["PDF low-text note names the count and both alternatives", /Springboard could only read \$\{charCount\.toLocaleString\(\)\} characters[\s\S]{0,220}Paste the text below[\s\S]{0,120}add the pages as images under Photo \/ video/],
+  ["zero-text PDF clears the badge and explains both alternatives in plain teacher English", /charCount === 0[\s\S]{0,160}setPdfName\(""\)[\s\S]{0,260}Springboard couldn't read any text from this PDF[\s\S]{0,160}likely a scan or photo PDF[\s\S]{0,160}Paste the text below[\s\S]{0,120}add the pages as images under Photo \/ video/],
+  ["low-text PDF uses the Wesley warning treatment", /\.bx-alert\.warn \{ color: var\(--warn-ink\); background: var\(--warn-bg\); border-color: var\(--warn\); \}/],
+  ["step three names the editable PowerPoint", /editable four-slide PowerPoint you download and adapt/],
+  ["missing routine helper is visible", /Pick a routine above first\./],
+  ["first-time routine checkbox is labelled", /htmlFor="bx-first-time-routine"[\s\S]{0,260}My class hasn't used this routine before/],
+  ["first-time routine checkbox is locked while generation is in flight", /id="bx-first-time-routine"[^>]*disabled=\{loading \|\| !!regenSlide\}/],
+  ["first-time routine intro is editable", /htmlFor="bx-think-intro"[\s\S]{0,260}spot\.think\.intro/],
 ];
 for (const [n, re] of uiChecks) check("ui", n, re.test(idx), "missing");
+check("ui", "all three generic validation sites use inputMissing", (idx.match(/inputMissing\(\{/g) || []).length === 4, "expected helper definition plus three uses");
 check("ui", "every id'd textarea/input has a label or aria-label", (() => {
   const ids = [...idx.matchAll(/<(?:textarea|input|select)[^>]*id="([^"]+)"/g)].map(m => m[1]);
   const missing = ids.filter(id => !idx.includes(`htmlFor="${id}"`) && !new RegExp(`id="${id}"[^>]*aria-label`).test(idx));
@@ -240,7 +266,7 @@ const grabFn = (name) => {
   const j = idx.indexOf("\n}", i);
   return j === -1 ? "" : idx.slice(i + 1, j + 2);
 };
-const FN_NAMES = ["scanJsonOpen", "parsePartialJson", "parseJsonLoose", "keywordsFromLink", "isSearchResultsPage", "looksLikeImageUrl", "imageUrlFromSearchLink", "stripMd"];
+const FN_NAMES = ["scanJsonOpen", "parsePartialJson", "parseJsonLoose", "keywordsFromLink", "isSearchResultsPage", "looksLikeImageUrl", "imageUrlFromSearchLink", "stripMd", "inputMissing", "routineIntroText", "withRoutineIntro"];
 let fns = null, fnErr = "";
 try {
   const src = FN_NAMES.map(grabFn).join("\n");
@@ -308,6 +334,39 @@ if (fns) {
     fns.stripMd("I can **explain** how it works.") === "I can explain how it works.", fns.stripMd("I can **explain** how it works."));
   check("parse", "stripping never leaves a doubled space",
     !/ {2}/.test(fns.stripMd(stem)), "collapsed text left a gap");
+
+  const readyArticle = { mode: "article", media: [], articleText: "This is enough readable article text for Springboard.", pdfName: "", pdfReadProblem: false };
+  check("validation", "year-only validation names only the year level",
+    fns.inputMissing({ ...readyArticle, subject: "History", yearLevel: "" }) === "Add the year level to continue.",
+    fns.inputMissing({ ...readyArticle, subject: "History", yearLevel: "" }));
+  check("validation", "subject-only validation names only the subject",
+    fns.inputMissing({ ...readyArticle, subject: "", yearLevel: "Year 7" }) === "Add the subject to continue.",
+    fns.inputMissing({ ...readyArticle, subject: "", yearLevel: "Year 7" }));
+  check("validation", "missing fields are all named together",
+    fns.inputMissing({ mode: "media", media: [], articleText: "", pdfName: "", pdfReadProblem: false, subject: "", yearLevel: "" })
+      === "Add a stimulus, the subject and the year level to continue.", "combined copy changed");
+  const scanMessage = fns.inputMissing({ mode: "article", media: [], articleText: "", pdfName: "", pdfReadProblem: true, subject: "History", yearLevel: "Year 7" });
+  check("validation", "zero-text PDF is named as the blocker after its badge clears",
+    /Your PDF loaded/.test(scanMessage) && /may be a scan/.test(scanMessage) && !/Add a stimulus/.test(scanMessage), scanMessage);
+  const shortScanMessage = fns.inputMissing({ mode: "article", media: [], articleText: "Exam cover", pdfName: "exam.pdf", pdfReadProblem: true, subject: "", yearLevel: "Year 7" });
+  check("validation", "short PDF guidance also names missing class fields",
+    /too little text/.test(shortScanMessage) && /Also add the subject\./.test(shortScanMessage), shortScanMessage);
+  check("validation", "PDF extraction is not diagnosed as a scan before it finishes",
+    fns.inputMissing({ mode: "article", media: [], articleText: "", pdfName: "exam.pdf (extracting…)", pdfReadProblem: false, subject: "History", yearLevel: "Year 7" })
+      === "Springboard is still reading your PDF.", "premature scan diagnosis");
+
+  const catalogueRoutine = { name: "See, Think, Wonder", gist: "Observe closely, interpret what might be going on, pose wonderings." };
+  const introText = fns.routineIntroText(catalogueRoutine);
+  check("deck", "routine intro is deterministic from catalogue name and gist",
+    introText === "Today we’re using “See, Think, Wonder”, a Project Zero routine: Observe closely, interpret what might be going on, pose wonderings.", introText);
+  const baseIntroDeck = { think: { routine: catalogueRoutine.name, steps: ["Look closely."] } };
+  const beforeIntro = JSON.stringify(baseIntroDeck);
+  const offIntroDeck = fns.withRoutineIntro(baseIntroDeck, catalogueRoutine, false);
+  check("deck", "first-time toggle off returns the identical deck object",
+    offIntroDeck === baseIntroDeck && JSON.stringify(offIntroDeck) === beforeIntro && !Object.prototype.hasOwnProperty.call(offIntroDeck.think, "intro"), "off path changed");
+  const onIntroDeck = fns.withRoutineIntro(baseIntroDeck, catalogueRoutine, true);
+  check("deck", "first-time toggle on adds only the deterministic THINK intro",
+    onIntroDeck !== baseIntroDeck && onIntroDeck.think.intro === introText && !Object.prototype.hasOwnProperty.call(baseIntroDeck.think, "intro"), "intro not isolated");
 }
 
 // Source-level: the budget that caused the cut-off, and the guards on both paste boxes.
