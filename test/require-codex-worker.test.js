@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import fs, { readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -11,6 +11,27 @@ const TEST_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(TEST_DIR, "fixtures", "springboard-project");
 const HOOK_PATH = path.resolve(TEST_DIR, "..", "tools", "require-codex-worker.mjs");
 const CONTEXT = { projectRoot: PROJECT_ROOT, cwd: PROJECT_ROOT };
+
+// The break-glass switch is a real file in Nathan's home directory, so these tests must
+// not depend on whether it happens to be active right now. Point every test at a path
+// that does not exist; the break-glass tests below supply their own temp file.
+const NO_FLAG = path.join(os.tmpdir(), "springboard-no-such-fable-flag.json");
+process.env.SPRINGBOARD_FABLE_WRITE_FLAG = NO_FLAG;
+
+const writeFlag = (contents) => {
+  const file = path.join(
+    fs.mkdtempSync(path.join(os.tmpdir(), "sb-flag-")),
+    "springboard-fable-writes.json",
+  );
+  fs.writeFileSync(file, typeof contents === "string" ? contents : JSON.stringify(contents));
+  return file;
+};
+
+const withFlag = (file, run) => {
+  const previous = process.env.SPRINGBOARD_FABLE_WRITE_FLAG;
+  process.env.SPRINGBOARD_FABLE_WRITE_FLAG = file;
+  try { return run(); } finally { process.env.SPRINGBOARD_FABLE_WRITE_FLAG = previous; }
+};
 
 test("blocks Claude structured edits inside the project", () => {
   for (const [toolName, toolInput] of [
@@ -72,6 +93,7 @@ test("allows exact worker control and Fable verification commands", () => {
     `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort xhigh --sandbox workspace-write`,
     `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort ultra --sandbox workspace-write`,
     `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort xhigh --sandbox workspace-write --visual-required true`,
+    `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort xhigh --sandbox workspace-write --network-approved true`,
     `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --resume thread_123 --effort ultra --sandbox workspace-write`,
     "rg --files .",
     "Get-Content -Raw CLAUDE.md",
@@ -134,6 +156,8 @@ test("rejects worker bypasses and incorrectly scoped worker commands", () => {
     `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort xhigh --sandbox unrestricted`,
     `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort xhigh --sandbox read-only --visual-required true`,
     `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort xhigh --sandbox workspace-write --visual-required maybe`,
+    `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort xhigh --sandbox read-only --network-approved true`,
+    `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort xhigh --sandbox workspace-write --network-approved maybe`,
     `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort low --sandbox workspace-write`,
     `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort medium --sandbox workspace-write`,
     `node "${worker}" run --cwd "${PROJECT_ROOT}" --prompt-file "${prompt}" --effort high --sandbox workspace-write`,
@@ -148,7 +172,7 @@ test("rejects worker bypasses and incorrectly scoped worker commands", () => {
 test("hook entrypoint emits a Claude PreToolUse deny response", () => {
   const result = spawnSync(process.execPath, [HOOK_PATH], {
     encoding: "utf8",
-    env: { ...process.env, CLAUDE_PROJECT_DIR: PROJECT_ROOT },
+    env: { ...process.env, CLAUDE_PROJECT_DIR: PROJECT_ROOT, SPRINGBOARD_FABLE_WRITE_FLAG: NO_FLAG },
     input: JSON.stringify({
       hook_event_name: "PreToolUse",
       tool_name: "Edit",
@@ -175,6 +199,35 @@ test("hook entrypoint fails closed on malformed input", () => {
   const output = JSON.parse(result.stdout);
   assert.equal(output.hookSpecificOutput.permissionDecision, "deny");
   assert.match(output.hookSpecificOutput.permissionDecisionReason, /failed closed/i);
+});
+
+test("break glass: a valid unexpired switch lets Fable write, and only then", () => {
+  const target = { file_path: path.join(PROJECT_ROOT, "index.html") };
+  const denied = () => assert.equal(evaluate("Edit", target, CONTEXT)?.decision, "deny");
+
+  // No switch at all: the one-writer default holds.
+  denied();
+
+  // A fresh, valid grant opens structured writes.
+  const live = writeFlag({ granted_at: new Date().toISOString(), hours: 24 });
+  withFlag(live, () => assert.equal(evaluate("Edit", target, CONTEXT), null));
+
+  // Expired, malformed, missing fields and non-positive windows all fail closed.
+  const expired = writeFlag({
+    granted_at: new Date(Date.now() - 25 * 3600 * 1000).toISOString(),
+    hours: 24,
+  });
+  const zeroHours = writeFlag({ granted_at: new Date().toISOString(), hours: 0 });
+  const noDate = writeFlag({ hours: 24 });
+  const junk = writeFlag("not json at all");
+  for (const file of [expired, zeroHours, noDate, junk]) {
+    withFlag(file, denied);
+  }
+
+  // The switch never opens the shell allowlist.
+  withFlag(live, () => {
+    assert.equal(evaluate("Bash", { command: "rm -rf ." }, CONTEXT)?.decision, "deny");
+  });
 });
 
 test("project hook configuration is valid and uses the project-relative script", () => {

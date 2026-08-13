@@ -20,8 +20,24 @@ const WORK = path.join(ROOT, ".audit-live");
 const ORIGIN = "http://localhost:3000";
 const LIVE = "https://springboard-dlp-s-projects.vercel.app";
 const PACK = JSON.parse(fs.readFileSync(path.join(WORK, "stimuli", "manifest.json"), "utf8"));
-const OUT = path.join(WORK, "out");
+// OUT names a folder UNDER .audit-live, so a comparison run can land beside the baseline
+// instead of overwriting 30 lessons that cost real money to generate. A bare name only: no
+// separators, no traversal, so this can never write outside the audit workspace.
+const OUT_NAME = process.env.OUT || "out";
+if (!/^[A-Za-z0-9._-]+$/.test(OUT_NAME) || OUT_NAME === "." || OUT_NAME === "..") {
+  console.error(`OUT must be a simple folder name under .audit-live (got "${OUT_NAME}")`);
+  process.exit(1);
+}
+const OUT = path.join(WORK, OUT_NAME);
 fs.mkdirSync(OUT, { recursive: true });
+// Lets a run price and judge a different reasoning effort without anyone hand-editing
+// GEN_REASONING in index.html and forgetting to put it back. Unset = whatever ships.
+const REASONING = process.env.SB_REASONING || "";
+if (REASONING && !["low", "medium", "high"].includes(REASONING)) {
+  console.error(`SB_REASONING must be low, medium or high (got "${REASONING}")`);
+  process.exit(1);
+}
+console.log(`[audit-live] writing to .audit-live/${OUT_NAME}${REASONING ? ` at reasoning_effort=${REASONING}` : ""}`);
 const WORKERS = Number(process.env.WORKERS || 3);
 const ONLY = process.env.ONLY ? process.env.ONLY.split(",") : null;
 
@@ -61,6 +77,7 @@ function resolveStim(cfg) {
 /* Injected before the app loads: send every API call to the deployed backend instead of the
    file:// build's localhost default, and record what actually went over the wire. */
 const BOOT = `
+${REASONING ? `window.__sbReasoning = ${JSON.stringify(REASONING)};` : ""}
 window.__errs = [];
 window.addEventListener("error", e => window.__errs.push(String(e.message)));
 window.addEventListener("unhandledrejection", e => window.__errs.push("rej: " + String(e.reason)));

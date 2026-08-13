@@ -218,6 +218,14 @@ const promptChecks = [
   ["focus mismatch keeps launch connection positive", /launch\.connection must ALWAYS be a positive curriculum connection[\s\S]{0,250}ONLY in launch\.focusNote/],
   ["first-time routine guidance targets THINK notes", /FIRST-TIME ROUTINE:[\s\S]{0,500}notes\.think[\s\S]{0,500}ENABLING PROMPT/],
   ["first-time guidance keeps canonical steps locked", /FIRST-TIME ROUTINE:[\s\S]{0,900}think\.steps stay LOCKED/],
+  // Cost: the per-lesson values sit in one CONTEXT block at the END of the system prompt so the
+  // long invariant stretch above it is byte-identical on every lesson and OpenAI's automatic
+  // prompt cache can match it. Interpolating anything back above that block silently doubles the
+  // input bill, and nothing else in the suite would notice.
+  ["per-lesson context sits at the end of the system prompt", /CONTEXT FOR THIS LESSON \(everything above applies to it\):\n\s*Audience tone: \$\{tone\}/],
+  ["scoped regenerate ships only its own field rules", /limitEntries\s*\n?[\s\S]{0,200}filter\(\(\[scopes\]\) => scope === "all" \|\| scopes\.includes\(scope\)\)/],
+  ["a scoped regenerate sends less of the article than a full build", /slice\(0, scope === "all" \? 12000 : 6000\)/],
+  ["reasoning effort is overridable for the live audit only", /window\.__sbReasoning\) \|\| "medium"/],
 ];
 // Some rules live server-side in api/generate.js (the SUCCESs guidance is owned there, never sent
 // by the client), so each check names the file it belongs in.

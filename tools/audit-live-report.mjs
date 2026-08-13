@@ -9,7 +9,34 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(HERE, "..");
 const WORK = path.join(ROOT, ".audit-live");
 const G = await import(pathToFileURL(path.join(ROOT, "api", "_guides.js")).href);
-const OUT = path.join(WORK, "out");
+// Same OUT contract as audit-live.mjs, so a comparison arm can be reported without moving files.
+const OUT_NAME = process.env.OUT || "out";
+if (!/^[A-Za-z0-9._-]+$/.test(OUT_NAME) || OUT_NAME === "." || OUT_NAME === "..") {
+  console.error(`OUT must be a simple folder name under .audit-live (got "${OUT_NAME}")`);
+  process.exit(1);
+}
+const OUT = path.join(WORK, OUT_NAME);
+
+/* The routines' own canonical step wording, read straight out of index.html's ROUTINES table so
+   this file can never drift from the catalogue the app actually ships. The prompt REQUIRES steps
+   to keep these words, so they must not also be failed as fragments. */
+const normaliseStep = s => String(s || "").toLowerCase().replace(/[^a-z0-9 ]+/g, "").replace(/\s+/g, " ").trim();
+const CANONICAL_STEPS = (() => {
+  const src = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+  const table = src.slice(src.indexOf("const ROUTINES = ["), src.indexOf("const ROUTINE_SOURCE"));
+  const out = {};
+  // { name: "…", … steps: ["…", "…"] } — one entry per routine, name first, steps as a flat array.
+  for (const entry of table.matchAll(/name:\s*"((?:[^"\\]|\\.)*)"[\s\S]*?steps:\s*\[([\s\S]*?)\]/g)) {
+    const name = entry[1].replace(/\\"/g, '"');
+    const steps = [...entry[2].matchAll(/"((?:[^"\\]|\\.)*)"/g)].map(m => m[1].replace(/\\"/g, '"'));
+    if (steps.length) out[name] = steps;
+  }
+  return out;
+})();
+if (!Object.keys(CANONICAL_STEPS).length) {
+  console.error("Could not read ROUTINES steps from index.html; the fragment check would be wrong.");
+  process.exit(1);
+}
 
 const runs = fs.readdirSync(OUT).filter(f => f.endsWith(".json") && !f.includes(".ERROR."))
   .map(f => JSON.parse(fs.readFileSync(path.join(OUT, f), "utf8")));
@@ -76,8 +103,18 @@ for (const r of runs) {
   if (d.think?.routine !== r.routineName) add(id, "FAIL", "routine", `think.routine "${d.think?.routine}" != chosen "${r.routineName}"`);
   const steps = d.think?.steps || [];
   if (!steps.length || steps.length > 4) add(id, "FAIL", "limits", `think.steps ${steps.length} (want 1-4)`);
+  // The fragment check predates the canonical-wording pivot: the prompt now REQUIRES steps to
+  // keep the routine's own words, and several real Project Zero moves are shorter than six words
+  // ("Choose one perspective to explore.", "Why is it that way?"). Flagging those produced 10
+  // bogus FAILs on the 2026-08-11 run, which is enough noise to make a comparison unreadable.
+  // A step that matches its routine's canonical wording is the routine, not a fragment.
+  const canonical = (CANONICAL_STEPS[r.routineName] || []).map(normaliseStep);
+  const isCanonical = (s) => canonical.some(c => {
+    const step = normaliseStep(s);
+    return step === c || step.startsWith(c) || c.startsWith(step);
+  });
   steps.forEach((s, i) => {
-    if (words(s) < 6) add(id, "FAIL", "pedagogy", `step ${i + 1} is a fragment, not a standalone instruction: "${s}"`);
+    if (words(s) < 6 && !isCanonical(s)) add(id, "FAIL", "pedagogy", `step ${i + 1} is a fragment, not a standalone instruction: "${s}"`);
     if (GENERIC_STEP.test(s)) add(id, "FAIL", "pedagogy", `step ${i + 1} is generic, could be pasted onto any lesson: "${s}"`);
   });
   if (!String(d.think?.structure || "").trim()) add(id, "WARN", "schema", "think.structure empty");
