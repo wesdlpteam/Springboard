@@ -1439,7 +1439,7 @@ const BAND_ORDER = ["Early","Junior","Middle","Senior"];
 const bandLabelOf = (k) => (BANDS[k] && BANDS[k].label) || k;
 
 // Bump on every deploy so a glance at the header confirms the cache is current.
-const APP_VERSION = "v0.17.0 · 2026-08-13";
+const APP_VERSION = "v0.17.1 · 2026-08-13";
 
 // Maps a class's year level to a teaching band (Prep-Y2 / Y3-6 / Y7-9 / Y10-12). Drives
 // inputReady()'s validation, and (via BAND_KEY_OF below) which ROUTINES/BAND_GUIDANCE
@@ -6812,13 +6812,16 @@ function App() {
         {/* h1, not h2: in the chamber this IS the page — the map is gone. */}
         <h1>{selectedMove}</h1>
       </div>
-      <p className="bx-tool-sub">{selectedMoveObj.question} Bring the stimulus your class will react to, and Springboard finds the routines that fit it.</p>
+      {/* A teacher who trialled this got all the way to the end before working out what the tool
+          actually produces (2026-08-12). The three steps and the finished product are now named
+          here, above step one, instead of only in step three. */}
+      <p className="bx-tool-sub">{selectedMoveObj.question} Upload what your class will look at, tell Springboard who they are, and pick the routine. You get back an editable four-slide PowerPoint you can teach from.</p>
       <div className="bx-steps">
         {/* stimulus */}
         <div className="bx-panel">
           <span className="bx-step-n">Step one</span>
-          <h3>Your stimulus</h3>
-          <p className="bx-note">A photo, a film, or an article — whatever will make them wonder.</p>
+          <h3>Upload your stimulus</h3>
+          <p className="bx-note">The one thing your class will look at: a photo, a film, an article or a PDF. Springboard reads it and builds the lesson around it, so this is the part that matters most.</p>
           <div className="bx-modes">
             {["media", "article"].map(mm => <button key={mm} className={mode === mm ? "on" : ""} onClick={() => setMode(mm)}>{mm === "media" ? "Photo / video" : "Article"}</button>)}
           </div>
@@ -6830,7 +6833,7 @@ function App() {
                 onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); mediaInput.current && mediaInput.current.click(); } }}
                 onDragOver={e => { e.preventDefault(); setBxDrag(true); }} onDragLeave={() => setBxDrag(false)}
                 onDrop={e => { e.preventDefault(); setBxDrag(false); addMediaFiles(e.dataTransfer.files); }}>
-                {extractingVideo ? "Reading your video…" : "Drop a photo or video, or click to choose"}
+                {extractingVideo ? "Reading your video…" : "Upload a photo or video: drop it here, or click to choose a file"}
                 <small>{media.length ? media.length + " added" : "JPG · PNG · MP4 — or copy a picture from any website and press Ctrl+V"}</small>
               </div>
               {/* paste-a-link import (the original's video/social scraper) — grabs the photo or
@@ -6879,8 +6882,8 @@ function App() {
                 onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); bxPdfInput.current && bxPdfInput.current.click(); } }}
                 onDragOver={e => { e.preventDefault(); setBxPdfDrag(true); }} onDragLeave={() => setBxPdfDrag(false)}
                 onDrop={e => { e.preventDefault(); setBxPdfDrag(false); onPdf({ target: { files: e.dataTransfer.files, value: "" } }); }}>
-                {pdfName || "Drop a PDF, or click to choose"}
-                <small>{pdfName ? "Click to swap it for another PDF" : "…or use a link / paste the text below"}</small>
+                {pdfName || "Upload a PDF: drop it here, or click to choose a file"}
+                <small>{pdfName ? "Click to swap it for another PDF" : "Needs a PDF you can select text in, not a scan — or use a link or paste the text below"}</small>
               </div>
               {/* Article link: fetches the readable text AND becomes the "read the full article"
                   QR code on the THINK slide. Without this row the brain flow could paste text but
@@ -7411,7 +7414,9 @@ function App() {
                 teacher moves on — one page, one h1, whichever scene is showing. */}
             {React.createElement(bxScene === "cover" ? "h1" : "h2", null,
               "Start with the ", <span className="pu" key="p">thinking</span>, ", not the topic.")}
-            <p className="ww-sub">Pick a thinking move, add a photo, film or article, and Springboard builds a lesson that takes your class from remembering into understanding.</p>
+            {/* Say the deliverable on the cover. A teacher who trialled Springboard (2026-08-12)
+                reached the download button before working out that a PowerPoint was the output. */}
+            <p className="ww-sub">Pick a thinking move, upload the photo, film, article or PDF your class will look at, and Springboard writes the lesson around it. You download an editable four-slide PowerPoint, ready to teach.</p>
             <button className="ww-enter" autoFocus onClick={enterMind}><span>Enter the mind</span></button>
           </div>
           <footer className="ww-foot">
