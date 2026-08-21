@@ -257,7 +257,10 @@ const uiChecks = [
   ["PDF low-text note names the count and both alternatives", /Springboard could only read \$\{charCount\.toLocaleString\(\)\} characters[\s\S]{0,220}Paste the text below[\s\S]{0,120}add the pages as images under Photo \/ video/],
   ["zero-text PDF clears the badge and explains both alternatives in plain teacher English", /charCount === 0[\s\S]{0,160}setPdfName\(""\)[\s\S]{0,260}Springboard couldn't read any text from this PDF[\s\S]{0,160}likely a scan or photo PDF[\s\S]{0,160}Paste the text below[\s\S]{0,120}add the pages as images under Photo \/ video/],
   ["low-text PDF uses the Wesley warning treatment", /\.bx-alert\.warn \{ color: var\(--warn-ink\); background: var\(--warn-bg\); border-color: var\(--warn\); \}/],
-  ["step three names the editable PowerPoint", /editable four-slide PowerPoint you download and adapt/],
+  // No slide count in the promise: the export varies with the routine, the reflection toggle and
+  // the band (2 + reveals + reflect + learning, plus teacher-only slides), so a number would be
+  // wrong on most decks. Assert the promise is there and that no count crept back in.
+  ["step three names the editable PowerPoint", /editable PowerPoint you download and adapt/],
   ["missing routine helper is visible", /Pick a routine above first\./],
   ["first-time routine checkbox is labelled", /htmlFor="bx-first-time-routine"[\s\S]{0,260}My class hasn't used this routine before/],
   ["first-time routine checkbox is locked while generation is in flight", /id="bx-first-time-routine"[^>]*disabled=\{loading \|\| !!regenSlide\}/],
@@ -265,6 +268,12 @@ const uiChecks = [
 ];
 for (const [n, re] of uiChecks) check("ui", n, re.test(idx), "missing");
 check("ui", "all three generic validation sites use inputMissing", (idx.match(/inputMissing\(\{/g) || []).length === 4, "expected helper definition plus three uses");
+// The counted student slides are 2 + reveals + reflect + learning, and the file also carries the
+// teacher preface, the follow-up ideas and any Zoom In reveals, so a fixed count is wrong on most
+// decks. Teacher-facing copy promises "an editable PowerPoint" and never a number.
+check("ui", "the deliverable is never promised as a fixed slide count",
+  !/(four|4)[- ]slide PowerPoint/i.test(idx) && !/(four|4)[- ]slide PowerPoint/i.test(read("about.html")),
+  "teacher-facing copy names a slide count the export does not guarantee");
 check("ui", "every id'd textarea/input has a label or aria-label", (() => {
   const ids = [...idx.matchAll(/<(?:textarea|input|select)[^>]*id="([^"]+)"/g)].map(m => m[1]);
   const missing = ids.filter(id => !idx.includes(`htmlFor="${id}"`) && !new RegExp(`id="${id}"[^>]*aria-label`).test(idx));
