@@ -94,11 +94,21 @@ for (const r of runs) {
   const kw = Array.isArray(d.keywords) ? d.keywords : [];
   if (kw.length < 3 || kw.length > 6) add(id, "WARN", "limits", `keywords ${kw.length} (want 3-6)`);
 
+  // IGNITE carries a HEADLINE as of 2026-08-13, not a question. Forcing a decidable question out
+  // of a picture kept producing answers a child could see from their seat ("Is the person at the
+  // easel painting the group on the left?"), which left the reveal nothing to overturn. The
+  // commitment moved to the final think step, so the checks here are headline checks now.
   const iq = d.ignite?.question || "";
-  if (words(iq) > 24) add(id, "FAIL", "limits", `ignite.question ${words(iq)} words (max 24): "${iq}"`);
-  if (!COMMIT.test(iq)) add(id, "WARN", "pedagogy", `ignite asks for no commitment: "${iq}"`);
-  if (!SHARE.test(iq)) add(id, "WARN", "pedagogy", `ignite never says how the answer goes public: "${iq}"`);
-  if (/\bimagine\b/i.test(iq)) add(id, "WARN", "pedagogy", `ignite opens with "imagine" instead of a real commitment: "${iq}"`);
+  if (words(iq) > 12) add(id, "FAIL", "limits", `ignite headline ${words(iq)} words (max 12): "${iq}"`);
+  if (/\?/.test(iq)) add(id, "FAIL", "pedagogy", `ignite headline is a question, not a headline: "${iq}"`);
+  if (/\b(choose|decide|vote|point to|pick one|be ready to)\b/i.test(iq)) {
+    add(id, "FAIL", "pedagogy", `ignite headline instructs the class instead of hooking them: "${iq}"`);
+  }
+  // The commitment the reveal overturns must now exist in the final think step.
+  const lastStep = (d.think?.steps || []).slice(-1)[0] || "";
+  if (lastStep && !COMMIT.test(lastStep)) {
+    add(id, "WARN", "pedagogy", `final think step asks for no commitment before the reveal: "${lastStep}"`);
+  }
 
   if (d.think?.routine !== r.routineName) add(id, "FAIL", "routine", `think.routine "${d.think?.routine}" != chosen "${r.routineName}"`);
   const steps = d.think?.steps || [];
@@ -196,6 +206,16 @@ for (const r of runs) {
   if (!/[?]/.test(String(d.reflect?.revisit || ""))) add(id, "WARN", "pedagogy", `reflect.revisit is not a question a teacher can read aloud: "${d.reflect?.revisit}"`);
   const prompts = d.reflect?.prompts || [];
   if (!prompts.length || prompts.length > 4) add(id, "WARN", "limits", `reflect.prompts ${prompts.length} (want 1-4)`);
+  // A stem the student finishes, not a sentence that finishes itself. Measured failure
+  // (Year 4, 2026-08-13): "Next time, I will use visible clues before I decide." told the class
+  // what to conclude, sitting beside two stems that correctly trailed off.
+  prompts.forEach((p, i) => {
+    const stem = String(p || "").trim();
+    if (!stem) return;
+    if (/[.!]$/.test(stem) || !/(…|\.\.\.|_)$/.test(stem)) {
+      add(id, "FAIL", "pedagogy", `reflect stem ${i + 1} is a finished sentence, not an open starter: "${stem}"`);
+    }
+  });
   if (words(d.reflect?.metacognition) > 30) add(id, "WARN", "limits", `reflect.metacognition ${words(d.reflect?.metacognition)} words (max 30)`);
   if (r.cfg.reflectRoutine === "Connect–Extend–Challenge") {
     const j = prompts.join(" ").toLowerCase();

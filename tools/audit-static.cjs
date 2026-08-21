@@ -226,6 +226,14 @@ const promptChecks = [
   ["scoped regenerate ships only its own field rules", /limitEntries\s*\n?[\s\S]{0,200}filter\(\(\[scopes\]\) => scope === "all" \|\| scopes\.includes\(scope\)\)/],
   ["a scoped regenerate sends less of the article than a full build", /slice\(0, scope === "all" \? 12000 : 6000\)/],
   ["reasoning effort is overridable for the live audit only", /window\.__sbReasoning\) \|\| "medium"/],
+  // IGNITE is a headline, not a question (2026-08-13). Forcing a decidable question out of a
+  // picture kept yielding answers a child could see from their seat, leaving the reveal nothing
+  // to overturn. The commitment lives in the final think step instead.
+  ["ignite is a headline, not a question", /ignite\.question: the IGNITE slide's HEADLINE, <=12 words\. It is NOT a question/],
+  ["ignite headline never instructs the class to choose", /never ask the class to decide, choose, guess, vote or point to a clue/],
+  ["the commitment moved to the final think step", /The commitment students can be wrong about belongs in the FINAL think step/],
+  ["revisit points at the commitment, not the headline", /sending students back to the call they COMMITTED to in the final think step/],
+  ["reflection stems stay open sentence starters", /EVERY stem is an OPEN SENTENCE STARTER the student finishes out loud/],
 ];
 // Some rules live server-side in api/generate.js (the SUCCESs guidance is owned there, never sent
 // by the client), so each check names the file it belongs in.
